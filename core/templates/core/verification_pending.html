@@ -1,0 +1,257 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Verification Pending - MCS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --brand: #ff6b00;
+            --brand-d: #e05f00;
+            --bg: #f7f7f9;
+            --card: #ffffff;
+            --text: #1f2937;
+            --text-secondary: #6b7280;
+            --muted: #6b7280;
+            --success: #16a34a;
+            --warning: #f59e0b;
+            --info: #0ea5e9;
+            --secondary: #64748b;
+            --border: #e5e7eb;
+            --shadow: 0 8px 24px rgba(0,0,0,.06);
+            --radius: 14px;
+            --radius-sm: 10px;
+            --radius-xs: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .verification-container {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            padding: 3rem;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .verification-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--warning);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 2rem;
+            color: white;
+            font-size: 2rem;
+        }
+
+        .verification-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 1rem;
+        }
+
+        .verification-subtitle {
+            color: var(--muted);
+            font-size: 1.125rem;
+            margin-bottom: 2rem;
+        }
+
+        .verification-message {
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid var(--warning);
+        }
+
+        .verification-message h3 {
+            color: var(--warning);
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .verification-message p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .verification-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background: var(--brand);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--brand-d);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--brand);
+            border: 1px solid var(--brand);
+        }
+
+        .btn-outline:hover {
+            background: var(--brand);
+            color: white;
+        }
+
+        .user-info {
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            padding: 1rem;
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        .user-info h4 {
+            color: var(--text);
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .user-detail {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .user-detail:last-child {
+            margin-bottom: 0;
+        }
+
+        .user-detail .label {
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .user-detail .value {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .verification-container {
+                padding: 2rem;
+                margin: 1rem;
+            }
+            
+            .verification-title {
+                font-size: 1.5rem;
+            }
+            
+            .verification-subtitle {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="verification-container">
+        <div class="verification-icon">
+            <i class="fas fa-clock"></i>
+        </div>
+        
+        <h1 class="verification-title">Account Verification Pending</h1>
+        <p class="verification-subtitle">Your account is currently under review by our administrators.</p>
+        
+        <div class="verification-message">
+            <h3><i class="fas fa-info-circle"></i> What happens next?</h3>
+            <p>An administrator will review your account information and verify your details. This process typically takes 24-48 hours during business days.</p>
+        </div>
+        
+        {% if user.is_authenticated %}
+        <div class="user-info">
+            <h4>Account Information</h4>
+            <div class="user-detail">
+                <span class="label">Username:</span>
+                <span class="value">{{ user.username }}</span>
+            </div>
+            <div class="user-detail">
+                <span class="label">Name:</span>
+                <span class="value">{{ user.first_name|default:user.username }} {{ user.last_name|default:"" }}</span>
+            </div>
+            <div class="user-detail">
+                <span class="label">Email:</span>
+                <span class="value">{{ user.email|default:"Not provided" }}</span>
+            </div>
+            {% if user.profile.account_number %}
+            <div class="user-detail">
+                <span class="label">Account Number:</span>
+                <span class="value">{{ user.profile.account_number }}</span>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <div class="verification-actions">
+            <a href="{% url 'accounts:logout' %}" class="btn btn-primary">
+                <i class="fas fa-sign-out-alt"></i>
+                Sign Out
+            </a>
+            <a href="{% url 'login' %}" class="btn btn-outline">
+                <i class="fas fa-sign-in-alt"></i>
+                Try Signing In Again
+            </a>
+        </div>
+        
+        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+            <p style="color: var(--muted); font-size: 0.875rem;">
+                <i class="fas fa-question-circle"></i>
+                Need help? Contact support at <strong>support@mcs.com</strong>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

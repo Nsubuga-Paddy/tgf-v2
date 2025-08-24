@@ -1,0 +1,1080 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Profile - MCS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --brand: #ff6b00;
+      --brand-d: #e05f00;
+      --bg: #f7f7f9;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --info: #0ea5e9;
+      --secondary: #64748b;
+      --border: #e5e7eb;
+      --shadow: 0 8px 24px rgba(0,0,0,.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --radius-xs: 8px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+         .header {
+       background: var(--brand);
+       border-bottom: 1px solid var(--brand-d);
+       position: fixed;
+       top: 0;
+       left: 0;
+       right: 0;
+       z-index: 1000;
+       box-shadow: var(--shadow);
+       color: #fff;
+       overflow: hidden;
+     }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .logo img {
+      height: 40px;
+      width: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+         .user-menu {
+       position: relative;
+       overflow: visible;
+     }
+
+         .user-button {
+       display: flex;
+       align-items: center;
+       gap: 0.5rem;
+       background: rgba(255, 255, 255, 0.2);
+       border: 1px solid rgba(255, 255, 255, 0.3);
+       border-radius: var(--radius-sm);
+       padding: 0.5rem 1rem;
+       cursor: pointer;
+       transition: all 0.2s ease;
+       font-weight: 500;
+       color: #fff;
+       overflow: hidden;
+       position: relative;
+     }
+
+    .user-button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+         .user-avatar {
+       width: 32px;
+       height: 32px;
+       background: rgba(255, 255, 255, 0.3);
+       border-radius: 50%;
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       color: #fff;
+       font-weight: 600;
+       overflow: hidden;
+       position: relative;
+       flex-shrink: 0;
+     }
+     
+     .user-avatar img {
+       width: 100%;
+       height: 100%;
+       border-radius: 50%;
+       object-fit: cover;
+       max-width: 32px;
+       max-height: 32px;
+       min-width: 32px;
+       min-height: 32px;
+       display: block;
+       position: absolute;
+       top: 0;
+       left: 0;
+       z-index: 2;
+     }
+
+    .dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 0.5rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-width: 200px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px);
+      transition: all 0.2s ease;
+    }
+
+    .dropdown.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      color: var(--text);
+      text-decoration: none;
+      transition: background 0.2s ease;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dropdown-item:last-child {
+      border-bottom: none;
+    }
+
+    .dropdown-item:hover {
+      background: var(--bg);
+      color: var(--brand);
+    }
+
+    /* Main Content */
+         .main-content {
+       margin-top: 80px;
+       padding: 2rem;
+       max-width: 1200px;
+       margin-left: auto;
+       margin-right: auto;
+       position: relative;
+       z-index: 1;
+     }
+
+    .page-header {
+      margin-bottom: 2rem;
+    }
+
+    .page-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .page-subtitle {
+      color: var(--muted);
+      font-size: 1.1rem;
+    }
+
+    /* Profile Grid */
+    .profile-grid {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    /* Profile Card */
+         .profile-card {
+       background: var(--card);
+       border-radius: var(--radius);
+       box-shadow: var(--shadow);
+       overflow: hidden;
+       position: relative;
+       z-index: 1;
+     }
+
+         .profile-header {
+       background: linear-gradient(135deg, var(--brand), var(--brand-d));
+       color: #fff;
+       padding: 2rem;
+       text-align: center;
+       position: relative;
+       overflow: hidden;
+       z-index: 1;
+     }
+
+         .profile-avatar {
+       width: 120px;
+       height: 120px;
+       border-radius: 50%;
+       margin: 0 auto 1rem;
+       background: rgba(255, 255, 255, 0.2);
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       font-size: 3rem;
+       color: #fff;
+       font-weight: 700;
+       border: 4px solid rgba(255, 255, 255, 0.3);
+       overflow: hidden;
+       position: relative;
+       flex-shrink: 0;
+     }
+
+         .profile-avatar img {
+       width: 100%;
+       height: 100%;
+       border-radius: 50%;
+       object-fit: cover;
+       max-width: 120px;
+       max-height: 120px;
+       min-width: 120px;
+       min-height: 120px;
+       display: block;
+       position: absolute;
+       top: 0;
+       left: 0;
+     }
+
+    .profile-name {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .profile-username {
+      opacity: 0.9;
+      font-size: 1rem;
+    }
+
+    .profile-stats {
+      padding: 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 1rem;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--brand);
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Profile Projects Section */
+    .profile-projects {
+      padding: 1.5rem;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .projects-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .projects-title::before {
+      content: '';
+      width: 4px;
+      height: 20px;
+      background: var(--brand);
+      border-radius: 2px;
+    }
+
+    .projects-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .project-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background: var(--card);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      transition: all 0.2s ease;
+    }
+
+         .project-item:hover {
+       border-color: var(--brand);
+       box-shadow: 0 2px 8px rgba(255, 107, 0, 0.1);
+     }
+     
+     .project-item.clickable {
+       cursor: pointer;
+       transition: all 0.2s ease;
+     }
+     
+     .project-item.clickable:hover {
+       transform: translateY(-2px);
+       box-shadow: 0 4px 12px rgba(255, 107, 0, 0.15);
+     }
+
+    .project-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--brand);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .project-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .project-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .project-description {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .no-projects {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--muted);
+    }
+
+    .no-projects i {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    .no-projects p {
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    .no-projects small {
+      font-size: 0.8rem;
+      opacity: 0.8;
+    }
+
+    /* Project Access Information */
+    .project-access-info {
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+    }
+
+    .access-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .access-count {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .project-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .project-tag {
+      background: var(--brand);
+      color: #fff;
+      padding: 0.25rem 0.75rem;
+      border-radius: var(--radius-xs);
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .no-access {
+      text-align: center;
+      padding: 1rem;
+    }
+
+    .no-access small {
+      display: block;
+      margin-top: 0.5rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    /* Quick Access Section */
+    .quick-access {
+      padding: 1.5rem;
+      border-top: 1px solid var(--border);
+      background: var(--card);
+    }
+
+    .quick-access-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .quick-access-title::before {
+      content: '';
+      width: 3px;
+      height: 16px;
+      background: var(--brand);
+      border-radius: 1.5px;
+    }
+
+    .quick-access-links {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .quick-access-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      text-decoration: none;
+      transition: all 0.2s ease;
+      font-size: 0.9rem;
+    }
+
+    .quick-access-link:hover {
+      background: var(--brand);
+      color: #fff;
+      transform: translateX(4px);
+    }
+
+    .quick-access-link i {
+      font-size: 0.8rem;
+      opacity: 0.8;
+    }
+
+    /* Profile Details */
+    .profile-details {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 2rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      transition: all 0.2s ease;
+      background: var(--card);
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.1);
+    }
+
+    .form-control[readonly] {
+      background: var(--bg);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+
+    textarea.form-control {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .form-help {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    .form-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--brand-d);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--secondary);
+      color: #fff;
+    }
+
+    .btn-secondary:hover {
+      background: var(--muted);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--brand);
+      border: 2px solid var(--brand);
+    }
+
+    .btn-outline:hover {
+      background: var(--brand);
+      color: #fff;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .profile-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .main-content {
+        padding: 1rem;
+      }
+
+      .profile-header {
+        padding: 1.5rem;
+      }
+
+      .profile-avatar {
+        width: 100px;
+        height: 100px;
+        font-size: 2.5rem;
+      }
+
+      .form-actions {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .profile-projects {
+        padding: 1rem;
+      }
+
+      .project-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+      }
+
+      .project-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2rem;
+      }
+
+      .quick-access {
+        padding: 1rem;
+      }
+
+      .quick-access-links {
+        gap: 0.75rem;
+      }
+
+      .quick-access-link {
+        justify-content: center;
+      }
+    }
+
+    /* Status Indicators */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: var(--radius-xs);
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .status-verified {
+      background: rgba(22, 163, 74, 0.1);
+      color: var(--success);
+    }
+
+    .status-pending {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--warning);
+    }
+
+    .status-admin {
+      background: rgba(14, 165, 233, 0.1);
+      color: var(--info);
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--muted);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    .empty-state h3 {
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <a href="{% url 'landing' %}" class="logo">
+        <img src="{% static 'core/images/logo.png' %}" alt="MCS Logo" onerror="this.style.display='none'">
+        <span class="logo-text">MCS</span>
+      </a>
+      
+      <div class="user-menu">
+        <button class="user-button" onclick="toggleDropdown()">
+          <div class="user-avatar">
+            {% if user.profile.photo %}
+              <img src="{{ user.profile.photo.url }}" alt="Profile Photo">
+            {% else %}
+              {{ user.profile.initials|default:user.username|first|upper }}
+            {% endif %}
+          </div>
+          <span>{{ user.first_name|default:user.get_username }}</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        
+        <div class="dropdown" id="userDropdown">
+          <a href="{% url 'landing' %}" class="dropdown-item">
+            <i class="fas fa-home"></i>
+            Dashboard
+          </a>
+          <a href="{% url 'profile' %}" class="dropdown-item">
+            <i class="fas fa-user"></i>
+            Profile
+          </a>
+          <a href="{% url 'accounts:logout' %}" class="dropdown-item">
+            <i class="fas fa-sign-out-alt"></i>
+            Logout
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Page Header -->
+    <div class="page-header">
+      <h1 class="page-title">{{ user.first_name|title|default:user.get_username|title }}'s Profile</h1>
+      <p class="page-subtitle">Manage your account information and preferences</p>
+    </div>
+
+    <!-- Profile Grid -->
+    <div class="profile-grid">
+      <!-- Profile Card -->
+      <div class="profile-card">
+        <div class="profile-header">
+          <div class="profile-avatar">
+            {% if user.profile.photo %}
+              <img src="{{ user.profile.photo.url }}" alt="Profile Photo">
+            {% else %}
+              {{ user.profile.initials|default:user.username|first|upper }}
+            {% endif %}
+          </div>
+          <h2 class="profile-name">{{ user.first_name|default:user.profile.display_name|default:user.get_username }}</h2>
+          <p class="profile-username">@{{ user.get_username }}</p>
+        </div>
+        
+        <div class="profile-stats">
+          <div class="stat-item">
+            <div class="stat-value">{{ user.profile.get_total_savings|default:"0.00" }}</div>
+            <div class="stat-label">Total Savings</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">{{ user.profile.get_total_investments|default:"0.00" }}</div>
+            <div class="stat-label">Investments</div>
+          </div>
+        </div>
+        
+        <!-- User Projects Section -->
+        <div class="profile-projects">
+          <h4 class="projects-title">My Projects</h4>
+          {% if user_projects %}
+            <div class="projects-list">
+                             {% for project in user_projects %}
+                 <div class="project-item{% if project.name == '52 Weeks Saving Challenge' %} clickable{% endif %}">
+                   <div class="project-icon">
+                     <i class="fas fa-folder"></i>
+                   </div>
+                   <div class="project-info">
+                     <h5 class="project-name">
+                       {% if project.name == '52 Weeks Saving Challenge' %}
+                         <a href="{% url 'savings_52_weeks:group_dashboard' %}" style="color: inherit; text-decoration: none;">
+                           {{ project.name }} <i class="fas fa-external-link-alt" style="font-size: 0.8em; opacity: 0.7;"></i>
+                         </a>
+                       {% else %}
+                         {{ project.name }}
+                       {% endif %}
+                     </h5>
+                     <p class="project-description">{{ project.description|default:"No description available" }}</p>
+                   </div>
+                 </div>
+               {% endfor %}
+            </div>
+          {% else %}
+            <div class="no-projects">
+              <i class="fas fa-folder-open"></i>
+              <p>No projects assigned yet</p>
+              <small>Contact your administrator to get access to projects</small>
+            </div>
+          {% endif %}
+        </div>
+        
+        <!-- Quick Access Section -->
+        {% if user_projects %}
+          <div class="quick-access">
+            <h5 class="quick-access-title">Quick Access</h5>
+            <div class="quick-access-links">
+              {% for project in user_projects %}
+                <a href="{% if project.name == '52 Weeks Saving Challenge' %}{% url 'savings_52_weeks:group_dashboard' %}{% else %}#{% endif %}" class="quick-access-link" title="{{ project.name }}">
+                  <i class="fas fa-external-link-alt"></i>
+                  <span>{{ project.name }}</span>
+                </a>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Profile Details -->
+      <div class="profile-details">
+        <h3 class="section-title">Profile Information</h3>
+        
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          
+          <div class="form-grid">
+            <!-- Basic Information -->
+            <div class="form-group">
+              <label class="form-label">First Name</label>
+              <input type="text" class="form-control" name="first_name" value="{{ user.first_name }}" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Last Name</label>
+              <input type="text" class="form-control" name="last_name" value="{{ user.last_name }}" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Username</label>
+              <input type="text" class="form-control" value="{{ user.username }}" readonly>
+              <div class="form-help">Username cannot be changed</div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" name="email" value="{{ user.email }}" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Account Number</label>
+              <input type="text" class="form-control" value="{{ user.profile.account_number|default:'Not assigned' }}" readonly>
+              <div class="form-help">Auto-generated account number</div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Member Since</label>
+              <input type="text" class="form-control" value="{{ user.profile.created_at|date:'F j, Y' }}" readonly>
+            </div>
+            
+            <!-- Contact Information -->
+            <div class="form-group">
+              <label class="form-label">WhatsApp Number</label>
+              <input type="tel" class="form-control" name="whatsapp_number" value="{{ user.profile.whatsapp_number|default:'' }}" placeholder="+2567XXXXXXXX">
+              <div class="form-help">Include country code (e.g., +256)</div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">National ID</label>
+              <input type="text" class="form-control" name="national_id" value="{{ user.profile.national_id|default:'' }}" placeholder="National ID Number">
+              <div class="form-help">Optional: Your National ID number</div>
+            </div>
+            
+            <div class="form-group full-width">
+              <label class="form-label">Address</label>
+              <textarea class="form-control" name="address" placeholder="Your address">{{ user.profile.address|default:'' }}</textarea>
+            </div>
+            
+            <div class="form-group full-width">
+              <label class="form-label">Bio</label>
+              <textarea class="form-control" name="bio" placeholder="Tell us about yourself">{{ user.profile.bio|default:'' }}</textarea>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Date of Birth</label>
+              <input type="date" class="form-control" name="birthdate" value="{{ user.profile.birthdate|date:'Y-m-d'|default:'' }}">
+              {% if user.profile.age %}
+                <div class="form-help">Age: {{ user.profile.age }} years old</div>
+              {% endif %}
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Profile Photo</label>
+              <input type="file" class="form-control" name="photo" accept="image/*">
+              <div class="form-help">Upload a profile picture (JPG, PNG)</div>
+            </div>
+            
+            <!-- Status Information -->
+            <div class="form-group">
+              <label class="form-label">Verification Status</label>
+              <div class="status-badge {% if user.profile.is_verified %}status-verified{% else %}status-pending{% endif %}">
+                <i class="fas {% if user.profile.is_verified %}fa-check-circle{% else %}fa-clock{% endif %}"></i>
+                {% if user.profile.is_verified %}Verified{% else %}Pending Verification{% endif %}
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Account Type</label>
+              <div class="status-badge {% if user.profile.is_admin %}status-admin{% else %}status-verified{% endif %}">
+                <i class="fas {% if user.profile.is_admin %}fa-shield-alt{% else %}fa-user{% endif %}"></i>
+                {% if user.profile.is_admin %}Administrator{% else %}Member{% endif %}
+              </div>
+            </div>
+            
+            <!-- Project Access Information -->
+            <div class="form-group full-width">
+              <label class="form-label">Project Access</label>
+              <div class="project-access-info">
+                {% if user_projects %}
+                  <div class="access-summary">
+                    <span class="access-count">{{ user_projects|length }} project{{ user_projects|length|pluralize:"s" }} accessible</span>
+                    <span class="access-status status-verified">
+                      <i class="fas fa-check-circle"></i>
+                      Active Access
+                    </span>
+                  </div>
+                  <div class="project-tags">
+                    {% for project in user_projects %}
+                      <span class="project-tag">{{ project.name }}</span>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <div class="no-access">
+                    <span class="access-status status-pending">
+                      <i class="fas fa-clock"></i>
+                      No Projects Assigned
+                    </span>
+                    <small>Contact your administrator to request project access</small>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          
+          <!-- Form Actions -->
+          <div class="form-actions">
+            <button type="button" class="btn btn-outline" onclick="resetForm()">
+              <i class="fas fa-undo"></i>
+              Reset
+            </button>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save"></i>
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Toggle user dropdown
+    function toggleDropdown() {
+      const dropdown = document.getElementById('userDropdown');
+      dropdown.classList.toggle('show');
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(event) {
+      const dropdown = document.getElementById('userDropdown');
+      const userButton = event.target.closest('.user-button');
+      
+      if (!userButton) {
+        dropdown.classList.remove('show');
+      }
+    });
+
+    // Reset form to original values
+    function resetForm() {
+      if (confirm('Are you sure you want to reset all changes?')) {
+        location.reload();
+      }
+    }
+
+         // Auto-hide alerts after 5 seconds
+     document.addEventListener('DOMContentLoaded', function() {
+       const alerts = document.querySelectorAll('.alert');
+       alerts.forEach(alert => {
+         setTimeout(() => {
+           alert.style.opacity = '0';
+           setTimeout(() => alert.remove(), 300);
+         }, 5000);
+       });
+       
+       // Make 52WSC project items clickable
+       const clickableProjects = document.querySelectorAll('.project-item.clickable');
+       clickableProjects.forEach(project => {
+         project.addEventListener('click', function() {
+           const link = this.querySelector('a');
+           if (link) {
+             window.location.href = link.href;
+           }
+         });
+       });
+     });
+  </script>
+</body>
+</html>

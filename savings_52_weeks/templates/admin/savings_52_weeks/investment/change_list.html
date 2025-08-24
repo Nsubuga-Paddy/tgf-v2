@@ -1,0 +1,38 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block content_title %}
+    {{ block.super }}
+    
+    {% if show_maturity_alert and recent_matured %}
+        <div class="module" style="margin: 10px 0; padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+            <h3 style="margin: 0 0 10px 0; color: #856404;">
+                <i class="fas fa-exclamation-triangle"></i> 
+                Investment Maturity Alert
+            </h3>
+            <p style="margin: 0 0 10px 0; color: #856404;">
+                The following investments have recently matured and require attention:
+            </p>
+            <div style="background: white; padding: 10px; border-radius: 3px; border: 1px solid #ffeaa7;">
+                {% for investment in recent_matured %}
+                    <div style="margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 3px;">
+                        <strong>{{ investment.user_profile.user.get_full_name|default:investment.user_profile.user.username }}</strong>
+                        - UGX {{ investment.amount_invested|floatformat:0 }} 
+                        matured on {{ investment.maturity_date|date:"M d, Y" }}
+                        <span style="color: #dc2626; font-weight: bold;">
+                            ({{ investment.maturity_date|timesince }} ago)
+                        </span>
+                    </div>
+                {% endfor %}
+            </div>
+            <p style="margin: 10px 0 0 0; color: #856404; font-size: 0.9em;">
+                <i class="fas fa-info-circle"></i> 
+                These investments are automatically marked as matured. Please review and process accordingly.
+            </p>
+        </div>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    {{ block.super }}
+{% endblock %}

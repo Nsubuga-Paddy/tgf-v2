@@ -1,0 +1,1727 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>52WSC Dashboard - MCS</title>
+  {% load static %}
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --brand: #ff6b00;
+      --brand-d: #e05f00;
+      --bg: #f7f7f9;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --info: #0ea5e9;
+      --secondary: #64748b;
+      --border: #e5e7eb;
+      --shadow: 0 8px 24px rgba(0,0,0,.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --radius-xs: 8px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: var(--brand);
+      border-bottom: 1px solid var(--brand-d);
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      box-shadow: var(--shadow);
+      color: #fff;
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .logo img {
+      height: 40px;
+      width: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    /* Logo debugging */
+    .logo img:not([src]) {
+      border: 2px solid red;
+      background: rgba(255, 0, 0, 0.1);
+    }
+
+
+
+    .user-menu {
+      position: relative;
+    }
+
+    .user-button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 500;
+      color: #fff;
+    }
+
+    .user-button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+         .user-avatar {
+       width: 32px;
+       height: 32px;
+       background: rgba(255, 255, 255, 0.3);
+       border-radius: 50%;
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       color: #fff;
+       font-weight: 600;
+       overflow: hidden;
+       position: relative;
+       flex-shrink: 0;
+     }
+     
+     .user-avatar img {
+       width: 100%;
+       height: 100%;
+       border-radius: 50%;
+       object-fit: cover;
+       max-width: 32px;
+       max-height: 32px;
+       min-width: 32px;
+       min-height: 32px;
+       display: block;
+       position: absolute;
+       top: 0;
+       left: 0;
+       z-index: 2;
+     }
+
+    .dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 0.5rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-width: 200px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px);
+      transition: all 0.2s ease;
+    }
+
+    .dropdown.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      color: var(--text);
+      text-decoration: none;
+      transition: background 0.2s ease;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dropdown-item:last-child {
+      border-bottom: none;
+    }
+
+    .dropdown-item:hover {
+      background: var(--bg);
+      color: var(--brand);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 280px;
+      height: 100vh;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      z-index: 999;
+      overflow-y: auto;
+      padding-top: 80px;
+    }
+
+    .sidebar-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .sidebar-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .sidebar-title i {
+      color: var(--brand);
+    }
+
+    .nav-list {
+      list-style: none;
+      padding: 1.5rem 0;
+    }
+
+    .nav-item {
+      margin-bottom: 0.5rem;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      color: var(--muted);
+      text-decoration: none;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      transition: all 0.2s ease;
+      font-weight: 500;
+      margin-right: 1rem;
+    }
+
+    .nav-link:hover {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .nav-link.active {
+      background: var(--brand);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .nav-link.active i {
+      color: #fff;
+    }
+
+    /* Main Content */
+    .main-content {
+      margin-left: 280px;
+      margin-top: 80px;
+      padding: 1.5rem 2rem;
+      min-height: calc(100vh - 80px);
+    }
+
+    .page-header {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 2rem;
+    }
+
+    .page-title {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .page-subtitle {
+      color: var(--muted);
+      font-size: 1.125rem;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      transition: all 0.3s ease;
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+      border-color: var(--brand);
+    }
+
+    .stat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .stat-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.125rem;
+      color: #fff;
+    }
+
+    .stat-icon.primary { background: linear-gradient(135deg, var(--brand), var(--brand-d)); }
+    .stat-icon.success { background: linear-gradient(135deg, var(--success), #059669); }
+    .stat-icon.warning { background: linear-gradient(135deg, var(--warning), #d97706); }
+    .stat-icon.info { background: linear-gradient(135deg, var(--info), #0891b2); }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+      line-height: 1.2;
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      line-height: 1.3;
+    }
+
+    .stat-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: auto;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--border);
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--brand), var(--brand-d));
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+
+    /* Group Summary Section */
+    .group-summary-section {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .group-summary-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .group-summary-header .section-title {
+      color: var(--text);
+      font-size: 1.25rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .group-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .summary-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, var(--brand), var(--brand-d));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 1.125rem;
+    }
+
+    .summary-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .summary-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .summary-value {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* Pagination Styles */
+    .pagination-container {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .pagination-info {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+
+    .pagination-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .pagination-link {
+      display: inline-block;
+      padding: 0.5rem 0.75rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: all 0.2s ease;
+    }
+
+    .pagination-link:hover {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand);
+    }
+
+    .pagination-current {
+      padding: 0.5rem 0.75rem;
+      background: var(--brand);
+      color: #fff;
+      border-radius: var(--radius-xs);
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    /* Content Cards */
+    .content-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    .card-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .card-title i {
+      color: var(--brand);
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 0.875rem;
+    }
+
+    .btn-primary {
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--brand-d);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow);
+    }
+
+    .btn-secondary {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+      padding: 1.5rem;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 800px;
+    }
+
+    .table th {
+      background: var(--bg);
+      padding: 1rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .table td {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .table tbody tr:hover {
+      background: var(--bg);
+    }
+
+    .table tfoot td {
+      background: var(--bg);
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-success {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge-warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .badge-secondary {
+      background: #e2e8f0;
+      color: #475569;
+    }
+
+    .badge-info {
+      background: #cffafe;
+      color: #0e7490;
+    }
+
+    /* Mobile Menu Toggle */
+    .mobile-menu-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0.5rem;
+    }
+
+    /* Mobile Header Layout */
+    @media (max-width: 1024px) {
+      .header-content {
+        margin-left: 0;
+        justify-content: space-between;
+      }
+      
+      .mobile-menu-toggle {
+        display: block;
+        order: 1;
+      }
+      
+      .logo {
+        order: 2;
+        margin: 0 auto;
+      }
+      
+      .user-menu {
+        order: 3;
+      }
+    }
+
+    /* Desktop logo positioning - ensure it's on the left */
+    @media (min-width: 1025px) {
+      .header-content {
+        justify-content: flex-start;
+        gap: 2rem;
+      }
+      
+      .logo {
+        margin-right: auto;
+      }
+      
+      .user-menu {
+        margin-left: auto;
+      }
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1200px) {
+      .stats-grid {
+        gap: 0.75rem;
+      }
+      
+      .stat-card {
+        padding: 1rem;
+        min-height: 130px;
+      }
+      
+      .stat-value {
+        font-size: 1.5rem;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+      
+      .sidebar.show {
+        transform: translateX(0);
+      }
+      
+      .main-content {
+        margin-left: 0;
+      }
+      
+      .header-content {
+        margin-left: 0;
+      }
+      
+      .mobile-menu-toggle {
+        display: block;
+      }
+      
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        padding: 1rem;
+      }
+      
+      .page-header {
+        padding: 1.5rem;
+      }
+      
+      .page-title {
+        font-size: 1.75rem;
+      }
+      
+      .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      
+      .stat-card {
+        padding: 1rem;
+      }
+      
+      .group-summary-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      
+      .group-summary-section {
+        padding: 1rem;
+      }
+      
+      .card-header {
+        padding: 1rem;
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: flex-start;
+      }
+      
+      .table-container {
+        padding: 1rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header-content {
+        padding: 1rem;
+      }
+      
+      .logo {
+        font-size: 1.25rem;
+      }
+      
+      .logo-icon {
+        width: 32px;
+        height: 32px;
+      }
+      
+      .main-content {
+        padding: 0.75rem;
+      }
+      
+      .page-header {
+        padding: 1rem;
+      }
+      
+      .page-title {
+        font-size: 1.5rem;
+      }
+      
+      .stat-value {
+        font-size: 1.5rem;
+      }
+      
+      .summary-value {
+        font-size: 1rem;
+      }
+      
+      .group-summary-section {
+        padding: 0.75rem;
+      }
+      
+      .pagination-nav {
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      
+      .pagination-link {
+        padding: 0.75rem 1rem;
+        text-align: center;
+        width: 100%;
+      }
+    }
+
+         /* Week Progress Section */
+     .week-progress-section {
+       background: var(--card);
+       border-radius: var(--radius);
+       box-shadow: var(--shadow);
+       border: 1px solid var(--border);
+       padding: 2rem;
+       margin-bottom: 2rem;
+     }
+
+     .week-progress-header {
+       text-align: center;
+       margin-bottom: 2rem;
+     }
+
+     .section-title {
+       font-size: 1.5rem;
+       font-weight: 700;
+       color: var(--text);
+       margin-bottom: 0.5rem;
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       gap: 0.75rem;
+     }
+
+     .section-title i {
+       color: var(--brand);
+     }
+
+     .section-subtitle {
+       color: var(--muted);
+       font-size: 1rem;
+     }
+
+     .week-progress-content {
+       display: flex;
+       justify-content: center;
+     }
+
+     .savings-info-card {
+       background: var(--bg);
+       border-radius: var(--radius-sm);
+       padding: 2rem;
+       border: 1px solid var(--border);
+       max-width: 600px;
+       width: 100%;
+     }
+
+     .savings-header {
+       text-align: center;
+       margin-bottom: 2rem;
+       padding-bottom: 1.5rem;
+       border-bottom: 1px solid var(--border);
+     }
+
+     .savings-icon {
+       width: 80px;
+       height: 80px;
+       background: linear-gradient(135deg, var(--brand), var(--brand-d));
+       border-radius: 50%;
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       color: #fff;
+       font-size: 2rem;
+       margin: 0 auto 1rem;
+     }
+
+     .savings-title {
+       font-size: 1.5rem;
+       font-weight: 700;
+       color: var(--text);
+       margin-bottom: 1rem;
+     }
+
+     .savings-amount {
+       font-size: 2.5rem;
+       font-weight: 800;
+       color: var(--brand);
+       margin-bottom: 0.5rem;
+     }
+
+     .savings-formula {
+       color: var(--muted);
+       font-size: 1rem;
+       font-weight: 500;
+     }
+
+     .savings-stats {
+       display: grid;
+       grid-template-columns: 1fr 1fr;
+       gap: 1.5rem;
+       margin-bottom: 2rem;
+     }
+
+     .stat-item {
+       display: flex;
+       align-items: center;
+       gap: 1rem;
+       padding: 1rem;
+       background: var(--card);
+       border-radius: var(--radius-xs);
+       border: 1px solid var(--border);
+     }
+
+     .stat-icon {
+       width: 50px;
+       height: 50px;
+       background: var(--bg);
+       border-radius: var(--radius-xs);
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       color: var(--brand);
+       font-size: 1.25rem;
+     }
+
+     .stat-content {
+       flex: 1;
+     }
+
+     .stat-label {
+       display: block;
+       color: var(--muted);
+       font-size: 0.875rem;
+       margin-bottom: 0.25rem;
+     }
+
+     .stat-value {
+       display: block;
+       font-size: 1.125rem;
+       font-weight: 700;
+       color: var(--text);
+     }
+
+     .motivational-message {
+       background: linear-gradient(135deg, #fef3c7, #fde68a);
+       border-radius: var(--radius-sm);
+       padding: 1rem;
+       display: flex;
+       align-items: center;
+       gap: 0.75rem;
+       border-left: 4px solid var(--warning);
+     }
+
+     .motivational-message i {
+       color: var(--warning);
+       font-size: 1.25rem;
+     }
+
+     .motivational-message p {
+       color: #92400e;
+       font-size: 0.875rem;
+       font-weight: 500;
+       margin: 0;
+     }
+
+     /* Responsive Design for Week Progress */
+     @media (max-width: 768px) {
+       .week-progress-section {
+         padding: 1.5rem;
+       }
+       
+       .savings-info-card {
+         padding: 1.5rem;
+       }
+       
+       .savings-icon {
+         width: 60px;
+         height: 60px;
+         font-size: 1.5rem;
+       }
+       
+       .savings-amount {
+         font-size: 2rem;
+       }
+       
+       .savings-stats {
+         grid-template-columns: 1fr;
+         gap: 1rem;
+       }
+     }
+
+     @media (max-width: 480px) {
+       .week-progress-section {
+         padding: 1rem;
+       }
+       
+       .savings-info-card {
+         padding: 1rem;
+       }
+       
+       .savings-header {
+         text-align: center;
+       }
+       
+       .savings-icon {
+         width: 50px;
+         height: 50px;
+         font-size: 1.25rem;
+       }
+       
+       .savings-amount {
+         font-size: 1.75rem;
+       }
+       
+       .savings-stats {
+         gap: 0.75rem;
+       }
+       
+       .stat-item {
+         flex-direction: column;
+         text-align: center;
+         gap: 0.5rem;
+       }
+       
+       .stat-icon {
+         margin: 0 auto;
+       }
+     }
+
+     /* Animations */
+     .fade-in-up {
+       animation: fadeInUp 0.6s ease-out;
+     }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Week Progress Section Styles */
+    .week-progress-section {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .week-progress-header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .savings-compact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .savings-main-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 1.5rem;
+      border: 1px solid var(--border);
+    }
+
+    .savings-icon {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-d));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .savings-details {
+      flex: 1;
+    }
+
+    .savings-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin: 0 0 0.5rem 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .savings-amount {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--brand);
+      margin: 0;
+      line-height: 1;
+    }
+
+    .savings-formula {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin: 0.25rem 0 0 0;
+    }
+
+    .savings-stats-compact {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .stat-compact {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      border: 1px solid var(--border);
+    }
+
+    .stat-compact i {
+      width: 32px;
+      height: 32px;
+      background: var(--primary-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--brand);
+      font-size: 0.875rem;
+      flex-shrink: 0;
+    }
+
+    .stat-compact .stat-label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-compact .stat-value {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 0.25rem;
+    }
+
+    .motivational-message-compact {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border-left: 4px solid var(--warning);
+    }
+
+    .motivational-message-compact i {
+      color: var(--warning);
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .motivational-message-compact p {
+      color: #92400e;
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    /* Responsive Design for Week Progress */
+    @media (max-width: 768px) {
+      .week-progress-section {
+        padding: 1rem;
+      }
+
+      .savings-compact-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      
+      .savings-main-info {
+        padding: 1rem;
+        text-align: center;
+        flex-direction: column;
+      }
+      
+      .savings-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+      }
+      
+      .savings-amount {
+        font-size: 1.5rem;
+      }
+
+      .savings-stats-compact {
+        flex-direction: row;
+        gap: 0.5rem;
+      }
+
+      .stat-compact {
+        flex: 1;
+        padding: 0.75rem;
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+      }
+
+      .motivational-message-compact {
+        padding: 0.75rem;
+      }
+
+      .motivational-message-compact p {
+        font-size: 0.75rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .savings-stats-compact {
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .stat-compact {
+        flex-direction: row;
+        text-align: left;
+      }
+    }
+
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <button class="mobile-menu-toggle" id="mobileMenuToggle">
+        <i class="fas fa-bars"></i>
+      </button>
+      
+      <a href="{% url 'landing' %}" class="logo">
+        <img src="{% static 'core/images/logo.png' %}" alt="MCS Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+        <span class="logo-text">MCS</span>
+      </a>
+      
+      <div class="user-menu">
+        <button class="user-button" id="userButton">
+          <div class="user-avatar">
+            {% if user.profile.photo %}
+              <img src="{{ user.profile.photo.url }}" alt="Profile Photo">
+            {% else %}
+              {{ user.profile.initials|default:user.username|first|upper }}
+            {% endif %}
+          </div>
+          <span>{{ user.first_name|default:user.get_username }}</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        
+        <div class="dropdown" id="userDropdown">
+          <a href="{% url 'profile' %}" class="dropdown-item">
+            <i class="fas fa-user"></i>
+            Profile
+          </a>
+          <a href="{% url 'landing' %}" class="dropdown-item">
+            <i class="fas fa-home"></i>
+            Dashboard
+          </a>
+          <a href="{% url 'accounts:logout' %}" class="dropdown-item">
+            <i class="fas fa-sign-out-alt"></i>
+            Logout
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2 class="sidebar-title">
+        <i class="fas fa-wallet"></i>
+        52 Weeks Savings
+      </h2>
+    </div>
+    
+            <ul class="nav-list">
+        <li class="nav-item">
+          <a href="{% url 'savings_52_weeks:group_dashboard' %}" class="nav-link active">
+            <i class="fas fa-home"></i>
+            Dashboard
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="{% url 'savings_52_weeks:member_dashboard' %}" class="nav-link">
+            <i class="fas fa-wallet"></i>
+            Personal Transactions
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="{% url 'savings_52_weeks:report' %}" class="nav-link">
+            <i class="fas fa-chart-bar"></i>
+            Reports
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="{% url 'savings_52_weeks:chat_room' %}" class="nav-link">
+            <i class="fas fa-comments"></i>
+            Chat Room
+          </a>
+        </li>
+      </ul>
+    </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Page Header -->
+    <div class="page-header fade-in-up">
+      <h1 class="page-title">52 Weeks Savings Challenge Group Overview</h1>
+      <p class="page-subtitle">Monitor your group's savings progress and investment performance</p>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card fade-in-up">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <i class="fas fa-wallet"></i>
+          </div>
+        </div>
+        <div class="stat-value" id="totalGroupSavings">UGX {{ group_data.total_savings|floatformat:0|default:"0"|intcomma }}</div>
+        <div class="stat-label">Total Amount Saved</div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: {{ group_data.progress_percentage|default:0 }}%"></div>
+        </div>
+        <div class="stat-meta">
+          <i class="fas fa-arrow-up"></i>
+          <span>{{ group_data.progress_percentage|floatformat:1|default:0 }}% of annual goal</span>
+        </div>
+          </div>
+
+      <div class="stat-card fade-in-up">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <i class="fas fa-chart-line"></i>
+          </div>
+        </div>
+        <div class="stat-value" id="totalInvested">UGX {{ group_data.total_invested|floatformat:0|default:"0"|intcomma }}</div>
+        <div class="stat-label">Total Amount Invested</div>
+        <div class="stat-meta">
+          <i class="fas fa-percentage"></i>
+          <span>{{ group_data.member_count|default:0 }} Active Members</span>
+        </div>
+      </div>
+
+      <div class="stat-card fade-in-up">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <i class="fas fa-clock"></i>
+          </div>
+        </div>
+        <div class="stat-value" id="uninvestedAmount">UGX {{ group_data.uninvested_amount|floatformat:0|default:"0"|intcomma }}</div>
+        <div class="stat-label">Uninvested Amount</div>
+        <div class="stat-meta">
+          <i class="fas fa-info-circle"></i>
+          <span>Available for Investment</span>
+        </div>
+      </div>
+
+      <div class="stat-card fade-in-up">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <i class="fas fa-coins"></i>
+          </div>
+        </div>
+        <div class="stat-value" id="interestGained">UGX {{ group_data.total_interest_gained|floatformat:0|default:"0"|intcomma }}</div>
+        <div class="stat-label">Interest Gained</div>
+        <div class="stat-meta">
+          <i class="fas fa-calendar"></i>
+          <span>Total Interest Earned</span>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Current Week Progress Section -->
+     <div class="week-progress-section fade-in-up">
+       <div class="week-progress-header">
+         <h3 class="section-title">
+           <i class="fas fa-calendar-alt"></i>
+           Weekly Savings Target
+         </h3>
+       </div>
+       
+       <div class="savings-compact-grid">
+         <div class="savings-main-info">
+           <div class="savings-icon">
+             <i class="fas fa-wallet"></i>
+           </div>
+           <div class="savings-details">
+             <h4 class="savings-title">Required Savings</h4>
+             <div class="savings-amount" id="requiredSavings">UGX {{ group_data.required_savings|floatformat:0|default:"0"|intcomma }}</div>
+             <p class="savings-formula">Week <span id="currentWeek">{{ group_data.current_week|default:"1" }}</span> × UGX 10,000</p>
+           </div>
+         </div>
+
+         <div class="savings-stats-compact">
+           <div class="stat-compact">
+             <i class="fas fa-calendar-week"></i>
+             <div>
+               <span class="stat-label">Current Week</span>
+               <span class="stat-value">Week <span id="currentWeekDisplay">{{ group_data.current_week|default:"1" }}</span></span>
+             </div>
+           </div>
+
+           <div class="stat-compact">
+             <i class="fas fa-flag-checkered"></i>
+             <div>
+               <span class="stat-label">Remaining</span>
+               <span class="stat-value" id="remainingWeeks">{{ group_data.remaining_weeks|default:"51" }} weeks</span>
+             </div>
+           </div>
+         </div>
+
+         <div class="motivational-message-compact">
+           <i class="fas fa-lightbulb"></i>
+           <p>Stay consistent! Small weekly contributions lead to significant annual savings.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Investment Pools -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title">
+          <i class="fas fa-chart-pie"></i>
+          Investment Pools Overview
+        </h3>
+        <div class="card-actions">
+          <button class="btn btn-secondary">
+            <i class="fas fa-download"></i>
+            Export Report
+          </button>
+            </div>
+            </div>
+      
+      <div class="table-container">
+        <table class="table">
+                <thead>
+                  <tr>
+                    <th>Investment Date</th>
+                    <th>Amount Invested</th>
+                    <th>Members Included</th>
+                    <th>Interest Earned</th>
+                    <th>Maturity Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="investmentPoolsBody">
+                  {% if group_data.investment_pools %}
+                    {% for pool in group_data.investment_pools %}
+                    <tr>
+                      <td>{{ pool.start_date|date:"M d, Y" }}</td>
+                      <td><strong>UGX {{ pool.total_amount|floatformat:0|intcomma }}</strong></td>
+                      <td>{{ pool.member_count }} members</td>
+                      <td><strong>UGX {{ pool.total_interest_earned|floatformat:0|intcomma }}</strong></td>
+                      <td>{{ pool.maturity_date|date:"M d, Y" }}</td>
+                      <td>
+                        <span class="badge {% if pool.status == 'active' %}badge-success{% else %}badge-secondary{% endif %}">
+                          {{ pool.status|title }}
+                        </span>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="6" class="text-center text-muted">No investment pools yet</td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td><strong>Totals</strong></td>
+                    <td><strong>UGX {{ group_data.total_invested|floatformat:0|default:"0"|intcomma }}</strong></td>
+                    <td>{{ group_data.member_count|default:"0" }} members</td>
+                    <td><strong>UGX {{ group_data.total_interest_gained|floatformat:0|default:"0"|intcomma }}</strong></td>
+                    <td>—</td>
+                    <td>—</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+        <!-- Weekly Group Savings -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title">
+          <i class="fas fa-calendar-week"></i>
+          Weekly Group Savings
+        </h3>
+        <div class="card-actions">
+          <button class="btn btn-secondary">
+            <i class="fas fa-download"></i>
+            Export Report
+          </button>
+            </div>
+            </div>
+      
+      <div class="table-container">
+        <table class="table" id="weeklySavingsTable">
+                <thead>
+                  <tr>
+                    <th>Week</th>
+                    <th>Total Amount</th>
+                    <th>Members Contributed</th>
+                    <th>Status</th>
+                    <th>Investment Status</th>
+                  </tr>
+                </thead>
+                <tbody id="weeklySavingsBody">
+                  {% if group_data.weekly_savings_page %}
+                    {% for week_data in group_data.weekly_savings_page %}
+                    <tr>
+                      <td><strong>Week {{ week_data.week }}</strong></td>
+                      <td><strong>UGX {{ week_data.total_amount|floatformat:0|intcomma }}</strong></td>
+                      <td>{{ week_data.members_contributed }} members</td>
+                      <td>
+                        <span class="badge {% if week_data.status == 'Complete' %}badge-success{% else %}badge-warning{% endif %}">
+                          {{ week_data.status }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="badge {% if week_data.investment_status == 'Invested' %}badge-info{% else %}badge-secondary{% endif %}">
+                          {{ week_data.investment_status }}
+                        </span>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="5" class="text-center text-muted">No weekly savings data available</td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td><strong>Summary</strong></td>
+                    <td><strong>UGX {{ group_data.total_savings|floatformat:0|default:"0"|intcomma }}</strong></td>
+                    <td><strong>{{ group_data.member_count|default:"0" }} total members</strong></td>
+                    <td>
+                      <span class="badge badge-success">
+                        {{ group_data.weekly_savings|length|default:"0" }} weeks available
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge badge-info">
+                        {{ group_data.completed_weeks_count|default:"0" }} completed
+                      </span>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+              
+              <!-- Pagination Controls -->
+              {% if group_data.weekly_savings_page and group_data.weekly_savings_page.paginator.num_pages > 1 %}
+              <div class="pagination-container">
+                <div class="pagination-info">
+                  Showing {{ group_data.weekly_savings_page.start_index }} to {{ group_data.weekly_savings_page.end_index }} of {{ group_data.weekly_savings_page.paginator.count }} weeks
+                </div>
+                <nav class="pagination-nav">
+                  {% if group_data.weekly_savings_page.has_previous %}
+                    <a href="?page=1" class="pagination-link">&laquo; First</a>
+                    <a href="?page={{ group_data.weekly_savings_page.previous_page_number }}" class="pagination-link">&lsaquo; Previous</a>
+                  {% endif %}
+                  
+                  <span class="pagination-current">
+                    Page {{ group_data.weekly_savings_page.number }} of {{ group_data.weekly_savings_page.paginator.num_pages }}
+                  </span>
+                  
+                  {% if group_data.weekly_savings_page.has_next %}
+                    <a href="?page={{ group_data.weekly_savings_page.next_page_number }}" class="pagination-link">Next &rsaquo;</a>
+                    <a href="?page={{ group_data.weekly_savings_page.paginator.num_pages }}" class="pagination-link">Last &raquo;</a>
+                  </span>
+                  {% endif %}
+                </nav>
+              </div>
+              {% endif %}
+            </div>
+      </div>
+    </main>
+
+  <script>
+    // Utility functions
+    function formatUGX(n) {
+      return 'UGX ' + Number(n).toLocaleString('en-UG');
+    }
+
+    // Dashboard data - Now populated by Django templates
+    // The stat cards are dynamically populated from the backend
+    // No need to manually update them here
+
+    // Weekly savings data - Now populated by Django templates
+
+    // Weekly savings table - Now populated by Django templates
+
+    // User dropdown functionality
+    const userButton = document.getElementById('userButton');
+    const userDropdown = document.getElementById('userDropdown');
+    
+    userButton.addEventListener('click', () => {
+      userDropdown.classList.toggle('show');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!userButton.contains(e.target)) {
+        userDropdown.classList.remove('show');
+      }
+    });
+
+    // Mobile menu toggle
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const sidebar = document.getElementById('sidebar');
+    
+    mobileMenuToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('show');
+    });
+
+    // Close mobile menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+        sidebar.classList.remove('show');
+      }
+    });
+
+         // Close mobile menu on window resize
+     window.addEventListener('resize', () => {
+       if (window.innerWidth > 1024) {
+         sidebar.classList.remove('show');
+       }
+     });
+
+     // Week Progress Calculations
+     function calculateWeekProgress() {
+       const now = new Date();
+       const startOfYear = new Date(now.getFullYear(), 0, 1);
+       const days = Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24));
+       const weekNumber = Math.ceil(days / 7);
+       
+       // Calculate required savings (week × 10,000)
+       const requiredSavings = weekNumber * 10000; // UGX 10,000 per week
+       const remainingWeeks = Math.max(52 - weekNumber, 0);
+       
+       // Update DOM elements
+       document.getElementById('currentWeek').textContent = weekNumber;
+       document.getElementById('currentWeekDisplay').textContent = weekNumber;
+       document.getElementById('requiredSavings').textContent = formatUGX(requiredSavings);
+       document.getElementById('remainingWeeks').textContent = remainingWeeks + ' weeks';
+     }
+
+     // Initialize week progress when page loads
+     calculateWeekProgress();
+  </script>
+</body>
+</html>
+
