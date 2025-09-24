@@ -1,0 +1,691 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Investment Packages - MCS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --brand: #fd7e14;
+      --brand-d: #e06c0c;
+      --bg: #f7f7f9;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --info: #0ea5e9;
+      --secondary: #64748b;
+      --border: #e5e7eb;
+      --shadow: 0 8px 24px rgba(0,0,0,.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --radius-xs: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: var(--brand);
+      border-bottom: 1px solid var(--brand-d);
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 1000; box-shadow: var(--shadow); color: #fff;
+    }
+    .header-content { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; }
+    .logo { display: flex; align-items: center; gap: 0.75rem; font-size: 1.5rem; font-weight: 800; color: #fff; text-decoration: none; }
+    .logo img { height: 40px; width: auto; object-fit: contain; display: block; }
+    .logo-text { font-size: 1.5rem; font-weight: 800; color: #fff; }
+    .user-menu { position: relative; }
+    .user-button {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3);
+      border-radius: var(--radius-sm); padding: .5rem 1rem; cursor: pointer;
+      transition: all .2s ease; font-weight: 500; color: #fff;
+    }
+    .user-button:hover { background: rgba(255,255,255,.3); border-color: rgba(255,255,255,.5); }
+    .user-avatar {
+      width: 32px; height: 32px; background: rgba(255,255,255,.3);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 600; overflow: hidden; position: relative; flex-shrink: 0;
+    }
+    .user-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 2; }
+    .dropdown {
+      position: absolute; top: 100%; right: 0; margin-top: .5rem; background: var(--card);
+      border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+      min-width: 200px; opacity: 0; visibility: hidden; transform: translateY(-10px); transition: all .2s ease;
+    }
+    .dropdown.show { opacity: 1; visibility: visible; transform: translateY(0); }
+    .dropdown-item {
+      display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem;
+      color: var(--text); text-decoration: none; transition: background .2s ease; border-bottom: 1px solid var(--border);
+    }
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:hover { background: var(--bg); color: var(--brand); }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed; left: 0; top: 0; width: 280px; height: 100vh;
+      background: var(--card); border-right: 1px solid var(--border);
+      box-shadow: var(--shadow); z-index: 999; overflow-y: auto; padding-top: 80px;
+    }
+    .sidebar-header { padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg); }
+    .sidebar-title { font-size: 1.25rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .75rem; }
+    .sidebar-title i { color: var(--brand); }
+    .nav-list { list-style: none; padding: 1.5rem 0; }
+    .nav-item { margin-bottom: .5rem; }
+    .nav-link {
+      display: flex; align-items: center; gap: .75rem; padding: .75rem 1.5rem;
+      color: var(--muted); text-decoration: none; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      transition: all .2s ease; font-weight: 500; margin-right: 1rem;
+    }
+    .nav-link:hover { background: var(--bg); color: var(--text); }
+    .nav-link.active { background: var(--brand); color: #fff; box-shadow: var(--shadow); }
+    .nav-link.active i { color: #fff; }
+
+    /* Main Content */
+    .main-content { margin-left: 280px; margin-top: 80px; padding: 1.5rem 2rem; min-height: calc(100vh - 80px); }
+    .page-header { background: var(--card); border-radius: var(--radius); padding: 2rem; box-shadow: var(--shadow); margin-bottom: 2rem; }
+    .page-title { font-size: 2rem; font-weight: 800; color: var(--text); margin-bottom: .5rem; }
+    .page-subtitle { color: var(--muted); font-size: 1.125rem; margin-bottom: 1rem; }
+
+    /* Content Cards */
+    .content-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden; margin-bottom: 2rem; }
+    .card-header { padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 1.25rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .75rem; }
+    .card-title i { color: var(--brand); }
+    .card-actions { display: flex; gap: .75rem; }
+
+    .btn { display: inline-flex; align-items: center; gap: .5rem; padding: .5rem 1rem; border: none; border-radius: 12px; font-weight: 600; text-decoration: none; cursor: pointer; transition: all .2s ease; font-size: .875rem; }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-primary:hover { background: var(--brand-d); transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--border); color: var(--text); }
+
+    /* Tables */
+    .table-container { overflow-x: auto; padding: 1.5rem; }
+    .table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    .table th {
+      background: var(--bg); padding: 1rem; text-align: left; font-weight: 600; color: var(--text);
+      border-bottom: 1px solid var(--border); font-size: .875rem; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .table td { padding: 1rem; border-bottom: 1px solid var(--border); color: var(--text); }
+    .table tbody tr:hover { background: var(--bg); }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; gap: .25rem; padding: .25rem .75rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-secondary { background: #e2e8f0; color: #475569; }
+    .badge-info { background: #cffafe; color: #0e7490; }
+
+    /* Mobile */
+    .mobile-menu-toggle { display: none; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; padding: .5rem; }
+    @media (max-width: 1024px) {
+      .sidebar { transform: translateX(-100%); transition: transform .3s ease; }
+      .sidebar.show { transform: translateX(0); }
+      .main-content { margin-left: 0; }
+      .header-content { margin-left: 0; justify-content: space-between; }
+      .mobile-menu-toggle { display: block; }
+    }
+    @media (max-width: 768px) {
+      .main-content { padding: 1rem; }
+      .page-header { padding: 1.5rem; }
+      .page-title { font-size: 1.75rem; }
+      .card-header { padding: 1rem; flex-direction: column; gap: .75rem; align-items: flex-start; }
+      .table-container { padding: 1rem; }
+    }
+    @media (max-width: 480px) {
+      .header-content { padding: 1rem; }
+      .logo { font-size: 1.25rem; }
+      .main-content { padding: .75rem; }
+      .page-header { padding: 1rem; }
+      .page-title { font-size: 1.5rem; }
+    }
+
+    /* Animations */
+    .fade-in-up { animation: fadeInUp .6s ease-out; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <button class="mobile-menu-toggle" id="mobileMenuToggle"><i class="fas fa-bars"></i></button>
+      <a href="{% url 'landing' %}" class="logo">
+        <img src="{% static 'core/images/logo.png' %}" alt="MCS Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+        <span class="logo-text">MCS</span>
+      </a>
+      <div class="user-menu">
+        <button class="user-button" id="userButton">
+          <div class="user-avatar">
+            {% if user.profile.photo %}
+              <img src="{{ user.profile.photo.url }}" alt="Profile Photo">
+            {% else %}
+              {{ user.profile.initials|default:user.username|first|upper }}
+            {% endif %}
+          </div>
+          <span>{{ user.first_name|default:user.get_username }}</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="dropdown" id="userDropdown">
+          <a href="{% url 'profile' %}" class="dropdown-item"><i class="fas fa-user"></i>Profile</a>
+          <a href="{% url 'landing' %}" class="dropdown-item"><i class="fas fa-home"></i>Dashboard</a>
+          <a href="{% url 'accounts:logout' %}" class="dropdown-item"><i class="fas fa-sign-out-alt"></i>Logout</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2 class="sidebar-title"><i class="fas fa-horse"></i>Commercial Goat Farming</h2>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-item">
+        <a href="{% url 'goat_farming:dashboard' %}" class="nav-link">
+          <i class="fas fa-home"></i>Dashboard
+        </a>
+      </li>
+      <li class="nav-item"><a href="{% url 'goat_farming:investment' %}" class="nav-link active"><i class="fas fa-chart-line"></i>Investment Info</a></li>
+      <li class="nav-item"><a href="{% url 'goat_farming:transactions' %}" class="nav-link"><i class="fas fa-exchange-alt"></i>Transactions</a></li>
+        <li class="nav-item"><a href="#" class="nav-link"><i class="fas fa-satellite"></i>Visual Tracking</a></li>
+    </ul>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Page Header -->
+    <div class="page-header fade-in-up">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h1 class="page-title">Investment Packages</h1>
+          <p class="page-subtitle">Choose your investment package and start your goat farming journey</p>
+        </div>
+        <div>
+          <a href="{% url 'goat_farming:dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i>Back to Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Investment Information Section -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-info-circle"></i>Investment Information</h3>
+      </div>
+      <div style="padding: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+          <div>
+            <h5 style="color: var(--brand); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-clock"></i>Breeding Timeline
+            </h5>
+            <ul style="list-style: none; padding: 0;">
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-calendar-check" style="color: var(--success);"></i>
+                <span><strong>Purchase to Breeding:</strong> Immediate allocation</span>
+              </li>
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-heart" style="color: var(--warning);"></i>
+                <span><strong>Gestation Period:</strong> 5 months</span>
+              </li>
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-baby" style="color: var(--info);"></i>
+                <span><strong>First Kids Born:</strong> 5 months after purchase</span>
+              </li>
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-seedling" style="color: var(--success);"></i>
+                <span><strong>Kids Mature:</strong> 14 months from birth</span>
+              </li>
+            </ul>
+          </div>
+          
+          <div>
+            <h5 style="color: var(--brand); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-chart-line"></i>Expected Returns
+            </h5>
+            <ul style="list-style: none; padding: 0;">
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-check-circle" style="color: var(--success);"></i>
+                <span><strong>Kids per Female:</strong> 2 kids per breeding cycle</span>
+              </li>
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-sync-alt" style="color: var(--info);"></i>
+                <span><strong>Breeding Cycles:</strong> Every 8 months</span>
+              </li>
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-calculator" style="color: var(--warning);"></i>
+                <span><strong>ROI Calculation:</strong> Original goats + offspring</span>
+              </li>
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-trophy" style="color: var(--brand);"></i>
+                <span><strong>Total Returns:</strong> 3x original investment in 14 months</span>
+              </li>
+            </ul>
+          </div>
+          
+          <div>
+            <h5 style="color: var(--brand); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-shield-alt"></i>Management & Care
+            </h5>
+            <ul style="list-style: none; padding: 0;">
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-user-md" style="color: var(--success);"></i>
+                <span><strong>Health Checkups:</strong> Regular veterinary care</span>
+              </li>
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-home" style="color: var(--info);"></i>
+                <span><strong>Farm Management:</strong> Professional farm operations</span>
+              </li>
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-chart-bar" style="color: var(--warning);"></i>
+                <span><strong>Progress Reports:</strong> Monthly updates</span>
+              </li>
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-headset" style="color: var(--brand);"></i>
+                <span><strong>Support:</strong> 24/7 customer support</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Investment Packages -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+      <!-- Package 1 -->
+      <div class="content-card fade-in-up">
+        <div class="card-header">
+          <h3 class="card-title"><i class="fas fa-seedling"></i>Starter Package</h3>
+        </div>
+        <div style="padding: 1.5rem;">
+          <div style="text-align: center; margin-bottom: 1.5rem;">
+            <div style="font-size: 3rem; color: var(--brand); margin-bottom: 1rem;">
+              <i class="fas fa-goat"></i>
+            </div>
+            <h3 style="margin-bottom: 0.5rem; color: var(--text);">2 Female Goats</h3>
+            <h4 style="color: var(--brand); margin-bottom: 1rem; font-size: 1.5rem;">UGX 2,200,000</h4>
+            <p style="color: var(--muted);">Get 6 goats in 14 months (2 original + 4 kids)</p>
+          </div>
+          <ul style="list-style: none; padding: 0; margin-bottom: 1.5rem;">
+            <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+              <i class="fas fa-check" style="color: var(--success);"></i>
+              <span>2 Female goats (UGX 600,000 each)</span>
+            </li>
+            <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+              <i class="fas fa-check" style="color: var(--success);"></i>
+              <span>Expected 4 kids born in 5 months</span>
+            </li>
+            <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+              <i class="fas fa-check" style="color: var(--success);"></i>
+              <span>Professional farm management</span>
+            </li>
+            <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+              <i class="fas fa-check" style="color: var(--success);"></i>
+              <span>Monthly health checkups</span>
+            </li>
+            <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+              <i class="fas fa-check" style="color: var(--success);"></i>
+              <span>Regular progress reports</span>
+            </li>
+          </ul>
+          <div style="width: 100%;">
+            <button
+              class="btn btn-primary"
+              style="width: 100%;"
+              data-bs-toggle="modal"
+              data-bs-target="#investModal"
+              data-package="starter"
+              data-amount="2200000"
+            >
+              Invest Now
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Package 2 -->
+      <div class="content-card fade-in-up">
+        <div class="card-header">
+          <h3 class="card-title"><i class="fas fa-crown"></i>Premium Package</h3>
+        </div>
+        <div style="padding: 1.5rem;">
+          <div style="text-align: center; margin-bottom: 1.5rem;">
+            <div style="font-size: 3rem; color: var(--brand); margin-bottom: 1rem;">
+              <i class="fas fa-goat"></i>
+            </div>
+            <h3 style="margin-bottom: 0.5rem; color: var(--text);">4 Female Goats</h3>
+            <h4 style="color: var(--brand); margin-bottom: 1rem; font-size: 1.5rem;">UGX 3,400,000</h4>
+            <p style="color: var(--muted);">Get 12 goats in 14 months (4 original + 8 kids)</p>
+          </div>
+          <ul style="list-style: none; padding: 0; margin-bottom: 1.5rem;">
+            <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+              <i class="fas fa-check" style="color: var(--success);"></i>
+              <span>4 Female goats (UGX 600,000 each)</span>
+            </li>
+            <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+              <i class="fas fa-check" style="color: var(--success);"></i>
+              <span>Expected 8 kids born in 5 months</span>
+            </li>
+            <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+              <i class="fas fa-check" style="color: var(--success);"></i>
+              <span>Professional farm management</span>
+            </li>
+            <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+              <i class="fas fa-check" style="color: var(--success);"></i>
+              <span>Weekly health checkups</span>
+            </li>
+            <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+              <i class="fas fa-check" style="color: var(--success);"></i>
+              <span>Detailed progress reports</span>
+            </li>
+            <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+              <i class="fas fa-check" style="color: var(--success);"></i>
+              <span>Priority support</span>
+            </li>
+          </ul>
+          <div style="width: 100%;">
+            <button
+              class="btn btn-primary"
+              style="width: 100%;"
+              data-bs-toggle="modal"
+              data-bs-target="#investModal"
+              data-package="premium"
+              data-amount="3400000"
+            >
+              Invest Now
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Frequently Asked Questions -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-question-circle"></i>Frequently Asked Questions</h3>
+      </div>
+      <div style="padding: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem;">
+          <div>
+            <h6 style="color: var(--brand); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-clock"></i>Timeline Questions
+            </h6>
+            <div style="margin-bottom: 1rem;">
+              <strong style="color: var(--text);">How long until I see returns?</strong>
+              <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.875rem;">
+                Kids are born 5 months after purchase, and mature at 14 months from birth (19 months total).
+              </p>
+            </div>
+            <div style="margin-bottom: 1rem;">
+              <strong style="color: var(--text);">When do goats start breeding?</strong>
+              <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.875rem;">
+                Female goats are immediately allocated and begin breeding within 1-2 months of purchase.
+              </p>
+            </div>
+            <div style="margin-bottom: 1rem;">
+              <strong style="color: var(--text);">How often do goats breed?</strong>
+              <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.875rem;">
+                Goats can breed every 8 months, allowing for multiple breeding cycles.
+              </p>
+            </div>
+          </div>
+          
+          <div>
+            <h6 style="color: var(--brand); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-calculator"></i>Returns & Investment
+            </h6>
+            <div style="margin-bottom: 1rem;">
+              <strong style="color: var(--text);">How many kids per goat?</strong>
+              <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.875rem;">
+                Each female goat typically produces 2 kids per breeding cycle.
+              </p>
+            </div>
+            <div style="margin-bottom: 1rem;">
+              <strong style="color: var(--text);">What's the total ROI?</strong>
+              <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.875rem;">
+                You get 3x your original investment: 2 original goats + 4 kids = 6 goats total.
+              </p>
+            </div>
+            <div style="margin-bottom: 1rem;">
+              <strong style="color: var(--text);">Can I sell the goats?</strong>
+              <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.875rem;">
+                Yes! Mature goats can be sold or kept for further breeding cycles.
+              </p>
+            </div>
+          </div>
+          
+          <div>
+            <h6 style="color: var(--brand); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-shield-alt"></i>Management & Care
+            </h6>
+            <div style="margin-bottom: 1rem;">
+              <strong style="color: var(--text);">Who manages the goats?</strong>
+              <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.875rem;">
+                Professional farm managers handle all daily operations, feeding, and care.
+              </p>
+            </div>
+            <div style="margin-bottom: 1rem;">
+              <strong style="color: var(--text);">What about health issues?</strong>
+              <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.875rem;">
+                Regular veterinary checkups and health monitoring are included in the package.
+              </p>
+            </div>
+            <div style="margin-bottom: 1rem;">
+              <strong style="color: var(--text);">How do I track progress?</strong>
+              <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.875rem;">
+                Monthly progress reports and photos are provided through your dashboard.
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div style="background: var(--bg); border-radius: var(--radius-sm); padding: 1.5rem; margin-top: 1.5rem; border: 1px solid var(--border);">
+          <h6 style="color: var(--text); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-info-circle"></i>Important Notes
+          </h6>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+              <i class="fas fa-exclamation-triangle" style="color: var(--warning); margin-top: 0.25rem;"></i>
+              <div>
+                <strong style="color: var(--text); font-size: 0.875rem;">Breeding Success Rate</strong>
+                <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.8rem;">
+                  95% success rate with professional management
+                </p>
+              </div>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+              <i class="fas fa-handshake" style="color: var(--success); margin-top: 0.25rem;"></i>
+              <div>
+                <strong style="color: var(--text); font-size: 0.875rem;">Contract Terms</strong>
+                <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.8rem;">
+                  Clear terms with guaranteed goat allocation
+                </p>
+              </div>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+              <i class="fas fa-chart-line" style="color: var(--info); margin-top: 0.25rem;"></i>
+              <div>
+                <strong style="color: var(--text); font-size: 0.875rem;">Market Value</strong>
+                <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.8rem;">
+                  Goat prices remain stable and growing
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current Investments -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-chart-line"></i>Your Current Investments</h3>
+      </div>
+      <div class="table-container">
+        {% if current_investments %}
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Package</th>
+                <th>Investment Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Expected Returns</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for investment in current_investments %}
+              <tr>
+                <td>{{ investment.package_name }}</td>
+                <td>{{ investment.investment_date }}</td>
+                <td>UGX {{ investment.amount|floatformat:0|intcomma }}</td>
+                <td>
+                  <span class="badge {% if investment.status_color == 'success' %}badge-success{% elif investment.status_color == 'warning' %}badge-warning{% elif investment.status_color == 'info' %}badge-info{% else %}badge-secondary{% endif %}">
+                    {{ investment.status }}
+                  </span>
+                </td>
+                <td>{{ investment.expected_returns }} goats</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div style="text-align: center; padding: 3rem 1rem;">
+            <i class="fas fa-piggy-bank" style="font-size: 3rem; color: var(--muted); margin-bottom: 1rem;"></i>
+            <p style="color: var(--muted); margin: 0;">You haven't made any investments yet</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // User dropdown
+    const userButton = document.getElementById('userButton');
+    const userDropdown = document.getElementById('userDropdown');
+    userButton.addEventListener('click', () => userDropdown.classList.toggle('show'));
+    document.addEventListener('click', (e) => { if (!userButton.contains(e.target)) userDropdown.classList.remove('show'); });
+
+    // Mobile menu
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const sidebar = document.getElementById('sidebar');
+    mobileMenuToggle.addEventListener('click', () => sidebar.classList.toggle('show'));
+    document.addEventListener('click', (e) => { if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) sidebar.classList.remove('show'); });
+    window.addEventListener('resize', () => { if (window.innerWidth > 1024) sidebar.classList.remove('show'); });
+
+    // Handle investment modal
+    document.addEventListener("DOMContentLoaded", function () {
+      const investModal = document.getElementById("investModal");
+      if (investModal) {
+        investModal.addEventListener("show.bs.modal", function (event) {
+          const button = event.relatedTarget;
+          const package = button.getAttribute("data-package");
+          const amount = button.getAttribute("data-amount");
+
+          // Update modal content
+          document.getElementById("packageType").value = package;
+          document.getElementById("investmentAmount").value = amount;
+          document.getElementById("packageName").textContent =
+            package === "starter" ? "Starter Package" : "Premium Package";
+          document.getElementById("amountDisplay").textContent =
+            "UGX " + Number(amount).toLocaleString();
+          document.getElementById("expectedReturns").textContent =
+            package === "starter" ? "6 goats" : "12 goats";
+        });
+      }
+
+      // Handle investment details modal
+      const detailsModal = document.getElementById("detailsModal");
+      if (detailsModal) {
+        detailsModal.addEventListener("show.bs.modal", function (event) {
+          const button = event.relatedTarget;
+          const investmentId = button.getAttribute("data-investment-id");
+
+          // Load investment details
+          fetch(`/cgf/investment/${investmentId}/details/`)
+            .then((response) => response.json())
+            .then((data) => {
+              document.getElementById("investmentDetails").innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                  <div>
+                    <h6 style="margin-bottom: 1rem; color: var(--text);">Investment Information</h6>
+                    <table class="table">
+                      <tr>
+                        <th>Package</th>
+                        <td>${data.package_name}</td>
+                      </tr>
+                      <tr>
+                        <th>Investment Date</th>
+                        <td>${data.investment_date}</td>
+                      </tr>
+                      <tr>
+                        <th>Amount</th>
+                        <td>UGX ${Number(data.amount).toLocaleString()}</td>
+                      </tr>
+                      <tr>
+                        <th>Status</th>
+                        <td><span class="badge badge-${data.status_color}">${data.status}</span></td>
+                      </tr>
+                    </table>
+                  </div>
+                  <div>
+                    <h6 style="margin-bottom: 1rem; color: var(--text);">Progress</h6>
+                    <div style="background: var(--bg); border-radius: var(--radius-sm); height: 20px; margin-bottom: 1rem; overflow: hidden;">
+                      <div style="background: var(--brand); height: 100%; width: ${data.progress}%; transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600;">
+                        ${data.progress}%
+                      </div>
+                    </div>
+                    <p style="margin-bottom: 0.5rem;"><strong>Expected Returns:</strong> ${data.expected_returns} goats</p>
+                    <p style="margin-bottom: 0.5rem;"><strong>Expected Date:</strong> ${data.expected_date}</p>
+                    <p style="margin-bottom: 0;"><strong>Next Update:</strong> ${data.next_update}</p>
+                  </div>
+                </div>
+                <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border);">
+                <div>
+                  <h6 style="margin-bottom: 1rem; color: var(--text);">Recent Updates</h6>
+                  <div>
+                    ${data.updates.map((update) => `
+                      <div style="display: flex; margin-bottom: 1rem;">
+                        <div style="flex-shrink: 0; margin-right: 0.75rem;">
+                          <i class="fas fa-${update.icon}" style="color: var(--${update.color});"></i>
+                        </div>
+                        <div style="flex-grow: 1;">
+                          <p style="margin-bottom: 0.25rem;">${update.message}</p>
+                          <small style="color: var(--muted);">${update.date}</small>
+                        </div>
+                      </div>
+                    `).join("")}
+                  </div>
+                </div>
+              `;
+            })
+            .catch((error) => {
+              console.error("Error loading investment details:", error);
+              document.getElementById("investmentDetails").innerHTML = `
+                <div style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 1rem; border-radius: var(--radius-sm);">
+                  Error loading investment details. Please try again later.
+                </div>
+              `;
+            });
+        });
+      }
+    });
+  </script>
+</body>
+</html>

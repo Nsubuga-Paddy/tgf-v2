@@ -1,0 +1,514 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transactions - MCS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --brand: #fd7e14;
+      --brand-d: #e06c0c;
+      --bg: #f7f7f9;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --info: #0ea5e9;
+      --secondary: #64748b;
+      --border: #e5e7eb;
+      --shadow: 0 8px 24px rgba(0,0,0,.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --radius-xs: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: var(--brand);
+      border-bottom: 1px solid var(--brand-d);
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 1000; box-shadow: var(--shadow); color: #fff;
+    }
+    .header-content { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; }
+    .logo { display: flex; align-items: center; gap: 0.75rem; font-size: 1.5rem; font-weight: 800; color: #fff; text-decoration: none; }
+    .logo img { height: 40px; width: auto; object-fit: contain; display: block; }
+    .logo-text { font-size: 1.5rem; font-weight: 800; color: #fff; }
+    .user-menu { position: relative; }
+    .user-button {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3);
+      border-radius: var(--radius-sm); padding: .5rem 1rem; cursor: pointer;
+      transition: all .2s ease; font-weight: 500; color: #fff;
+    }
+    .user-button:hover { background: rgba(255,255,255,.3); border-color: rgba(255,255,255,.5); }
+    .user-avatar {
+      width: 32px; height: 32px; background: rgba(255,255,255,.3);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 600; overflow: hidden; position: relative; flex-shrink: 0;
+    }
+    .user-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 2; }
+    .dropdown {
+      position: absolute; top: 100%; right: 0; margin-top: .5rem; background: var(--card);
+      border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+      min-width: 200px; opacity: 0; visibility: hidden; transform: translateY(-10px); transition: all .2s ease;
+    }
+    .dropdown.show { opacity: 1; visibility: visible; transform: translateY(0); }
+    .dropdown-item {
+      display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem;
+      color: var(--text); text-decoration: none; transition: background .2s ease; border-bottom: 1px solid var(--border);
+    }
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:hover { background: var(--bg); color: var(--brand); }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed; left: 0; top: 0; width: 280px; height: 100vh;
+      background: var(--card); border-right: 1px solid var(--border);
+      box-shadow: var(--shadow); z-index: 999; overflow-y: auto; padding-top: 80px;
+    }
+    .sidebar-header { padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg); }
+    .sidebar-title { font-size: 1.25rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .75rem; }
+    .sidebar-title i { color: var(--brand); }
+    .nav-list { list-style: none; padding: 1.5rem 0; }
+    .nav-item { margin-bottom: .5rem; }
+    .nav-link {
+      display: flex; align-items: center; gap: .75rem; padding: .75rem 1.5rem;
+      color: var(--muted); text-decoration: none; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      transition: all .2s ease; font-weight: 500; margin-right: 1rem;
+    }
+    .nav-link:hover { background: var(--bg); color: var(--text); }
+    .nav-link.active { background: var(--brand); color: #fff; box-shadow: var(--shadow); }
+    .nav-link.active i { color: #fff; }
+
+    /* Main Content */
+    .main-content { margin-left: 280px; margin-top: 80px; padding: 1.5rem 2rem; min-height: calc(100vh - 80px); }
+    .page-header { background: var(--card); border-radius: var(--radius); padding: 2rem; box-shadow: var(--shadow); margin-bottom: 2rem; }
+    .page-title { font-size: 2rem; font-weight: 800; color: var(--text); margin-bottom: .5rem; }
+    .page-subtitle { color: var(--muted); font-size: 1.125rem; margin-bottom: 1rem; }
+
+    /* Content Cards */
+    .content-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden; margin-bottom: 2rem; }
+    .card-header { padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 1.25rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .75rem; }
+    .card-title i { color: var(--brand); }
+    .card-actions { display: flex; gap: .75rem; }
+
+    .btn { display: inline-flex; align-items: center; gap: .5rem; padding: .5rem 1rem; border: none; border-radius: 12px; font-weight: 600; text-decoration: none; cursor: pointer; transition: all .2s ease; font-size: .875rem; }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-primary:hover { background: var(--brand-d); transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--border); color: var(--text); }
+
+    /* Tables */
+    .table-container { overflow-x: auto; padding: 1.5rem; }
+    .table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    .table th {
+      background: var(--bg); padding: 1rem; text-align: left; font-weight: 600; color: var(--text);
+      border-bottom: 1px solid var(--border); font-size: .875rem; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .table td { padding: 1rem; border-bottom: 1px solid var(--border); color: var(--text); }
+    .table tbody tr:hover { background: var(--bg); }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; gap: .25rem; padding: .25rem .75rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-secondary { background: #e2e8f0; color: #475569; }
+    .badge-info { background: #cffafe; color: #0e7490; }
+
+    /* Mobile */
+    .mobile-menu-toggle { display: none; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; padding: .5rem; }
+    @media (max-width: 1024px) {
+      .sidebar { transform: translateX(-100%); transition: transform .3s ease; }
+      .sidebar.show { transform: translateX(0); }
+      .main-content { margin-left: 0; }
+      .header-content { margin-left: 0; justify-content: space-between; }
+      .mobile-menu-toggle { display: block; }
+    }
+    @media (max-width: 768px) {
+      .main-content { padding: 1rem; }
+      .page-header { padding: 1.5rem; }
+      .page-title { font-size: 1.75rem; }
+      .card-header { padding: 1rem; flex-direction: column; gap: .75rem; align-items: flex-start; }
+      .table-container { padding: 1rem; }
+      /* Transaction summary responsive layout */
+      .transaction-summary-grid { grid-template-columns: 1fr !important; }
+      .investment-cards-column { gap: 1rem !important; }
+    }
+    @media (max-width: 480px) {
+      .header-content { padding: 1rem; }
+      .logo { font-size: 1.25rem; }
+      .main-content { padding: .75rem; }
+      .page-header { padding: 1rem; }
+      .page-title { font-size: 1.5rem; }
+    }
+
+    /* Animations */
+    .fade-in-up { animation: fadeInUp .6s ease-out; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <button class="mobile-menu-toggle" id="mobileMenuToggle"><i class="fas fa-bars"></i></button>
+      <a href="{% url 'landing' %}" class="logo">
+        <img src="{% static 'core/images/logo.png' %}" alt="MCS Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+        <span class="logo-text">MCS</span>
+      </a>
+      <div class="user-menu">
+        <button class="user-button" id="userButton">
+          <div class="user-avatar">
+            {% if user.profile.photo %}
+              <img src="{{ user.profile.photo.url }}" alt="Profile Photo">
+            {% else %}
+              {{ user.profile.initials|default:user.username|first|upper }}
+            {% endif %}
+          </div>
+          <span>{{ user.first_name|default:user.get_username }}</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="dropdown" id="userDropdown">
+          <a href="{% url 'profile' %}" class="dropdown-item"><i class="fas fa-user"></i>Profile</a>
+          <a href="{% url 'landing' %}" class="dropdown-item"><i class="fas fa-home"></i>Dashboard</a>
+          <a href="{% url 'accounts:logout' %}" class="dropdown-item"><i class="fas fa-sign-out-alt"></i>Logout</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2 class="sidebar-title"><i class="fas fa-horse"></i>Commercial Goat Farming</h2>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-item">
+        <a href="{% url 'goat_farming:dashboard' %}" class="nav-link">
+          <i class="fas fa-home"></i>Dashboard
+        </a>
+      </li>
+      <li class="nav-item"><a href="{% url 'goat_farming:investment' %}" class="nav-link"><i class="fas fa-chart-line"></i>Investment Info</a></li>
+      <li class="nav-item"><a href="{% url 'goat_farming:transactions' %}" class="nav-link active"><i class="fas fa-exchange-alt"></i>Transactions</a></li>
+        <li class="nav-item"><a href="#" class="nav-link"><i class="fas fa-satellite"></i>Visual Tracking</a></li>
+    </ul>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Page Header -->
+    <div class="page-header fade-in-up">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h1 class="page-title">Transactions</h1>
+          <p class="page-subtitle">Track your investment payments and transaction history</p>
+        </div>
+        <div>
+          <a href="{% url 'goat_farming:dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i>Back to Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transaction Summary -->
+    <div class="transaction-summary-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+        <!-- Left Side - Investment Cards -->
+        <div class="investment-cards-column" style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- Total Investments -->
+            <div class="content-card fade-in-up">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-piggy-bank"></i>Total Investments</h3>
+                </div>
+                <div style="padding: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <div>
+                            <div style="font-size: 2rem; font-weight: 800; color: var(--text); margin-bottom: 0.25rem;">
+                                UGX {{ total_investments|default:0|floatformat:0|intcomma }}
+                            </div>
+                            <div style="color: var(--muted); font-size: 0.875rem;">
+                                {{ investment_count|default:0 }} investment{{ investment_count|pluralize }} made
+                            </div>
+                        </div>
+                        <div style="width: 50px; height: 50px; background: linear-gradient(135deg, var(--brand), var(--brand-d)); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem;">
+                            <i class="fas fa-piggy-bank"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Pending Payments -->
+            <div class="content-card fade-in-up">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-file-invoice-dollar"></i>Pending Payments</h3>
+                </div>
+                <div style="padding: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <div>
+                            <div style="font-size: 2rem; font-weight: 800; color: var(--warning); margin-bottom: 0.25rem;">
+                                UGX {{ total_pending_amount|default:0|floatformat:0|intcomma }}
+                            </div>
+                            <div style="color: var(--muted); font-size: 0.875rem;">
+                                Total: UGX {{ total_package_amounts|default:0|floatformat:0|intcomma }}<br>
+                                Paid: UGX {{ total_investments|default:0|floatformat:0|intcomma }}
+                            </div>
+                        </div>
+                        <div style="width: 50px; height: 50px; background: linear-gradient(135deg, var(--warning), #d97706); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem;">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side - Returns Calculator -->
+        <div class="content-card fade-in-up">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-calculator"></i>Returns Calculator</h3>
+            </div>
+            <div style="padding: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <div>
+                        <div style="font-size: 2rem; font-weight: 800; color: var(--success); margin-bottom: 0.25rem;" id="totalValue">
+                            UGX 0
+                        </div>
+                        <div style="color: var(--muted); font-size: 0.875rem;">
+                            Estimated returns
+                        </div>
+                    </div>
+                    <div style="width: 50px; height: 50px; background: linear-gradient(135deg, var(--success), #059669); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem;">
+                        <i class="fas fa-calculator"></i>
+                    </div>
+                </div>
+                
+                <form id="returnsCalculator">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text); margin-bottom: 0.25rem;">Number of Goats</label>
+                            <input type="number" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-xs); font-size: 0.875rem;" id="nGoats" value="2" min="1" max="20">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text); margin-bottom: 0.25rem;">Years</label>
+                            <input type="number" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-xs); font-size: 0.875rem;" id="years" value="1" min="1" max="5">
+                        </div>
+                    </div>
+                    
+                    <div style="background: var(--bg); border-radius: var(--radius-xs); padding: 0.75rem;">
+                        <div style="color: var(--muted); font-size: 0.75rem;" id="calculationDetails">
+                            Estimated kids: <span id="totalKids">0</span><br>
+                            Market value: <span id="marketValue">UGX 0</span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transactions List -->
+    <div class="content-card fade-in-up">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-history"></i>Transaction History</h3>
+        </div>
+        <div class="table-container">
+            {% if transactions %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Receipt No.</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transaction in transactions %}
+                            <tr style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#transactionModal" data-transaction-id="{{ transaction.id }}">
+                                <td>{{ transaction.date }}</td>
+                                <td>{{ transaction.receipt_no }}</td>
+                                <td><span class="badge {% if transaction.type_badge_class == 'bg-success' %}badge-success{% elif transaction.type_badge_class == 'bg-warning' %}badge-warning{% elif transaction.type_badge_class == 'bg-info' %}badge-info{% else %}badge-secondary{% endif %}">{{ transaction.type }}</span></td>
+                                <td>{{ transaction.description }}</td>
+                                <td>UGX {{ transaction.amount|floatformat:0|intcomma }}</td>
+                                <td><span class="badge {% if transaction.status_badge_class == 'bg-success' %}badge-success{% elif transaction.status_badge_class == 'bg-warning' %}badge-warning{% elif transaction.status_badge_class == 'bg-info' %}badge-info{% else %}badge-secondary{% endif %}">{{ transaction.status }}</span></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div style="text-align: center; padding: 3rem 1rem;">
+                    <i class="fas fa-info-circle" style="font-size: 3rem; color: var(--muted); margin-bottom: 1rem;"></i>
+                    <p style="color: var(--muted); margin: 0;">No transactions found matching your criteria.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+  </main>
+
+  <!-- Transaction Details Modal -->
+  <div class="modal fade" id="transactionModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+              <div class="modal-header">
+                  <h5 class="modal-title">Transaction Details</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                  <div id="transactionDetails">
+                      <!-- Content will be loaded dynamically -->
+                  </div>
+              </div>
+          </div>
+      </div>
+  </div>
+
+  <script>
+    // User dropdown
+    const userButton = document.getElementById('userButton');
+    const userDropdown = document.getElementById('userDropdown');
+    userButton.addEventListener('click', () => userDropdown.classList.toggle('show'));
+    document.addEventListener('click', (e) => { if (!userButton.contains(e.target)) userDropdown.classList.remove('show'); });
+
+    // Mobile menu
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const sidebar = document.getElementById('sidebar');
+    mobileMenuToggle.addEventListener('click', () => sidebar.classList.toggle('show'));
+    document.addEventListener('click', (e) => { if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) sidebar.classList.remove('show'); });
+    window.addEventListener('resize', () => { if (window.innerWidth > 1024) sidebar.classList.remove('show'); });
+
+    // Returns Calculator
+    document.addEventListener('DOMContentLoaded', function() {
+        const returnsCalculator = document.getElementById('returnsCalculator');
+        if (returnsCalculator) {
+            const nGoatsInput = document.getElementById('nGoats');
+            const yearsInput = document.getElementById('years');
+            const totalValueSpan = document.getElementById('totalValue');
+            const totalKidsSpan = document.getElementById('totalKids');
+            const marketValueSpan = document.getElementById('marketValue');
+            
+            const KIDS_PER_GOAT_PER_YEAR = 3;
+            const MARKET_PRICE_PER_KID = 400000;
+            
+            function calculateReturns() {
+                const nGoats = parseInt(nGoatsInput.value) || 0;
+                const years = parseInt(yearsInput.value) || 0;
+                
+                const totalKids = nGoats * KIDS_PER_GOAT_PER_YEAR * years;
+                const totalValue = totalKids * MARKET_PRICE_PER_KID;
+                
+                totalKidsSpan.textContent = totalKids;
+                marketValueSpan.textContent = 'UGX ' + totalValue.toLocaleString();
+                totalValueSpan.textContent = 'UGX ' + totalValue.toLocaleString();
+            }
+            
+            // Calculate on input change
+            nGoatsInput.addEventListener('input', calculateReturns);
+            yearsInput.addEventListener('input', calculateReturns);
+            
+            // Initial calculation
+            calculateReturns();
+        }
+        
+        // Handle transaction details modal
+        const transactionModal = document.getElementById('transactionModal');
+        if (transactionModal) {
+            transactionModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const transactionId = button.getAttribute('data-transaction-id');
+                
+                // Load transaction details
+                fetch(`/cgf/transactions/${transactionId}/details/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('transactionDetails').innerHTML = `
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                                <div>
+                                    <h6 style="margin-bottom: 1rem; color: var(--text);">Transaction Information</h6>
+                                    <table class="table">
+                                        <tr>
+                                            <th>Transaction ID</th>
+                                            <td>${data.id}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Date</th>
+                                            <td>${data.date}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Type</th>
+                                            <td><span class="badge badge-${data.type_color}">${data.type}</span></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Status</th>
+                                            <td><span class="badge badge-${data.status_color}">${data.status}</span></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Amount</th>
+                                            <td>${data.amount ? 'UGX ' + Number(data.amount).toLocaleString() : data.goats + ' goats'}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div>
+                                    <h6 style="margin-bottom: 1rem; color: var(--text);">Payment Details</h6>
+                                    <table class="table">
+                                        <tr>
+                                            <th>Payment Method</th>
+                                            <td>${data.payment_method || '-'}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Reference</th>
+                                            <td>${data.reference || '-'}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Processed By</th>
+                                            <td>${data.processed_by || '-'}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Processed Date</th>
+                                            <td>${data.processed_date || '-'}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border);">
+                            <div>
+                                <h6 style="margin-bottom: 1rem; color: var(--text);">Additional Information</h6>
+                                <p style="margin-bottom: 0;">${data.description}</p>
+                                ${data.notes ? `
+                                    <div style="background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; margin-top: 1rem;">
+                                        <i class="fas fa-info-circle" style="color: var(--info); margin-right: 0.5rem;"></i>
+                                        ${data.notes}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    })
+                    .catch(error => {
+                        console.error('Error loading transaction details:', error);
+                        document.getElementById('transactionDetails').innerHTML = `
+                            <div style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 1rem; border-radius: var(--radius-sm);">
+                                Error loading transaction details. Please try again later.
+                            </div>
+                        `;
+                    });
+            });
+        }
+    });
+  </script>
+</body>
+</html> 

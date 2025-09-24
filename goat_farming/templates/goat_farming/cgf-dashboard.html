@@ -1,0 +1,545 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Commercial Goat Farming Dashboard - MCS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --brand: #fd7e14;
+      --brand-d: #e06c0c;
+      --bg: #f7f7f9;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --info: #0ea5e9;
+      --secondary: #64748b;
+      --border: #e5e7eb;
+      --shadow: 0 8px 24px rgba(0,0,0,.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --radius-xs: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: var(--brand);
+      border-bottom: 1px solid var(--brand-d);
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 1000; box-shadow: var(--shadow); color: #fff;
+    }
+    .header-content { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; }
+    .logo { display: flex; align-items: center; gap: 0.75rem; font-size: 1.5rem; font-weight: 800; color: #fff; text-decoration: none; }
+    .logo img { height: 40px; width: auto; object-fit: contain; display: block; }
+    .logo-text { font-size: 1.5rem; font-weight: 800; color: #fff; }
+    .user-menu { position: relative; }
+    .user-button {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3);
+      border-radius: var(--radius-sm); padding: .5rem 1rem; cursor: pointer;
+      transition: all .2s ease; font-weight: 500; color: #fff;
+    }
+    .user-button:hover { background: rgba(255,255,255,.3); border-color: rgba(255,255,255,.5); }
+    .user-avatar {
+      width: 32px; height: 32px; background: rgba(255,255,255,.3);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 600; overflow: hidden; position: relative; flex-shrink: 0;
+    }
+    .user-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 2; }
+    .dropdown {
+      position: absolute; top: 100%; right: 0; margin-top: .5rem; background: var(--card);
+      border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+      min-width: 200px; opacity: 0; visibility: hidden; transform: translateY(-10px); transition: all .2s ease;
+    }
+    .dropdown.show { opacity: 1; visibility: visible; transform: translateY(0); }
+    .dropdown-item {
+      display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem;
+      color: var(--text); text-decoration: none; transition: background .2s ease; border-bottom: 1px solid var(--border);
+    }
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:hover { background: var(--bg); color: var(--brand); }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed; left: 0; top: 0; width: 280px; height: 100vh;
+      background: var(--card); border-right: 1px solid var(--border);
+      box-shadow: var(--shadow); z-index: 999; overflow-y: auto; padding-top: 80px;
+    }
+    .sidebar-header { padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg); }
+    .sidebar-title { font-size: 1.25rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .75rem; }
+    .sidebar-title i { color: var(--brand); }
+    .nav-list { list-style: none; padding: 1.5rem 0; }
+    .nav-item { margin-bottom: .5rem; }
+    .nav-link {
+      display: flex; align-items: center; gap: .75rem; padding: .75rem 1.5rem;
+      color: var(--muted); text-decoration: none; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      transition: all .2s ease; font-weight: 500; margin-right: 1rem;
+    }
+    .nav-link:hover { background: var(--bg); color: var(--text); }
+    .nav-link.active { background: var(--brand); color: #fff; box-shadow: var(--shadow); }
+    .nav-link.active i { color: #fff; }
+
+    /* Main Content */
+    .main-content { margin-left: 280px; margin-top: 80px; padding: 1.5rem 2rem; min-height: calc(100vh - 80px); }
+    .page-header { background: var(--card); border-radius: var(--radius); padding: 2rem; box-shadow: var(--shadow); margin-bottom: 2rem; }
+    .page-title { font-size: 2rem; font-weight: 800; color: var(--text); margin-bottom: .5rem; }
+    .page-subtitle { color: var(--muted); font-size: 1.125rem; margin-bottom: 1rem; }
+    
+    /* Welcome section styles */
+    .welcome-section { display: flex; flex-direction: column; gap: 0.5rem; }
+    .account-info { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; }
+    .account-label { font-size: 0.875rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .account-number { 
+      background: linear-gradient(135deg, var(--brand), var(--brand-d)); 
+      color: white; 
+      padding: 0.5rem 1rem; 
+      border-radius: var(--radius-sm); 
+      font-family: 'Inter', sans-serif; 
+      font-weight: 700; 
+      font-size: 1rem;
+      letter-spacing: 0.05em;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+
+    /* Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: var(--card); border-radius: var(--radius); padding: 1.25rem; box-shadow: var(--shadow); border: 1px solid var(--border); transition: all .3s ease; min-height: 140px; display: flex; flex-direction: column; justify-content: space-between; }
+    .stat-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); border-color: var(--brand); }
+    .stat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; }
+    .stat-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.125rem; color: #fff; }
+    .stat-icon.primary { background: linear-gradient(135deg, var(--brand), var(--brand-d)); }
+    .stat-icon.success { background: linear-gradient(135deg, var(--success), #059669); }
+    .stat-icon.warning { background: linear-gradient(135deg, var(--warning), #d97706); }
+    .stat-icon.info { background: linear-gradient(135deg, var(--info), #0891b2); }
+    .stat-value { font-size: 1.75rem; font-weight: 800; color: var(--text); margin-bottom: .25rem; line-height: 1.2; }
+    .stat-label { color: var(--muted); font-weight: 500; margin-bottom: .5rem; font-size: .875rem; line-height: 1.3; }
+    .stat-meta { display: flex; align-items: center; gap: .5rem; font-size: .75rem; color: var(--muted); margin-top: auto; }
+
+    /* Content Cards */
+    .content-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden; margin-bottom: 2rem; }
+    .card-header { padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 1.25rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .75rem; }
+    .card-title i { color: var(--brand); }
+    .card-actions { display: flex; gap: .75rem; }
+
+    .btn { display: inline-flex; align-items: center; gap: .5rem; padding: .5rem 1rem; border: none; border-radius: 12px; font-weight: 600; text-decoration: none; cursor: pointer; transition: all .2s ease; font-size: .875rem; }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-primary:hover { background: var(--brand-d); transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--border); color: var(--text); }
+
+    /* Tables */
+    .table-container { overflow-x: auto; padding: 1.5rem; }
+    .table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    .table th {
+      background: var(--bg); padding: 1rem; text-align: left; font-weight: 600; color: var(--text);
+      border-bottom: 1px solid var(--border); font-size: .875rem; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .table td { padding: 1rem; border-bottom: 1px solid var(--border); color: var(--text); }
+    .table tbody tr:hover { background: var(--bg); }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; gap: .25rem; padding: .25rem .75rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-secondary { background: #e2e8f0; color: #475569; }
+    .badge-info { background: #cffafe; color: #0e7490; }
+
+    /* Mobile */
+    .mobile-menu-toggle { display: none; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; padding: .5rem; }
+    @media (max-width: 1024px) {
+      .sidebar { transform: translateX(-100%); transition: transform .3s ease; }
+      .sidebar.show { transform: translateX(0); }
+      .main-content { margin-left: 0; }
+      .header-content { margin-left: 0; justify-content: space-between; }
+      .mobile-menu-toggle { display: block; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+    }
+    @media (max-width: 768px) {
+      .main-content { padding: 1rem; }
+      .page-header { padding: 1.5rem; }
+      .page-title { font-size: 1.75rem; }
+      .stats-grid { grid-template-columns: 1fr; gap: 1rem; }
+      .card-header { padding: 1rem; flex-direction: column; gap: .75rem; align-items: flex-start; }
+      .table-container { padding: 1rem; }
+      .account-info { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    }
+    @media (max-width: 480px) {
+      .header-content { padding: 1rem; }
+      .logo { font-size: 1.25rem; }
+      .main-content { padding: .75rem; }
+      .page-header { padding: 1rem; }
+      .page-title { font-size: 1.5rem; }
+      .stat-value { font-size: 1.5rem; }
+    }
+
+    /* Animations */
+    .fade-in-up { animation: fadeInUp .6s ease-out; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <button class="mobile-menu-toggle" id="mobileMenuToggle"><i class="fas fa-bars"></i></button>
+      <a href="{% url 'landing' %}" class="logo">
+        <img src="{% static 'core/images/logo.png' %}" alt="MCS Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+        <span class="logo-text">MCS</span>
+      </a>
+      <div class="user-menu">
+        <button class="user-button" id="userButton">
+          <div class="user-avatar">
+            {% if user.profile.photo %}
+              <img src="{{ user.profile.photo.url }}" alt="Profile Photo">
+            {% else %}
+              {{ user.profile.initials|default:user.username|first|upper }}
+            {% endif %}
+          </div>
+          <span>{{ user.first_name|default:user.get_username }}</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="dropdown" id="userDropdown">
+          <a href="{% url 'profile' %}" class="dropdown-item"><i class="fas fa-user"></i>Profile</a>
+          <a href="{% url 'landing' %}" class="dropdown-item"><i class="fas fa-home"></i>Dashboard</a>
+          <a href="{% url 'accounts:logout' %}" class="dropdown-item"><i class="fas fa-sign-out-alt"></i>Logout</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2 class="sidebar-title"><i class="fas fa-horse"></i>Commercial Goat Farming</h2>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-item">
+        <a href="{% url 'goat_farming:dashboard' %}" class="nav-link active">
+          <i class="fas fa-home"></i>Dashboard
+        </a>
+      </li>
+      <li class="nav-item"><a href="{% url 'goat_farming:investment' %}" class="nav-link"><i class="fas fa-chart-line"></i>Investment Info</a></li>
+      <li class="nav-item"><a href="{% url 'goat_farming:transactions' %}" class="nav-link"><i class="fas fa-exchange-alt"></i>Transactions</a></li>
+        <li class="nav-item"><a href="#" class="nav-link"><i class="fas fa-satellite"></i>Visual Tracking</a></li>
+    </ul>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Page Header -->
+    <div class="page-header fade-in-up">
+      <div class="welcome-section">
+        <h1 class="page-title">
+          Welcome back, {{ user.first_name|capfirst|default:"Investor" }}! 👋
+        </h1>
+        <p class="page-subtitle">Track your investment progress and manage your goat farm efficiently</p>
+        {% if user.profile.account_number %}
+        <div class="account-info">
+          <span class="account-label">Account Number:</span>
+          <span class="account-number">{{ user.profile.account_number }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card fade-in-up">
+        <div class="stat-header"><div class="stat-icon primary"><i class="fas fa-seedling"></i></div></div>
+        <div class="stat-value">{{ total_goats|default:"0" }}</div>
+        <div class="stat-label">Total Goats</div>
+        <div class="stat-meta"><i class="fas fa-info-circle"></i><span>Ledger-based</span></div>
+      </div>
+
+      <div class="stat-card fade-in-up">
+        <div class="stat-header"><div class="stat-icon success"><i class="fas fa-money-bill-wave"></i></div></div>
+        <div class="stat-value">UGX {{ total_invested|default:0|floatformat:0|intcomma }}</div>
+        <div class="stat-label">Total Invested (Charges)</div>
+        <div class="stat-meta"><i class="fas fa-receipt"></i><span>All packages</span></div>
+      </div>
+
+      <div class="stat-card fade-in-up">
+        <div class="stat-header"><div class="stat-icon warning"><i class="fas fa-clock"></i></div></div>
+        <div class="stat-value">UGX {{ total_balance|default:0|floatformat:0|intcomma }}</div>
+        <div class="stat-label">Balance Due</div>
+        <div class="stat-meta"><i class="fas fa-wallet"></i><span>Outstanding</span></div>
+      </div>
+
+      <div class="stat-card fade-in-up">
+        <div class="stat-header"><div class="stat-icon info"><i class="fas fa-baby"></i></div></div>
+        <div class="stat-value">{{ total_expected_kids|default:"0" }}</div>
+        <div class="stat-label">Expected Kids (2 per goat)</div>
+        <div class="stat-meta">
+          <i class="fas fa-calendar-alt"></i>
+          <span>Next maturity: 
+            <strong>
+              {% if next_maturity_date %}
+                {{ next_maturity_date|date:"M d, Y" }}
+              {% else %}
+                All mature
+              {% endif %}
+            </strong>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Your Goat Holdings by Farm -->
+    {% if farms_with_accounts %}
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-horse"></i>Your Goat Holdings by Farm</h3>
+        <div class="card-actions">
+          <span class="badge badge-info"><i class="fas fa-info-circle"></i> Breeding cycle: 14 months</span>
+        </div>
+      </div>
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Farm</th>
+              <th>Current Goats</th>
+              <th>Expected Kids</th>
+              <th>Next Kidding Date</th>
+              <th>Account Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for farm_name, farm_data in farms_with_accounts.items %}
+              {% for account in farm_data.accounts %}
+              <tr>
+                <td>
+                  <strong>{{ account.farm.name }}</strong>
+                  {% if account.farm.location %}
+                    <br><small class="text-muted">{{ account.farm.location }}</small>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="stat-value" style="font-size: 1.25rem; margin-bottom: 0;">{{ account.current_goats }}</div>
+                  <small class="text-muted">Active goats</small>
+                </td>
+                <td>
+                  <div class="stat-value" style="font-size: 1.25rem; margin-bottom: 0; color: var(--success);">
+                    <span class="expected-kids" data-goats="{{ account.current_goats }}">{{ account.current_goats|add:account.current_goats }}</span>
+                  </div>
+                  <small class="text-muted">Kids (2 per goat)</small>
+                </td>
+                <td>
+                  <div class="kidding-info" data-created="{{ account.created_at|date:'Y-m-d' }}">
+                    <strong class="kidding-date">Calculating...</strong>
+                    <br>
+                    <small class="text-muted">
+                      <span class="kidding-status">Loading...</span>
+                    </small>
+                  </div>
+                </td>
+                <td>{{ account.created_at|date:"M d, Y" }}</td>
+              </tr>
+              {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- Goat Breeding Information Section -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-info-circle"></i>Goat Breeding Information</h3>
+      </div>
+      <div style="padding: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+          <div>
+            <strong>Breeding Cycle:</strong> Every 14 months<br>
+            <strong>Kids per Birth:</strong> 2 kids per female goat<br>
+            <strong>Gestation Period:</strong> 5 months
+          </div>
+          <div>
+            <strong>Maturity Age:</strong> 14 months from birth<br>
+            <strong>Expected ROI:</strong> Kids can be sold or kept for breeding<br>
+            <strong>Next Generation:</strong> Kids mature in 14 months
+          </div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-horse"></i>Your Goat Holdings</h3>
+      </div>
+      <div class="table-container">
+        <div class="text-center py-4">
+          <i class="fas fa-horse fa-3x" style="color: var(--muted); margin-bottom: 1rem;"></i>
+          <h5 style="color: var(--muted);">No goats allocated yet</h5>
+          <p style="color: var(--muted);">Your goats will appear here once you complete package purchases and they are allocated to farms.</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Your Package Purchases -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-shopping-cart"></i>Your Package Purchases</h3>
+      </div>
+      <div class="table-container">
+        {% if package_purchases %}
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Farm</th>
+                <th>Package</th>
+                <th>Total Amount</th>
+                <th>Amount Paid</th>
+                <th>Balance</th>
+                <th>Status</th>
+                <th>Goats Allocated</th>
+                <th>Purchase Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for purchase in package_purchases %}
+              <tr>
+                <td>{{ purchase.farm.name }}</td>
+                <td>{{ purchase.package.name }}</td>
+                <td>UGX {{ purchase.total_amount|floatformat:0|intcomma }}</td>
+                <td>UGX {{ purchase.amount_paid|floatformat:0|intcomma }}</td>
+                <td>UGX {{ purchase.balance_due|floatformat:0|intcomma }}</td>
+                <td>
+                  <span class="badge {% if purchase.status == 'allocated' %}badge-success{% elif purchase.status == 'paid' %}badge-info{% elif purchase.status == 'partial' %}badge-warning{% else %}badge-secondary{% endif %}">
+                    {{ purchase.get_status_display }}
+                  </span>
+                </td>
+                <td>{{ purchase.goats_allocated }}/{{ purchase.package.goat_count }}</td>
+                <td>{{ purchase.purchase_date|date:"M d, Y" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="text-center py-4">
+            <i class="fas fa-info-circle fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No package purchases found</h5>
+            <p class="text-muted">Contact your administrator to purchase investment packages.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Recent Payments (Receipts) -->
+    {% if recent_payments %}
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-receipt"></i>Recent Payments (Receipts)</h3>
+      </div>
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Receipt #</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>Package</th>
+              <th>Farm</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for payment in recent_payments %}
+            <tr>
+              <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+              <td>{{ payment.receipt_number }}</td>
+              <td>UGX {{ payment.amount|floatformat:0|intcomma }}</td>
+              <td>{{ payment.payment_method|default:"-" }}</td>
+              <td>{{ payment.purchase.package.name }}</td>
+              <td>{{ payment.purchase.farm.name }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </main>
+
+  <script>
+    // User dropdown
+    const userButton = document.getElementById('userButton');
+    const userDropdown = document.getElementById('userDropdown');
+    userButton.addEventListener('click', () => userDropdown.classList.toggle('show'));
+    document.addEventListener('click', (e) => { if (!userButton.contains(e.target)) userDropdown.classList.remove('show'); });
+
+    // Mobile menu
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const sidebar = document.getElementById('sidebar');
+    mobileMenuToggle.addEventListener('click', () => sidebar.classList.toggle('show'));
+    document.addEventListener('click', (e) => { if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) sidebar.classList.remove('show'); });
+    window.addEventListener('resize', () => { if (window.innerWidth > 1024) sidebar.classList.remove('show'); });
+
+    // Calculate expected kids and kidding dates
+    document.addEventListener('DOMContentLoaded', function() {
+      // Calculate expected kids (2 per goat)
+      document.querySelectorAll('.expected-kids').forEach(function(element) {
+        const goats = parseInt(element.getAttribute('data-goats')) || 0;
+        const expectedKids = goats * 2;
+        element.textContent = expectedKids;
+      });
+
+      // Calculate kidding dates (14 months from account creation)
+      document.querySelectorAll('.kidding-info').forEach(function(element) {
+        const createdDate = new Date(element.getAttribute('data-created'));
+        const kiddingDate = new Date(createdDate);
+        kiddingDate.setMonth(kiddingDate.getMonth() + 14);
+        
+        const today = new Date();
+        const kiddingDateElement = element.querySelector('.kidding-date');
+        const kiddingStatusElement = element.querySelector('.kidding-status');
+        
+        // Format the kidding date
+        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+        kiddingDateElement.textContent = kiddingDate.toLocaleDateString('en-US', options);
+        
+        // Calculate status
+        if (kiddingDate > today) {
+          const timeDiff = kiddingDate.getTime() - today.getTime();
+          const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+          
+          if (daysDiff > 365) {
+            const years = Math.floor(daysDiff / 365);
+            const months = Math.floor((daysDiff % 365) / 30);
+            kiddingStatusElement.innerHTML = '<span style="color: var(--warning);">' + years + ' year' + (years > 1 ? 's' : '') + 
+              (months > 0 ? ' ' + months + ' month' + (months > 1 ? 's' : '') : '') + ' remaining</span>';
+          } else if (daysDiff > 30) {
+            const months = Math.floor(daysDiff / 30);
+            const days = daysDiff % 30;
+            kiddingStatusElement.innerHTML = '<span style="color: var(--warning);">' + months + ' month' + (months > 1 ? 's' : '') + 
+              (days > 0 ? ' ' + days + ' day' + (days > 1 ? 's' : '') : '') + ' remaining</span>';
+          } else {
+            kiddingStatusElement.innerHTML = '<span style="color: var(--info);">' + daysDiff + ' day' + (daysDiff > 1 ? 's' : '') + ' remaining</span>';
+          }
+        } else {
+          kiddingStatusElement.innerHTML = '<span style="color: var(--success);">Ready for breeding!</span>';
+        }
+      });
+    });
+  </script>
+</body>
+</html>

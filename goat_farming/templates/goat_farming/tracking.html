@@ -1,0 +1,977 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visual Tracking - MCS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --brand: #fd7e14;
+      --brand-d: #e06c0c;
+      --bg: #f7f7f9;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --info: #0ea5e9;
+      --secondary: #64748b;
+      --border: #e5e7eb;
+      --shadow: 0 8px 24px rgba(0,0,0,.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --radius-xs: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: var(--brand);
+      border-bottom: 1px solid var(--brand-d);
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 1000; box-shadow: var(--shadow); color: #fff;
+    }
+    .header-content { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; }
+    .logo { display: flex; align-items: center; gap: 0.75rem; font-size: 1.5rem; font-weight: 800; color: #fff; text-decoration: none; }
+    .logo img { height: 40px; width: auto; object-fit: contain; display: block; }
+    .logo-text { font-size: 1.5rem; font-weight: 800; color: #fff; }
+    .user-menu { position: relative; }
+    .user-button {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3);
+      border-radius: var(--radius-sm); padding: .5rem 1rem; cursor: pointer;
+      transition: all .2s ease; font-weight: 500; color: #fff;
+    }
+    .user-button:hover { background: rgba(255,255,255,.3); border-color: rgba(255,255,255,.5); }
+    .user-avatar {
+      width: 32px; height: 32px; background: rgba(255,255,255,.3);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 600; overflow: hidden; position: relative; flex-shrink: 0;
+    }
+    .user-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 2; }
+    .dropdown {
+      position: absolute; top: 100%; right: 0; margin-top: .5rem; background: var(--card);
+      border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+      min-width: 200px; opacity: 0; visibility: hidden; transform: translateY(-10px); transition: all .2s ease;
+    }
+    .dropdown.show { opacity: 1; visibility: visible; transform: translateY(0); }
+    .dropdown-item {
+      display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem;
+      color: var(--text); text-decoration: none; transition: background .2s ease; border-bottom: 1px solid var(--border);
+    }
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:hover { background: var(--bg); color: var(--brand); }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed; left: 0; top: 0; width: 280px; height: 100vh;
+      background: var(--card); border-right: 1px solid var(--border);
+      box-shadow: var(--shadow); z-index: 999; overflow-y: auto; padding-top: 80px;
+    }
+    .sidebar-header { padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg); }
+    .sidebar-title { font-size: 1.25rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .75rem; }
+    .sidebar-title i { color: var(--brand); }
+    .nav-list { list-style: none; padding: 1.5rem 0; }
+    .nav-item { margin-bottom: .5rem; }
+    .nav-link {
+      display: flex; align-items: center; gap: .75rem; padding: .75rem 1.5rem;
+      color: var(--muted); text-decoration: none; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      transition: all .2s ease; font-weight: 500; margin-right: 1rem;
+    }
+    .nav-link:hover { background: var(--bg); color: var(--text); }
+    .nav-link.active { background: var(--brand); color: #fff; box-shadow: var(--shadow); }
+    .nav-link.active i { color: #fff; }
+
+    /* Main Content */
+    .main-content { margin-left: 280px; margin-top: 80px; padding: 1.5rem 2rem; min-height: calc(100vh - 80px); }
+    .page-header { background: var(--card); border-radius: var(--radius); padding: 2rem; box-shadow: var(--shadow); margin-bottom: 2rem; }
+    .page-title { font-size: 2rem; font-weight: 800; color: var(--text); margin-bottom: .5rem; }
+    .page-subtitle { color: var(--muted); font-size: 1.125rem; margin-bottom: 1rem; }
+
+    /* Content Cards */
+    .content-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden; margin-bottom: 2rem; }
+    .card-header { padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 1.25rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .75rem; }
+    .card-title i { color: var(--brand); }
+    .card-actions { display: flex; gap: .75rem; }
+
+    .btn { display: inline-flex; align-items: center; gap: .5rem; padding: .5rem 1rem; border: none; border-radius: 12px; font-weight: 600; text-decoration: none; cursor: pointer; transition: all .2s ease; font-size: .875rem; }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-primary:hover { background: var(--brand-d); transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--border); color: var(--text); }
+
+    /* Tables */
+    .table-container { overflow-x: auto; padding: 1.5rem; }
+    .table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    .table th {
+      background: var(--bg); padding: 1rem; text-align: left; font-weight: 600; color: var(--text);
+      border-bottom: 1px solid var(--border); font-size: .875rem; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .table td { padding: 1rem; border-bottom: 1px solid var(--border); color: var(--text); }
+    .table tbody tr:hover { background: var(--bg); }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; gap: .25rem; padding: .25rem .75rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-secondary { background: #e2e8f0; color: #475569; }
+    .badge-info { background: #cffafe; color: #0e7490; }
+
+    /* Mobile */
+    .mobile-menu-toggle { display: none; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; padding: .5rem; }
+    @media (max-width: 1024px) {
+      .sidebar { transform: translateX(-100%); transition: transform .3s ease; }
+      .sidebar.show { transform: translateX(0); }
+      .main-content { margin-left: 0; }
+      .header-content { margin-left: 0; justify-content: space-between; }
+      .mobile-menu-toggle { display: block; }
+    }
+    @media (max-width: 768px) {
+      .main-content { padding: 1rem; }
+      .page-header { padding: 1.5rem; }
+      .page-title { font-size: 1.75rem; }
+      .card-header { padding: 1rem; flex-direction: column; gap: .75rem; align-items: flex-start; }
+      .table-container { padding: 1rem; }
+    }
+    @media (max-width: 480px) {
+      .header-content { padding: 1rem; }
+      .logo { font-size: 1.25rem; }
+      .main-content { padding: .75rem; }
+      .page-header { padding: 1rem; }
+      .page-title { font-size: 1.5rem; }
+    }
+
+    /* Animations */
+    .fade-in-up { animation: fadeInUp .6s ease-out; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <button class="mobile-menu-toggle" id="mobileMenuToggle"><i class="fas fa-bars"></i></button>
+      <a href="{% url 'landing' %}" class="logo">
+        <img src="{% static 'core/images/logo.png' %}" alt="MCS Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+        <span class="logo-text">MCS</span>
+      </a>
+      <div class="user-menu">
+        <button class="user-button" id="userButton">
+          <div class="user-avatar">
+            {% if user.profile.photo %}
+              <img src="{{ user.profile.photo.url }}" alt="Profile Photo">
+            {% else %}
+              {{ user.profile.initials|default:user.username|first|upper }}
+            {% endif %}
+          </div>
+          <span>{{ user.first_name|default:user.get_username }}</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="dropdown" id="userDropdown">
+          <a href="{% url 'profile' %}" class="dropdown-item"><i class="fas fa-user"></i>Profile</a>
+          <a href="{% url 'landing' %}" class="dropdown-item"><i class="fas fa-home"></i>Dashboard</a>
+          <a href="{% url 'accounts:logout' %}" class="dropdown-item"><i class="fas fa-sign-out-alt"></i>Logout</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2 class="sidebar-title"><i class="fas fa-horse"></i>Commercial Goat Farming</h2>
+  </div>
+    <ul class="nav-list">
+      <li class="nav-item">
+        <a href="{% url 'goat_farming:dashboard' %}" class="nav-link">
+          <i class="fas fa-home"></i>Dashboard
+        </a>
+      </li>
+      <li class="nav-item"><a href="{% url 'goat_farming:investment' %}" class="nav-link"><i class="fas fa-chart-line"></i>Investment Info</a></li>
+      <li class="nav-item"><a href="{% url 'goat_farming:transactions' %}" class="nav-link"><i class="fas fa-exchange-alt"></i>Transactions</a></li>
+      <li class="nav-item"><a href="#" class="nav-link active"><i class="fas fa-satellite"></i>Visual Tracking</a></li>
+    </ul>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Page Header -->
+    <div class="page-header fade-in-up">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h1 class="page-title">Visual Farm Tracking</h1>
+          <p class="page-subtitle">Watch live videos, view photos, monitor cameras, and track your farm from space</p>
+        </div>
+        <div>
+          <a href="{% url 'goat_farming:dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i>Back to Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- YouTube Videos Section -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fab fa-youtube"></i>Farm Videos</h3>
+        <span class="badge badge-success">Latest Updates</span>
+      </div>
+      <div style="padding: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem;">
+          <!-- Featured Video -->
+          <div style="background: linear-gradient(135deg, var(--bg), #f0f9ff); border-radius: var(--radius-sm); padding: 1.5rem; border: 1px solid var(--border);">
+            <div style="position: relative; width: 100%; height: 200px; background: #000; border-radius: var(--radius-xs); overflow: hidden; margin-bottom: 1rem;">
+              <iframe 
+                width="100%" 
+                height="100%" 
+                src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
+                title="Farm Update Video" 
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen
+                style="border-radius: var(--radius-xs);">
+              </iframe>
+            </div>
+            <h5 style="margin-bottom: 0.5rem; color: var(--text);">Weekly Farm Update</h5>
+            <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 0.75rem;">Latest developments and goat health updates from our farm</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <small style="color: var(--muted);">
+                <i class="fas fa-calendar" style="margin-right: 0.25rem;"></i>{{ farm_videos.0.date|default:"Today" }}
+              </small>
+              <a href="#" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                <i class="fas fa-play"></i>Watch Full Video
+              </a>
+            </div>
+          </div>
+
+          <!-- Recent Videos Grid -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; text-align: center;">
+              <div style="position: relative; width: 100%; height: 100px; background: #000; border-radius: var(--radius-xs); overflow: hidden; margin-bottom: 0.75rem;">
+                <iframe 
+                  width="100%" 
+                  height="100%" 
+                  src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
+                  title="Goat Feeding" 
+                  frameborder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowfullscreen
+                  style="border-radius: var(--radius-xs);">
+                </iframe>
+              </div>
+              <h6 style="margin-bottom: 0.25rem; font-size: 0.875rem;">Goat Feeding</h6>
+              <small style="color: var(--muted);">2 days ago</small>
+            </div>
+            <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; text-align: center;">
+              <div style="position: relative; width: 100%; height: 100px; background: #000; border-radius: var(--radius-xs); overflow: hidden; margin-bottom: 0.75rem;">
+                <iframe 
+                  width="100%" 
+                  height="100%" 
+                  src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
+                  title="Health Check" 
+                  frameborder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowfullscreen
+                  style="border-radius: var(--radius-xs);">
+                </iframe>
+              </div>
+              <h6 style="margin-bottom: 0.25rem; font-size: 0.875rem;">Health Check</h6>
+              <small style="color: var(--muted);">5 days ago</small>
+            </div>
+            <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; text-align: center;">
+              <div style="position: relative; width: 100%; height: 100px; background: #000; border-radius: var(--radius-xs); overflow: hidden; margin-bottom: 0.75rem;">
+                <iframe 
+                  width="100%" 
+                  height="100%" 
+                  src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
+                  title="New Kids" 
+                  frameborder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowfullscreen
+                  style="border-radius: var(--radius-xs);">
+                </iframe>
+              </div>
+              <h6 style="margin-bottom: 0.25rem; font-size: 0.875rem;">New Kids Born</h6>
+              <small style="color: var(--muted);">1 week ago</small>
+            </div>
+            <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; text-align: center;">
+              <div style="position: relative; width: 100%; height: 100px; background: #000; border-radius: var(--radius-xs); overflow: hidden; margin-bottom: 0.75rem;">
+                <iframe 
+                  width="100%" 
+                  height="100%" 
+                  src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
+                  title="Farm Tour" 
+                  frameborder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowfullscreen
+                  style="border-radius: var(--radius-xs);">
+                </iframe>
+              </div>
+              <h6 style="margin-bottom: 0.25rem; font-size: 0.875rem;">Farm Tour</h6>
+              <small style="color: var(--muted);">2 weeks ago</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Photo Gallery Section -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-images"></i>Farm Photo Gallery</h3>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-secondary" onclick="filterPhotos('all')" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">All</button>
+          <button class="btn btn-secondary" onclick="filterPhotos('goats')" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">Goats</button>
+          <button class="btn btn-secondary" onclick="filterPhotos('facilities')" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">Facilities</button>
+          <button class="btn btn-secondary" onclick="filterPhotos('activities')" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">Activities</button>
+        </div>
+      </div>
+      <div style="padding: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;" id="photoGallery">
+          <!-- Photo 1 -->
+          <div class="photo-item" data-category="goats" style="background: var(--card); border-radius: var(--radius-sm); overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: transform 0.2s ease;" onclick="openPhotoModal('https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=500&h=300&fit=crop')">
+            <div style="position: relative; width: 100%; height: 200px; overflow: hidden;">
+              <img src="https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=500&h=300&fit=crop" alt="Goat Herd" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;">
+              <div style="position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(0,0,0,0.7); color: white; padding: 0.25rem 0.5rem; border-radius: var(--radius-xs); font-size: 0.75rem;">
+                <i class="fas fa-heart"></i> 24
+              </div>
+            </div>
+            <div style="padding: 1rem;">
+              <h6 style="margin-bottom: 0.25rem;">Healthy Goat Herd</h6>
+              <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Our main herd grazing in the morning</p>
+              <small style="color: var(--muted);">
+                <i class="fas fa-calendar" style="margin-right: 0.25rem;"></i>Today
+              </small>
+            </div>
+          </div>
+
+          <!-- Photo 2 -->
+          <div class="photo-item" data-category="facilities" style="background: var(--card); border-radius: var(--radius-sm); overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: transform 0.2s ease;" onclick="openPhotoModal('https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=500&h=300&fit=crop')">
+            <div style="position: relative; width: 100%; height: 200px; overflow: hidden;">
+              <img src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=500&h=300&fit=crop" alt="Farm Facilities" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;">
+              <div style="position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(0,0,0,0.7); color: white; padding: 0.25rem 0.5rem; border-radius: var(--radius-xs); font-size: 0.75rem;">
+                <i class="fas fa-heart"></i> 18
+              </div>
+            </div>
+            <div style="padding: 1rem;">
+              <h6 style="margin-bottom: 0.25rem;">Modern Barn</h6>
+              <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Our newly constructed goat shelter</p>
+              <small style="color: var(--muted);">
+                <i class="fas fa-calendar" style="margin-right: 0.25rem;"></i>Yesterday
+              </small>
+            </div>
+          </div>
+
+          <!-- Photo 3 -->
+          <div class="photo-item" data-category="activities" style="background: var(--card); border-radius: var(--radius-sm); overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: transform 0.2s ease;" onclick="openPhotoModal('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop')">
+            <div style="position: relative; width: 100%; height: 200px; overflow: hidden;">
+              <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop" alt="Feeding Activity" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;">
+              <div style="position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(0,0,0,0.7); color: white; padding: 0.25rem 0.5rem; border-radius: var(--radius-xs); font-size: 0.75rem;">
+                <i class="fas fa-heart"></i> 32
+              </div>
+            </div>
+            <div style="padding: 1rem;">
+              <h6 style="margin-bottom: 0.25rem;">Feeding Time</h6>
+              <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Goats enjoying their afternoon meal</p>
+              <small style="color: var(--muted);">
+                <i class="fas fa-calendar" style="margin-right: 0.25rem;"></i>2 days ago
+              </small>
+            </div>
+          </div>
+
+          <!-- Photo 4 -->
+          <div class="photo-item" data-category="goats" style="background: var(--card); border-radius: var(--radius-sm); overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: transform 0.2s ease;" onclick="openPhotoModal('https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=500&h=300&fit=crop')">
+            <div style="position: relative; width: 100%; height: 200px; overflow: hidden;">
+              <img src="https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=500&h=300&fit=crop" alt="Baby Goats" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;">
+              <div style="position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(0,0,0,0.7); color: white; padding: 0.25rem 0.5rem; border-radius: var(--radius-xs); font-size: 0.75rem;">
+                <i class="fas fa-heart"></i> 45
+              </div>
+            </div>
+            <div style="padding: 1rem;">
+              <h6 style="margin-bottom: 0.25rem;">New Kids</h6>
+              <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Recently born kids playing together</p>
+              <small style="color: var(--muted);">
+                <i class="fas fa-calendar" style="margin-right: 0.25rem;"></i>3 days ago
+              </small>
+            </div>
+          </div>
+
+          <!-- Photo 5 -->
+          <div class="photo-item" data-category="facilities" style="background: var(--card); border-radius: var(--radius-sm); overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: transform 0.2s ease;" onclick="openPhotoModal('https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500&h=300&fit=crop')">
+            <div style="position: relative; width: 100%; height: 200px; overflow: hidden;">
+              <img src="https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500&h=300&fit=crop" alt="Water System" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;">
+              <div style="position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(0,0,0,0.7); color: white; padding: 0.25rem 0.5rem; border-radius: var(--radius-xs); font-size: 0.75rem;">
+                <i class="fas fa-heart"></i> 12
+              </div>
+            </div>
+            <div style="padding: 1rem;">
+              <h6 style="margin-bottom: 0.25rem;">Water System</h6>
+              <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Automated water dispensing system</p>
+              <small style="color: var(--muted);">
+                <i class="fas fa-calendar" style="margin-right: 0.25rem;"></i>1 week ago
+              </small>
+            </div>
+          </div>
+
+          <!-- Photo 6 -->
+          <div class="photo-item" data-category="activities" style="background: var(--card); border-radius: var(--radius-sm); overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: transform 0.2s ease;" onclick="openPhotoModal('https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=500&h=300&fit=crop')">
+            <div style="position: relative; width: 100%; height: 200px; overflow: hidden;">
+              <img src="https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=500&h=300&fit=crop" alt="Health Check" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;">
+              <div style="position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(0,0,0,0.7); color: white; padding: 0.25rem 0.5rem; border-radius: var(--radius-xs); font-size: 0.75rem;">
+                <i class="fas fa-heart"></i> 28
+              </div>
+            </div>
+            <div style="padding: 1rem;">
+              <h6 style="margin-bottom: 0.25rem;">Health Check</h6>
+              <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Veterinary examination in progress</p>
+              <small style="color: var(--muted);">
+                <i class="fas fa-calendar" style="margin-right: 0.25rem;"></i>1 week ago
+              </small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Cameras Section -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-video"></i>Live Camera Feeds</h3>
+        <span class="badge badge-success">Live</span>
+      </div>
+      <div style="padding: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+          <!-- Main Camera -->
+          <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
+            <div style="position: relative; width: 100%; height: 200px; background: #000;">
+              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center;">
+                <i class="fas fa-video" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                <p style="margin: 0;">Main Farm Camera</p>
+                <small style="opacity: 0.7;">Live Feed</small>
+              </div>
+              <div style="position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(220, 38, 38, 0.8); color: white; padding: 0.25rem 0.5rem; border-radius: var(--radius-xs); font-size: 0.75rem;">
+                <i class="fas fa-circle"></i> LIVE
+              </div>
+            </div>
+            <div style="padding: 1rem;">
+              <h6 style="margin-bottom: 0.25rem;">Main Farm View</h6>
+              <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Overview of the main goat grazing area</p>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <small style="color: var(--muted);">
+                  <i class="fas fa-wifi" style="margin-right: 0.25rem;"></i>HD Quality
+                </small>
+                <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                  <i class="fas fa-expand"></i>Fullscreen
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feeding Area Camera -->
+          <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
+            <div style="position: relative; width: 100%; height: 200px; background: #000;">
+              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center;">
+                <i class="fas fa-video" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                <p style="margin: 0;">Feeding Area</p>
+                <small style="opacity: 0.7;">Live Feed</small>
+              </div>
+              <div style="position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(220, 38, 38, 0.8); color: white; padding: 0.25rem 0.5rem; border-radius: var(--radius-xs); font-size: 0.75rem;">
+                <i class="fas fa-circle"></i> LIVE
+              </div>
+            </div>
+            <div style="padding: 1rem;">
+              <h6 style="margin-bottom: 0.25rem;">Feeding Station</h6>
+              <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Monitor feeding activities and goat behavior</p>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <small style="color: var(--muted);">
+                  <i class="fas fa-wifi" style="margin-right: 0.25rem;"></i>HD Quality
+                </small>
+                <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                  <i class="fas fa-expand"></i>Fullscreen
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barn Camera -->
+          <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
+            <div style="position: relative; width: 100%; height: 200px; background: #000;">
+              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center;">
+                <i class="fas fa-video" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                <p style="margin: 0;">Barn Interior</p>
+                <small style="opacity: 0.7;">Live Feed</small>
+              </div>
+              <div style="position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(220, 38, 38, 0.8); color: white; padding: 0.25rem 0.5rem; border-radius: var(--radius-xs); font-size: 0.75rem;">
+                <i class="fas fa-circle"></i> LIVE
+              </div>
+            </div>
+            <div style="padding: 1rem;">
+              <h6 style="margin-bottom: 0.25rem;">Barn Monitoring</h6>
+              <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Interior view of the goat shelter</p>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <small style="color: var(--muted);">
+                  <i class="fas fa-wifi" style="margin-right: 0.25rem;"></i>HD Quality
+                </small>
+                <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                  <i class="fas fa-expand"></i>Fullscreen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Satellite View Section -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-satellite"></i>Satellite View</h3>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-secondary" onclick="changeMapView('satellite')" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+            <i class="fas fa-satellite"></i> Satellite
+          </button>
+          <button class="btn btn-secondary" onclick="changeMapView('terrain')" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+            <i class="fas fa-mountain"></i> Terrain
+          </button>
+          <button class="btn btn-secondary" onclick="changeMapView('street')" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+            <i class="fas fa-road"></i> Street
+          </button>
+        </div>
+      </div>
+      <div style="padding: 0;">
+        <!-- Satellite Map Container -->
+        <div id="satelliteMap" style="position: relative; height: 400px;">
+          <!-- Google Maps Satellite View -->
+          <iframe 
+            src="https://www.google.com/maps/embed?pb=!1m17!1m12!1m3!1d1540.3352927365922!2d32.89821386377926!3d0.14188359741495365!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m2!1m1!2zMMKwMDgnMzAuNiJOIDMywrA1Myc1NC43IkU!5e1!3m2!1sen!2sug!4v1752632239507!5m2!1sen!2sug" 
+            width="100%" 
+            height="100%" 
+            style="border:0;" 
+            allowfullscreen="" 
+            loading="lazy" 
+            referrerpolicy="no-referrer-when-downgrade">
+          </iframe>
+          
+          <!-- Farm Zone Overlays -->
+          <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+            {% for zone in farm_zones %}
+            <div style="position: absolute; top: {{ forloop.counter|add:10 }}%; left: {{ forloop.counter|add:20 }}%; pointer-events: auto;">
+              <div style="background: rgba(22, 163, 74, 0.75); color: white; padding: 0.5rem; border-radius: var(--radius-xs); box-shadow: var(--shadow); min-width: 120px; backdrop-filter: blur(5px);">
+                <small style="font-weight: 600;">{{ zone.name|default:"Zone "|add:forloop.counter }}</small><br>
+                <small>{{ zone.goats_count|default:forloop.counter|add:2 }} goats</small><br>
+                <small>{{ zone.area|default:"0.5 ha" }}</small>
+              </div>
+            </div>
+            {% empty %}
+            <div style="position: absolute; top: 20%; left: 30%; pointer-events: auto;">
+              <div style="background: rgba(22, 163, 74, 0.75); color: white; padding: 0.5rem; border-radius: var(--radius-xs); box-shadow: var(--shadow); min-width: 120px; backdrop-filter: blur(5px);">
+                <small style="font-weight: 600;">Zone 1</small><br>
+                <small>4 goats</small><br>
+                <small>0.5 ha</small>
+              </div>
+            </div>
+            <div style="position: absolute; top: 50%; left: 60%; pointer-events: auto;">
+              <div style="background: rgba(22, 163, 74, 0.75); color: white; padding: 0.5rem; border-radius: var(--radius-xs); box-shadow: var(--shadow); min-width: 120px; backdrop-filter: blur(5px);">
+                <small style="font-weight: 600;">Zone 2</small><br>
+                <small>6 goats</small><br>
+                <small>0.8 ha</small>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+        <div style="padding: 0;">
+          <!-- Satellite Map Container -->
+          <div id="satelliteMap" style="position: relative; height: 500px;">
+            <!-- Google Maps Satellite View -->
+            <iframe 
+              src="https://www.google.com/maps/embed?pb=!1m17!1m12!1m3!1d1540.3352927365922!2d32.89821386377926!3d0.14188359741495365!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m2!1m1!2zMMKwMDgnMzAuNiJOIDMywrA1Myc1NC43IkU!5e1!3m2!1sen!2sug!4v1752632239507!5m2!1sen!2sug" 
+              width="100%" 
+              height="100%" 
+              style="border:0;" 
+              allowfullscreen="" 
+              loading="lazy" 
+              referrerpolicy="no-referrer-when-downgrade">
+            </iframe>
+            
+            <!-- Farm Zone Overlays (Positioned over the map) -->
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+              {% for zone in farm_zones %}
+              <div style="position: absolute; top: {{ forloop.counter|add:10 }}%; left: {{ forloop.counter|add:20 }}%; pointer-events: auto;">
+                <div style="background: rgba(22, 163, 74, 0.75); color: white; padding: 0.5rem; border-radius: var(--radius-xs); box-shadow: var(--shadow); min-width: 120px; backdrop-filter: blur(5px);">
+                  <small style="font-weight: 600;">{{ zone.name|default:"Zone "|add:forloop.counter }}</small><br>
+                  <small>{{ zone.goats_count|default:forloop.counter|add:2 }} goats</small><br>
+                  <small>{{ zone.area|default:"0.5 ha" }}</small>
+                </div>
+              </div>
+              {% empty %}
+              <div style="position: absolute; top: 20%; left: 30%; pointer-events: auto;">
+                <div style="background: rgba(22, 163, 74, 0.75); color: white; padding: 0.5rem; border-radius: var(--radius-xs); box-shadow: var(--shadow); min-width: 120px; backdrop-filter: blur(5px);">
+                  <small style="font-weight: 600;">Zone 1</small><br>
+                  <small>4 goats</small><br>
+                  <small>0.5 ha</small>
+                </div>
+              </div>
+              <div style="position: absolute; top: 50%; left: 60%; pointer-events: auto;">
+                <div style="background: rgba(22, 163, 74, 0.75); color: white; padding: 0.5rem; border-radius: var(--radius-xs); box-shadow: var(--shadow); min-width: 120px; backdrop-filter: blur(5px);">
+                  <small style="font-weight: 600;">Zone 2</small><br>
+                  <small>6 goats</small><br>
+                  <small>0.8 ha</small>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          
+          <!-- Map Controls -->
+          <div style="padding: 1rem; border-top: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button class="btn btn-secondary" onclick="changeMapView('satellite')" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                  <i class="fas fa-satellite"></i> Satellite
+                </button>
+                <button class="btn btn-secondary" onclick="changeMapView('terrain')" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                  <i class="fas fa-mountain"></i> Terrain
+                </button>
+                <button class="btn btn-secondary" onclick="changeMapView('street')" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                  <i class="fas fa-road"></i> Street
+                </button>
+              </div>
+              <div style="display: flex; gap: 1rem; align-items: center;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text);">
+                  <input type="checkbox" id="showZones" checked style="margin: 0;">
+                  Show Zones
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text);">
+                  <input type="checkbox" id="showActivity" checked style="margin: 0;">
+                  Show Activity
+                </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Farm Statistics -->
+      <div class="content-card fade-in-up">
+        <div class="card-header">
+          <h3 class="card-title"><i class="fas fa-chart-bar"></i>Farm Statistics</h3>
+        </div>
+        <div style="padding: 1.5rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div style="text-align: center;">
+              <div style="background: rgba(13, 110, 253, 0.1); border-radius: var(--radius-sm); padding: 1rem;">
+                <i class="fas fa-goat" style="font-size: 2rem; color: var(--brand); margin-bottom: 0.5rem;"></i>
+                <h4 style="margin-bottom: 0.25rem;">{{ total_goats|default:12 }}</h4>
+                <small style="color: var(--muted);">Total Goats</small>
+              </div>
+            </div>
+            <div style="text-align: center;">
+              <div style="background: rgba(22, 163, 74, 0.1); border-radius: var(--radius-sm); padding: 1rem;">
+                <i class="fas fa-heart" style="font-size: 2rem; color: var(--success); margin-bottom: 0.5rem;"></i>
+                <h4 style="margin-bottom: 0.25rem;">{{ healthy_goats|default:10 }}</h4>
+                <small style="color: var(--muted);">Healthy</small>
+              </div>
+            </div>
+            <div style="text-align: center;">
+              <div style="background: rgba(245, 158, 11, 0.1); border-radius: var(--radius-sm); padding: 1rem;">
+                <i class="fas fa-baby" style="font-size: 2rem; color: var(--warning); margin-bottom: 0.5rem;"></i>
+                <h4 style="margin-bottom: 0.25rem;">{{ pregnant_goats|default:3 }}</h4>
+                <small style="color: var(--muted);">Pregnant</small>
+              </div>
+            </div>
+            <div style="text-align: center;">
+              <div style="background: rgba(14, 165, 233, 0.1); border-radius: var(--radius-sm); padding: 1rem;">
+                <i class="fas fa-star" style="font-size: 2rem; color: var(--info); margin-bottom: 0.5rem;"></i>
+                <h4 style="margin-bottom: 0.25rem;">{{ total_offspring|default:8 }}</h4>
+                <small style="color: var(--muted);">Offspring</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- Farm Activity Timeline -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-history"></i>Farm Activity Timeline</h3>
+      </div>
+      <div style="padding: 1.5rem;">
+        <div class="timeline">
+          {% for activity in farm_activities %}
+          <div style="display: flex; margin-bottom: 1.5rem;">
+            <div style="flex-shrink: 0;">
+              <div style="background: rgba({{ activity.color_rgb|default:"13,110,253" }}, 0.1); border-radius: 50%; padding: 0.5rem; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-{{ activity.icon|default:'check' }}" style="color: var(--{{ activity.color|default:'info' }});"></i>
+              </div>
+            </div>
+            <div style="flex-grow: 1; margin-left: 0.75rem;">
+              <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div>
+                  <h6 style="margin-bottom: 0.25rem;">{{ activity.title|default:"Activity Update" }}</h6>
+                  <p style="margin-bottom: 0.25rem; color: var(--muted);">{{ activity.description|default:"Farm activity completed successfully" }}</p>
+                </div>
+                <small style="color: var(--muted);">{{ activity.date|date:"M d, Y"|default:"Today" }}</small>
+              </div>
+              {% if activity.goat %}
+              <small style="color: var(--muted);">
+                <i class="fas fa-map-marker-alt" style="margin-right: 0.25rem;"></i>Zone: {{ activity.goat.investment.package.name }}
+              </small>
+              {% endif %}
+            </div>
+          </div>
+          {% empty %}
+          <div style="text-align: center; padding: 2rem;">
+            <i class="fas fa-clock" style="font-size: 3rem; color: var(--muted); margin-bottom: 1rem;"></i>
+            <h6 style="color: var(--muted); margin-bottom: 0.5rem;">No recent activity</h6>
+            <p style="color: var(--muted); margin: 0;">Farm activities will appear here as they occur.</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Satellite Imagery Options -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-satellite-dish"></i>Enhanced Satellite Resources</h3>
+      </div>
+      <div style="padding: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+          <div style="border: 1px solid var(--brand); border-radius: var(--radius-sm); padding: 1rem;">
+            <h6 style="color: var(--brand); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-map-marked-alt"></i>Google Earth Pro
+            </h6>
+            <p style="font-size: 0.875rem; margin-bottom: 1rem; color: var(--muted);">High-resolution satellite imagery with historical data for tracking farm development over time.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <small style="color: var(--muted);">Coordinates: 0.1419° N, 32.8982° E</small>
+              <a href="https://earth.google.com/web/search/0.1419,32.8982" target="_blank" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                <i class="fas fa-external-link-alt"></i> View
+              </a>
+            </div>
+          </div>
+          <div style="border: 1px solid var(--success); border-radius: var(--radius-sm); padding: 1rem;">
+            <h6 style="color: var(--success); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-camera"></i>Sentinel Hub
+            </h6>
+            <p style="font-size: 0.875rem; margin-bottom: 1rem; color: var(--muted);">Free satellite imagery with frequent updates (5-10 days) for monitoring vegetation and farm activities.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <small style="color: var(--muted);">10m resolution</small>
+              <a href="https://apps.sentinel-hub.com/eo-browser/" target="_blank" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                <i class="fas fa-external-link-alt"></i> Explore
+              </a>
+            </div>
+          </div>
+          <div style="border: 1px solid var(--info); border-radius: var(--radius-sm); padding: 1rem;">
+            <h6 style="color: var(--info); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-satellite"></i>NASA Worldview
+            </h6>
+            <p style="font-size: 0.875rem; margin-bottom: 1rem; color: var(--muted);">Real-time satellite data with various sensors for comprehensive farm monitoring and analysis.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <small style="color: var(--muted);">Daily updates</small>
+              <a href="https://worldview.earthdata.nasa.gov/" target="_blank" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                <i class="fas fa-external-link-alt"></i> Access
+              </a>
+            </div>
+          </div>
+          <div style="border: 1px solid var(--warning); border-radius: var(--radius-sm); padding: 1rem;">
+            <h6 style="color: var(--warning); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-drone"></i>Drone Integration
+            </h6>
+            <p style="font-size: 0.875rem; margin-bottom: 1rem; color: var(--muted);">Future enhancement: Real-time drone footage for detailed farm monitoring and activity tracking.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <small style="color: var(--muted);">Coming soon</small>
+              <button class="btn btn-secondary" disabled style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">
+                <i class="fas fa-clock"></i> Pending
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Real-time Monitoring Alerts -->
+    <div class="content-card fade-in-up">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-bell"></i>Real-time Alerts</h3>
+      </div>
+      <div style="padding: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+          <div style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.2); border-radius: var(--radius-sm); padding: 1rem; display: flex; align-items: center;">
+            <i class="fas fa-thermometer-half" style="color: var(--info); margin-right: 0.75rem; font-size: 1.5rem;"></i>
+            <div>
+              <strong style="color: var(--text);">Temperature Alert</strong><br>
+              <small style="color: var(--muted);">Optimal range maintained (20-30°C)</small>
+            </div>
+          </div>
+          <div style="background: rgba(22, 163, 74, 0.1); border: 1px solid rgba(22, 163, 74, 0.2); border-radius: var(--radius-sm); padding: 1rem; display: flex; align-items: center;">
+            <i class="fas fa-tint" style="color: var(--success); margin-right: 0.75rem; font-size: 1.5rem;"></i>
+            <div>
+              <strong style="color: var(--text);">Water Level</strong><br>
+              <small style="color: var(--muted);">All troughs at optimal levels</small>
+            </div>
+          </div>
+          <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: var(--radius-sm); padding: 1rem; display: flex; align-items: center;">
+            <i class="fas fa-exclamation-triangle" style="color: var(--warning); margin-right: 0.75rem; font-size: 1.5rem;"></i>
+            <div>
+              <strong style="color: var(--text);">Feed Inventory</strong><br>
+              <small style="color: var(--muted);">Low on concentrate feed (2 days left)</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // User dropdown
+    const userButton = document.getElementById('userButton');
+    const userDropdown = document.getElementById('userDropdown');
+    userButton.addEventListener('click', () => userDropdown.classList.toggle('show'));
+    document.addEventListener('click', (e) => { if (!userButton.contains(e.target)) userDropdown.classList.remove('show'); });
+
+    // Mobile menu
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const sidebar = document.getElementById('sidebar');
+    mobileMenuToggle.addEventListener('click', () => sidebar.classList.toggle('show'));
+    document.addEventListener('click', (e) => { if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) sidebar.classList.remove('show'); });
+    window.addEventListener('resize', () => { if (window.innerWidth > 1024) sidebar.classList.remove('show'); });
+
+    document.addEventListener("DOMContentLoaded", function () {
+      // Farm coordinates
+      const farmCoordinates = {
+        lat: 0.1419,
+        lng: 32.8982,
+        name: "MCS Goat Farm"
+      };
+
+      // Map view change function
+      window.changeMapView = function(viewType) {
+        const iframe = document.querySelector('#satelliteMap iframe');
+        if (iframe) {
+          let newSrc = '';
+          
+          switch(viewType) {
+            case 'satellite':
+              newSrc = `https://www.google.com/maps/embed?pb=!1m17!1m12!1m3!1d1540.3352927365922!2d32.89821386377926!3d0.14188359741495365!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m2!1m1!2zMMKwMDgnMzAuNiJOIDMywrA1Myc1NC43IkU!5e1!3m2!1sen!2sug!4v1752632239507!5m2!1sen!2sug`;
+              break;
+            case 'terrain':
+              newSrc = `https://www.google.com/maps/embed?pb=!1m17!1m12!1m3!1d1540.3352927365922!2d32.89821386377926!3d0.14188359741495365!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m2!1m1!2zMMKwMDgnMzAuNiJOIDMywrA1Myc1NC43IkU!5e1!3m2!1sen!2sug!4v1752632239507!5m2!1sen!2sug&t=p`;
+              break;
+            case 'street':
+              newSrc = `https://www.google.com/maps/embed?pb=!1m17!1m12!1m3!1d1540.3352927365922!2d32.89821386377926!3d0.14188359741495365!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m2!1m1!2zMMKwMDgnMzAuNiJOIDMywrA1Myc1NC43IkU!5e1!3m2!1sen!2sug!4v1752632239507!5m2!1sen!2sug&t=m`;
+              break;
+          }
+          
+          if (newSrc) {
+            iframe.src = newSrc;
+            
+            // Update button states
+            document.querySelectorAll('[onclick^="changeMapView"]').forEach(btn => {
+              btn.classList.remove('btn-primary');
+              btn.classList.add('btn-secondary');
+            });
+            
+            event.target.classList.remove('btn-secondary');
+            event.target.classList.add('btn-primary');
+          }
+        }
+      };
+
+      // Simulate real-time updates
+      function updateSatelliteData() {
+        const now = new Date();
+        const timeElement = document.querySelector('.text-muted small');
+        if (timeElement) {
+          timeElement.textContent = `Last Updated: ${now.toLocaleString()}`;
+        }
+      }
+
+      // Update every 30 seconds
+      setInterval(updateSatelliteData, 30000);
+
+      // Map controls functionality
+      document.getElementById('showZones').addEventListener('change', function() {
+        const zones = document.querySelectorAll('.position-absolute .bg-success');
+        zones.forEach(zone => {
+          zone.parentElement.style.display = this.checked ? 'block' : 'none';
+        });
+      });
+
+      // Activity visibility toggle
+      document.getElementById('showActivity').addEventListener('change', function() {
+        const activityIndicators = document.querySelectorAll('.activity-indicator');
+        activityIndicators.forEach(indicator => {
+          indicator.style.display = this.checked ? 'block' : 'none';
+        });
+      });
+
+      // Simulate activity updates
+      function addActivityUpdate() {
+        const activities = [
+          { title: 'Health Check Completed', description: 'Routine health check for Zone 1 goats', icon: 'stethoscope', color: 'info' },
+          { title: 'Feed Distribution', description: 'Morning feed distributed to all zones', icon: 'wheat-awn', color: 'success' },
+          { title: 'Water Level Check', description: 'All water troughs at optimal levels', icon: 'tint', color: 'primary' },
+          { title: 'Satellite Scan', description: 'High-resolution satellite imagery captured', icon: 'satellite', color: 'secondary' },
+          { title: 'Vegetation Analysis', description: 'Pasture health assessment completed', icon: 'leaf', color: 'success' }
+        ];
+        
+        const randomActivity = activities[Math.floor(Math.random() * activities.length)];
+        const timeline = document.querySelector('.timeline');
+        
+        if (timeline) {
+          const activityDiv = document.createElement('div');
+          activityDiv.style.cssText = 'display: flex; margin-bottom: 1.5rem;';
+          activityDiv.innerHTML = `
+            <div style="flex-shrink: 0;">
+              <div style="background: rgba(13, 110, 253, 0.1); border-radius: 50%; padding: 0.5rem; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-${randomActivity.icon}" style="color: var(--${randomActivity.color});"></i>
+              </div>
+            </div>
+            <div style="flex-grow: 1; margin-left: 0.75rem;">
+              <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div>
+                  <h6 style="margin-bottom: 0.25rem;">${randomActivity.title}</h6>
+                  <p style="margin-bottom: 0.25rem; color: var(--muted);">${randomActivity.description}</p>
+                </div>
+                <small style="color: var(--muted);">${new Date().toLocaleDateString()}</small>
+              </div>
+            </div>
+          `;
+          
+          timeline.insertBefore(activityDiv, timeline.firstChild);
+          
+          // Remove oldest activity if more than 10
+          const activitiesList = timeline.querySelectorAll('div[style*="display: flex; margin-bottom: 1.5rem"]');
+          if (activitiesList.length > 10) {
+            activitiesList[activitiesList.length - 1].remove();
+          }
+        }
+      }
+
+      // Add activity every 2 minutes (for demo purposes)
+      setInterval(addActivityUpdate, 120000);
+
+      // Initialize with satellite view
+      changeMapView('satellite');
+    });
+  </script>
+</body>
+</html>

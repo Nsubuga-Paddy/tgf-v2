@@ -15,8 +15,18 @@ from pathlib import Path
 from decouple import config, Csv
 import dj_database_url
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+
+# Environment flag: "dev" locally, "prod" on your server
+ENV = os.getenv("DJANGO_ENV", "dev")
+
+# Use SQLite by default in dev if DATABASE_URL isn't set
+default_sqlite_url = f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -72,7 +82,7 @@ INSTALLED_APPS = [
     #our apps
     'accounts',
     'clubs_account',
-    'goat_farming',
+    "goat_farming",
     'gwc',
     'realestate_projects',
     'retirement_savings',
@@ -116,10 +126,10 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    'default': dj_database_url.config(
-        default=config('DATABASE_URL'),
+    "default": dj_database_url.config(
+        default=os.getenv("DATABASE_URL", default_sqlite_url),
         conn_max_age=600,
-        ssl_require=True
+        ssl_require=(ENV == "prod"),
     )
 }
 
@@ -147,12 +157,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
+TIME_ZONE = 'Africa/Kampala'
+USE_TZ = True
 USE_I18N = True
 
-USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
