@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from .models import UserProfile, Project, AccountNumberCounter
+from core.admin_base import ExportableAdminMixin
 
 
 class UserProfileInline(admin.StackedInline):
@@ -49,7 +50,7 @@ class UserAdmin(BaseUserAdmin):
 
 
 @admin.register(UserProfile)
-class UserProfileAdmin(admin.ModelAdmin):
+class UserProfileAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ('user', 'account_number', 'whatsapp_number', 'is_verified', 'is_admin', 'get_projects', 'created_at')
     list_filter = ('is_verified', 'is_admin', 'projects', 'created_at')
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'account_number', 'whatsapp_number')
@@ -93,7 +94,7 @@ class UserProfileAdmin(admin.ModelAdmin):
 
 
 @admin.register(Project)
-class ProjectAdmin(admin.ModelAdmin):
+class ProjectAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ('name', 'description', 'get_member_count')
     search_fields = ('name', 'description')
     

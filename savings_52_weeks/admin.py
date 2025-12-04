@@ -5,10 +5,11 @@ from django.db.models import Sum, Window, F, Case, When, DecimalField, Value
 from django.utils import timezone
 
 from .models import SavingsTransaction, Investment
+from core.admin_base import ExportableAdminMixin
 
 
 @admin.register(SavingsTransaction)
-class SavingsTransactionAdmin(admin.ModelAdmin):
+class SavingsTransactionAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = (
         'id', 'user_profile', 'amount', 'transaction_type', 'receipt_number',
         'transaction_date',
@@ -142,7 +143,7 @@ class SavingsTransactionAdmin(admin.ModelAdmin):
 
 
 @admin.register(Investment)
-class InvestmentAdmin(admin.ModelAdmin):
+class InvestmentAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = (
         'id', 'user_profile', 'amount_invested', 'investment_type', 'interest_rate',
         'start_date', 'maturity_date', 'status', 'days_until_maturity', 'daily_interest', 'total_interest_expected'

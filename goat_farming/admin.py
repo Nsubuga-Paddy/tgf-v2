@@ -8,9 +8,10 @@ from .models import (
     Farm, ManagementFeeTier, InvestmentPackage, 
     UserFarmAccount, PackagePurchase, Payment
 )
+from core.admin_base import ExportableAdminMixin
 
 @admin.register(Farm)
-class FarmAdmin(admin.ModelAdmin):
+class FarmAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ['name', 'location', 'capacity_display', 'current_goats_display', 'available_capacity_display', 'is_active']
     list_filter = ['is_active']
     search_fields = ['name', 'location']
@@ -33,7 +34,7 @@ class FarmAdmin(admin.ModelAdmin):
     available_capacity_display.short_description = 'Available Space'
 
 @admin.register(ManagementFeeTier)
-class ManagementFeeTierAdmin(admin.ModelAdmin):
+class ManagementFeeTierAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ['goat_range', 'annual_fee_display']
     ordering = ['min_goats']
     
@@ -45,7 +46,7 @@ class ManagementFeeTierAdmin(admin.ModelAdmin):
     annual_fee_display.short_description = 'Annual Fee'
 
 @admin.register(InvestmentPackage)
-class InvestmentPackageAdmin(admin.ModelAdmin):
+class InvestmentPackageAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ['name', 'goat_count', 'goat_cost_display', 'management_fee_display', 'total_cost_display', 'is_active']
     list_filter = ['is_active', 'management_fee_tier']
     
@@ -68,7 +69,7 @@ class PaymentInline(admin.TabularInline):
     fields = ['receipt_prefix', 'receipt_suffix', 'receipt_number', 'amount', 'payment_method', 'payment_date', 'created_at']
 
 @admin.register(PackagePurchase)
-class PackagePurchaseAdmin(admin.ModelAdmin):
+class PackagePurchaseAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = [
         'user', 'farm', 'package', 'total_amount_display',
         'amount_paid_display', 'balance_due_display', 'payment_status',
@@ -149,7 +150,7 @@ class PackagePurchaseAdmin(admin.ModelAdmin):
     allocate_goats_action.short_description = 'Allocate goats to accounts'
 
 @admin.register(UserFarmAccount)
-class UserFarmAccountAdmin(admin.ModelAdmin):
+class UserFarmAccountAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ['user_display', 'farm', 'current_goats', 'is_active', 'created_at']
     list_filter = ['farm', 'is_active', 'created_at']
     search_fields = ['user__user__username', 'user__user__first_name', 'user__user__last_name', 'user__account_number']
@@ -167,7 +168,7 @@ class UserFarmAccountAdmin(admin.ModelAdmin):
     user_display.admin_order_field = 'user'
 
 @admin.register(Payment)
-class PaymentAdmin(admin.ModelAdmin):
+class PaymentAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ['receipt_number', 'purchase_info', 'amount_display', 'payment_method', 'payment_date']
     list_filter = ['payment_method', 'payment_date']
     search_fields = ['receipt_number', 'purchase__user__user__username']
