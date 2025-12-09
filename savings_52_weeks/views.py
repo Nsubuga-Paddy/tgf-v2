@@ -58,7 +58,13 @@ def group_dashboard(request):
                 user_profile__in=verified_users,
                 status='fixed'
             )
-            total_interest_gained = sum(inv.interest_gained_so_far for inv in fixed_investments)
+            total_interest_gained_invested = sum(inv.interest_gained_so_far for inv in fixed_investments)
+            
+            # Calculate 15% interest on uninvested savings (for full 52-week period)
+            uninvested_interest = (uninvested_amount * Decimal('0.15')) if uninvested_amount > 0 else Decimal('0.00')
+            
+            # Calculate total interest from both invested and uninvested savings
+            total_interest_gained = total_interest_gained_invested + uninvested_interest
             
             # Calculate progress percentage (total saved vs target)
             target_amount = Decimal('13780000')  # 52 weeks * 10,000 per week
@@ -208,6 +214,8 @@ def group_dashboard(request):
                 'total_invested': total_invested,
                 'uninvested_amount': uninvested_amount,
                 'total_interest_gained': total_interest_gained,
+                'total_interest_gained_invested': total_interest_gained_invested,
+                'uninvested_interest': uninvested_interest,
                 'progress_percentage': progress_percentage,
                 'target_amount': target_amount,
                 'member_count': verified_users.count(),
@@ -227,6 +235,8 @@ def group_dashboard(request):
             'total_invested': Decimal('0.00'),
             'uninvested_amount': Decimal('0.00'),
             'total_interest_gained': Decimal('0.00'),
+            'total_interest_gained_invested': Decimal('0.00'),
+            'uninvested_interest': Decimal('0.00'),
             'progress_percentage': 0,
             'target_amount': Decimal('13780000'),
             'member_count': 0,
@@ -291,6 +301,13 @@ def member_savings(request):
         total_interest_gained = sum(inv.interest_gained_so_far for inv in investments if inv.status == 'fixed')
         uninvested_amount = total_savings - total_invested
         
+        # Get latest investment's maturity date
+        latest_investment = investments.filter(status='fixed').order_by('-start_date').first()
+        latest_maturity_date = latest_investment.maturity_date if latest_investment else None
+        
+        # Calculate 15% interest on uninvested savings (for full 52-week period)
+        uninvested_interest = (uninvested_amount * Decimal('0.15')) if uninvested_amount > 0 else Decimal('0.00')
+        
         savings_data = {
             'total_savings': total_savings,
             'challenge_progress': challenge_progress,
@@ -306,6 +323,8 @@ def member_savings(request):
                 'total_interest_expected': total_interest_expected,
                 'total_interest_gained': total_interest_gained,
                 'uninvested_amount': uninvested_amount,
+                'uninvested_interest': uninvested_interest,
+                'latest_maturity_date': latest_maturity_date,
                 'investment_list': investments
             }
         }

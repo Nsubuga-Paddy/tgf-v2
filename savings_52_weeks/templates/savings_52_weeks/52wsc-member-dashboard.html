@@ -772,24 +772,32 @@
 
       <div class="stat-card">
         <div class="stat-header">
-          <span class="stat-label">Amount Invested</span>
+          <span class="stat-label">Active Investments</span>
           <div class="stat-icon" style="background: #dbeafe; color: var(--info);">
             <i class="fas fa-chart-pie"></i>
           </div>
         </div>
         <div class="stat-value" id="amountInvested">UGX {{ savings_data.investments.total_invested|floatformat:0|default:"0"|intcomma }}</div>
-        <div class="stat-meta">Uninvested: <span id="uninvested">UGX {{ savings_data.investments.uninvested_amount|floatformat:0|default:"0"|intcomma }}</span></div>
-            </div>
+        <div class="stat-meta">
+          Expected Interest: <span id="expectedInterest">UGX {{ savings_data.investments.total_interest_expected|floatformat:0|default:"0"|intcomma }}</span>
+          {% if savings_data.investments.latest_maturity_date %}
+          <br>Maturity: <span id="maturityDate">{{ savings_data.investments.latest_maturity_date|date:"M d, Y" }}</span>
+          {% endif %}
+        </div>
+      </div>
 
       <div class="stat-card">
         <div class="stat-header">
-          <span class="stat-label">Interest to be Earned</span>
+          <span class="stat-label">Uninvested Savings Interest</span>
           <div class="stat-icon" style="background: #f3e8ff; color: #7c3aed;">
             <i class="fas fa-percentage"></i>
           </div>
         </div>
-        <div class="stat-value" id="interestExpected">UGX {{ savings_data.investments.total_interest_expected|floatformat:0|default:"0"|intcomma }}</div>
-        <div class="stat-meta">Earned: <span id="interestGained">UGX {{ savings_data.investments.total_interest_gained|floatformat:0|default:"0"|intcomma }}</span></div>
+        <div class="stat-value" id="uninvestedAmount">UGX {{ savings_data.investments.uninvested_amount|floatformat:0|default:"0"|intcomma }}</div>
+        <div class="stat-meta">
+          Expected Interest (15%): <span id="uninvestedInterest">UGX {{ savings_data.investments.uninvested_interest|floatformat:0|default:"0"|intcomma }}</span>
+          <br>Maturity: <span id="savingsMaturityDate">December 31, 2025</span>
+        </div>
       </div>
     </div>
 
