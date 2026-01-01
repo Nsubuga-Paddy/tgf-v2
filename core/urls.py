@@ -19,11 +19,7 @@ from django.urls import path, include
 from django.conf.urls.static import static
 from django.conf import settings
 
-from .views import (
-    LandingPage, LoginPage, SignUpPage, ProfileView, VerificationPendingView,
-    get_gwc_groups, create_gwc_group, join_gwc_group,
-    request_withdrawal, express_mesu_interest
-)
+from .views import LandingPage, LoginPage, SignUpPage, ProfileView, VerificationPendingView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -32,13 +28,6 @@ urlpatterns = [
     path("signup/", SignUpPage.as_view(), name="signup"),
     path("profile/", ProfileView.as_view(), name="profile"),
     path("verification-pending/", VerificationPendingView.as_view(), name="verification_pending"),
-    
-    # Action endpoints
-    path("api/gwc/groups/", get_gwc_groups, name="get_gwc_groups"),
-    path("api/gwc/create-group/", create_gwc_group, name="create_gwc_group"),
-    path("api/gwc/join/", join_gwc_group, name="join_gwc_group"),
-    path("api/withdraw/", request_withdrawal, name="request_withdrawal"),
-    path("api/mesu/interest/", express_mesu_interest, name="express_mesu_interest"),
     
     path("accounts/", include("accounts.urls")),
     

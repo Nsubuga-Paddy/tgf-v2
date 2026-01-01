@@ -264,16 +264,6 @@ def member_savings(request):
     user = request.user
     user_profile = user.profile if hasattr(user, 'profile') else None
     
-    # Process interest payments when user views dashboard (simpler than cron job)
-    if user_profile:
-        from .utils import process_user_interest_payments
-        # This automatically processes matured investments, uninvested interest, and transfers
-        processing_summary = process_user_interest_payments(user_profile)
-        
-        # Debug: Print processing summary (remove in production if not needed)
-        if processing_summary['investments_processed'] > 0:
-            print(f"DEBUG: Processed {processing_summary['investments_processed']} matured investments for {user_profile.user.get_username()}")
-    
     # Get user's savings data
     savings_data = {}
     if user_profile:
