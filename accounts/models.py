@@ -79,13 +79,13 @@ class UserProfile(models.Model):
     # ---- Identity & contact ----
     photo = models.ImageField(upload_to=profile_photo_upload_to, blank=True, null=True)
 
-    # WhatsApp number (UG context), optional but unique if provided
+    # WhatsApp number (UG context), required for contact purposes
     whatsapp_number = PhoneNumberField(
         region="UG",
         unique=True,
-        null=True,
-        blank=True,
-        help_text="Include country code, e.g., +2567xxxxxxxx",
+        null=False,
+        blank=False,
+        help_text="Include country code, e.g., +2567xxxxxxxx (Required for contact)",
     )
 
     # National ID (NIN) – optional; unique if provided
@@ -103,6 +103,26 @@ class UserProfile(models.Model):
     # Extra profile info (optional)
     address = models.TextField(blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
+
+    # Bank account information (for withdrawals/payments)
+    bank_name = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Name of the bank (e.g., Centenary Bank, Stanbic Bank)",
+    )
+    bank_account_number = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Bank account number",
+    )
+    bank_account_name = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Name as it appears on the bank account",
+    )
 
     # Access control & flags
     is_verified = models.BooleanField(default=False)
@@ -149,11 +169,10 @@ class UserProfile(models.Model):
                 name="account_number_format_ok",
                 check=Q(account_number__regex=ACCOUNT_NUMBER_REGEX) | Q(account_number__isnull=True),
             ),
-            # Unique only when not NULL
+            # WhatsApp number is now required, so always enforce uniqueness
             models.UniqueConstraint(
                 fields=["whatsapp_number"],
-                name="uniq_whatsapp_when_set",
-                condition=Q(whatsapp_number__isnull=False),
+                name="uniq_whatsapp",
             ),
             models.UniqueConstraint(
                 fields=["national_id"],
@@ -194,16 +213,63 @@ class UserProfile(models.Model):
 
     def get_total_savings(self) -> Decimal:
         """
-        Get total savings from all SavingsTransaction records.
-        This method safely handles the case where the savings app might not be available.
+        Get total savings from all SavingsTransaction records including matured interest.
+        This includes:
+        - All deposits minus withdrawals
+        - All interest gained from investments (matured or ongoing)
+        - 15% interest on uninvested savings (if after Dec 31, 2025)
         """
         try:
             # Use getattr to avoid circular import issues
             savings_transactions = getattr(self, 'savings_transactions', None)
             if savings_transactions:
-                return savings_transactions.aggregate(
-                    total=Coalesce(Sum("amount"), Value(Decimal("0.00"), output_field=DecimalField()))
-                )["total"]
+                # Get total deposits minus withdrawals
+                from django.db.models import Case, When, F, Value
+                total = savings_transactions.aggregate(
+                    total=Coalesce(
+                        Sum(
+                            Case(
+                                When(transaction_type='deposit', then=F('amount')),
+                                When(transaction_type='withdrawal', then=-F('amount')),
+                                default=Value(Decimal("0.00")),
+                                output_field=DecimalField()
+                            )
+                        ),
+                        Value(Decimal("0.00"), output_field=DecimalField())
+                    )
+                )["total"] or Decimal("0.00")
+                
+                # Add all interest gained from investments (both matured and ongoing)
+                investments = getattr(self, 'investments', None)
+                if investments:
+                    for investment in investments.filter(status__in=['fixed', 'matured']):
+                        if hasattr(investment, 'interest_gained_so_far'):
+                            total += investment.interest_gained_so_far
+                
+                # Add uninvested savings interest (15% on Dec 31, 2025)
+                from datetime import date
+                if date.today() >= date(2025, 12, 31):
+                    # Calculate uninvested amount (before adding interest)
+                    total_invested = self.get_total_investments()
+                    # Get base savings (before interest)
+                    base_savings = savings_transactions.aggregate(
+                        total=Coalesce(
+                            Sum(
+                                Case(
+                                    When(transaction_type='deposit', then=F('amount')),
+                                    When(transaction_type='withdrawal', then=-F('amount')),
+                                    default=Value(Decimal("0.00")),
+                                    output_field=DecimalField()
+                                )
+                            ),
+                            Value(Decimal("0.00"), output_field=DecimalField())
+                        )
+                    )["total"] or Decimal("0.00")
+                    uninvested = base_savings - total_invested if base_savings > total_invested else Decimal("0.00")
+                    if uninvested > 0:
+                        total += uninvested * Decimal("0.15")
+                
+                return total
         except Exception:
             pass
         return Decimal("0.00")
@@ -333,3 +399,150 @@ def ensure_user_profile(sender, instance, created, **kwargs):
         # Create a bare profile (account number will be set on save)
         profile = UserProfile(user=instance)
         profile.save()
+
+
+# -------------------------------------------------------------------
+# Withdrawal Request Model
+# -------------------------------------------------------------------
+class WithdrawalRequest(models.Model):
+    """Model to track user withdrawal requests"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('processed', 'Processed'),
+    ]
+    
+    user_profile = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='withdrawal_requests'
+    )
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Withdrawal amount in UGX"
+    )
+    reason = models.TextField(blank=True, null=True, help_text="Reason for withdrawal")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    admin_notes = models.TextField(blank=True, null=True, help_text="Admin notes")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    processed_at = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Withdrawal Request"
+        verbose_name_plural = "Withdrawal Requests"
+    
+    def __str__(self):
+        return f"{self.user_profile.display_name} - UGX {self.amount:,.0f} - {self.get_status_display()}"
+
+
+# -------------------------------------------------------------------
+# GWC Contribution Model
+# -------------------------------------------------------------------
+class GWCContribution(models.Model):
+    """Model to track GWC group contributions"""
+    GROUP_TYPE_CHOICES = [
+        ('individual', 'Individual Contribution'),
+        ('group', 'Group Contribution'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('processed', 'Processed'),
+    ]
+    
+    user_profile = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='gwc_contributions'
+    )
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Contribution amount in UGX"
+    )
+    group_type = models.CharField(
+        max_length=20,
+        choices=GROUP_TYPE_CHOICES,
+        help_text="Type of contribution"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    admin_notes = models.TextField(blank=True, null=True, help_text="Admin notes")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    processed_at = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "GWC Contribution"
+        verbose_name_plural = "GWC Contributions"
+    
+    def __str__(self):
+        return f"{self.user_profile.display_name} - UGX {self.amount:,.0f} ({self.get_group_type_display()}) - {self.get_status_display()}"
+
+
+# -------------------------------------------------------------------
+# MESU Interest Model
+# -------------------------------------------------------------------
+class MESUInterest(models.Model):
+    """Model to track user interest in MESU Academy shares"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('processed', 'Processed'),
+    ]
+    
+    user_profile = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='mesu_interests'
+    )
+    investment_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Investment amount in UGX"
+    )
+    number_of_shares = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of shares (calculated: 1 share = UGX 1,000,000)"
+    )
+    notes = models.TextField(blank=True, null=True, help_text="Additional notes from user")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    admin_notes = models.TextField(blank=True, null=True, help_text="Admin notes")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    processed_at = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "MESU Interest"
+        verbose_name_plural = "MESU Interests"
+    
+    def __str__(self):
+        investment_amt = self.investment_amount or 0
+        shares = self.number_of_shares or 0
+        return f"{self.user_profile.display_name} - {shares} shares (UGX {investment_amt:,.0f}) - {self.get_status_display()}"
+    
+    def save(self, *args, **kwargs):
+        # Auto-calculate number of shares (1 share = 1,000,000 UGX)
+        if self.investment_amount:
+            self.number_of_shares = int(self.investment_amount / Decimal('1000000'))
+        super().save(*args, **kwargs)
