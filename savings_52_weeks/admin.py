@@ -146,17 +146,17 @@ class SavingsTransactionAdmin(ExportableAdminMixin, admin.ModelAdmin):
 class InvestmentAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = (
         'id', 'user_profile', 'amount_invested', 'investment_type', 'interest_rate',
-        'start_date', 'maturity_date', 'status', 'days_until_maturity', 'daily_interest', 'total_interest_expected'
+        'start_date', 'maturity_date', 'status', 'interest_paid', 'days_until_maturity', 'daily_interest', 'total_interest_expected'
     )
     list_filter = (
-        'investment_type', 'status', 'start_date',
+        'investment_type', 'status', 'interest_paid', 'start_date',
         'created_at', 'user_profile__is_verified'
     )
     search_fields = (
         'user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name',
         'user_profile__account_number', 'notes'
     )
-    readonly_fields = ('created_at', 'updated_at', 'total_interest_expected')
+    readonly_fields = ('created_at', 'updated_at', 'total_interest_expected', 'interest_paid_date')
     date_hierarchy = 'start_date'
     ordering = ('-start_date', '-created_at')
     
@@ -169,6 +169,10 @@ class InvestmentAdmin(ExportableAdminMixin, admin.ModelAdmin):
         }),
         ('Status & Notes', {
             'fields': ('status', 'notes')
+        }),
+        ('Interest Payment', {
+            'fields': ('interest_paid', 'interest_paid_date'),
+            'description': 'Track whether interest has been paid to user\'s savings account'
         }),
         ('Calculated Fields', {
             'fields': ('total_interest_expected',),
@@ -226,6 +230,17 @@ class InvestmentAdmin(ExportableAdminMixin, admin.ModelAdmin):
             return f"<span style='color: #6b7280; font-weight: bold;'>UGX 0.00</span>"
     daily_interest.short_description = "Daily Interest"
     daily_interest.allow_tags = True
+    
+    def interest_paid(self, obj):
+        """Display interest paid status with color coding"""
+        if obj.interest_paid:
+            return f"<span style='color: #059669; font-weight: bold;'>✓ Paid</span>"
+        elif obj.status == 'matured':
+            return f"<span style='color: #ea580c; font-weight: bold;'>Pending</span>"
+        else:
+            return f"<span style='color: #6b7280; font-weight: bold;'>—</span>"
+    interest_paid.short_description = "Interest Paid"
+    interest_paid.allow_tags = True
     
     actions = ['check_maturity_status', 'mark_as_fixed', 'mark_as_matured', 'calculate_interest']
     

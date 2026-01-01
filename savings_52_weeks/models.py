@@ -349,6 +349,10 @@ class Investment(models.Model):
     
     notes = models.TextField(blank=True, help_text="Additional notes about this investment")
     
+    # Track if interest has been paid to user's savings
+    interest_paid = models.BooleanField(default=False, help_text="Whether interest has been added to user's savings")
+    interest_paid_date = models.DateField(null=True, blank=True, help_text="Date when interest was paid")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -534,6 +538,49 @@ class Investment(models.Model):
             'active_investments': investment_count,
             'average_daily_interest': (daily_interest_total / investment_count) if investment_count > 0 else Decimal("0.00")
         }
+
+    def process_maturity_interest(self):
+        """
+        Process interest payment for a matured investment.
+        Creates a deposit transaction for the interest amount and marks interest as paid.
+        Returns the created SavingsTransaction or None if already processed or not matured.
+        """
+        # Check if already processed
+        if self.interest_paid:
+            return None
+        
+        # Check if investment has matured
+        today = timezone.localdate()
+        if today < self.maturity_date:
+            return None
+        
+        # Ensure status is updated
+        if self.status != 'matured':
+            self.status = 'matured'
+            self.save(update_fields=['status'])
+        
+        # Calculate total interest expected
+        interest_amount = self.total_interest_expected
+        
+        if interest_amount <= 0:
+            return None
+        
+            # Create deposit transaction for interest
+            # Create deposit transaction for interest
+            interest_transaction = SavingsTransaction.objects.create(
+                user_profile=self.user_profile,
+                amount=interest_amount,
+                transaction_type='deposit',
+                transaction_date=self.maturity_date,
+                receipt_number=f"INT-{self.id}-{self.maturity_date.strftime('%Y%m%d')}",
+            )
+        
+        # Mark interest as paid
+        self.interest_paid = True
+        self.interest_paid_date = today
+        self.save(update_fields=['interest_paid', 'interest_paid_date'])
+        
+        return interest_transaction
 
 
 # Note: UserProfile creation is handled by the accounts app signal
