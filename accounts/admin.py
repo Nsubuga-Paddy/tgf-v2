@@ -163,10 +163,11 @@ class WithdrawalRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
     )
     
     def get_bank_info(self, obj):
-        """Display bank account information"""
+        """Display bank account information from user profile"""
         profile = obj.user_profile
         if profile.bank_name and profile.bank_account_number:
-            return f"{profile.bank_name} - {profile.bank_account_number} ({profile.bank_account_name})"
+            account_name = profile.bank_account_name or 'N/A'
+            return f"{profile.bank_name} | {profile.bank_account_number} | {account_name}"
         return 'Not provided'
     get_bank_info.short_description = 'Bank Account'
     
