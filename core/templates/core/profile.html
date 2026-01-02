@@ -314,6 +314,164 @@
       letter-spacing: 0.5px;
     }
 
+    /* Balance & Withheld Amounts Section */
+    .balance-section {
+      padding: 1.5rem;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .available-balance-card {
+      background: linear-gradient(135deg, var(--success), #14b8a6);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.2);
+    }
+
+    .balance-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .balance-header i {
+      font-size: 1.5rem;
+    }
+
+    .balance-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      opacity: 0.95;
+    }
+
+    .balance-amount {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.5px;
+    }
+
+    .balance-description {
+      font-size: 0.875rem;
+      opacity: 0.9;
+      margin: 0;
+    }
+
+    .withheld-amounts-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    .withheld-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .withheld-header i {
+      font-size: 1.25rem;
+      color: var(--warning);
+    }
+
+    .withheld-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      color: var(--text);
+    }
+
+    .withheld-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .withheld-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+    }
+
+    .withheld-item-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .withheld-item-icon.withdraw {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+    }
+
+    .withheld-item-icon.gwc {
+      background: rgba(14, 165, 233, 0.1);
+      color: var(--info);
+    }
+
+    .withheld-item-icon.mesu {
+      background: rgba(139, 92, 246, 0.1);
+      color: #8b5cf6;
+    }
+
+    .withheld-item-content {
+      flex: 1;
+    }
+
+    .withheld-item-label {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .withheld-item-amount {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .withheld-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      margin-top: 0.5rem;
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05));
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .withheld-total-label {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .withheld-total-amount {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--warning);
+    }
+
     /* Savings Actions Section */
     .profile-actions {
       padding: 1.5rem;
@@ -970,9 +1128,223 @@
       margin-bottom: 0.5rem;
       color: var(--text);
     }
+
+    /* Notification System */
+    .notification-container {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      max-width: 400px;
+    }
+
+    .notification {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      padding: 1.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      animation: slideInRight 0.3s ease-out;
+      border-left: 4px solid;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .notification.success {
+      border-left-color: var(--success);
+      background: linear-gradient(to right, rgba(22, 163, 74, 0.05), var(--card));
+    }
+
+    .notification.error {
+      border-left-color: #ef4444;
+      background: linear-gradient(to right, rgba(239, 68, 68, 0.05), var(--card));
+    }
+
+    .notification.warning {
+      border-left-color: var(--warning);
+      background: linear-gradient(to right, rgba(245, 158, 11, 0.05), var(--card));
+    }
+
+    .notification.info {
+      border-left-color: var(--info);
+      background: linear-gradient(to right, rgba(14, 165, 233, 0.05), var(--card));
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOutRight {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
+
+    .notification.hiding {
+      animation: slideOutRight 0.3s ease-out forwards;
+    }
+
+    .notification-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .notification.success .notification-icon {
+      color: var(--success);
+    }
+
+    .notification.error .notification-icon {
+      color: #ef4444;
+    }
+
+    .notification.warning .notification-icon {
+      color: var(--warning);
+    }
+
+    .notification.info .notification-icon {
+      color: var(--info);
+    }
+
+    .notification-content {
+      flex: 1;
+    }
+
+    .notification-title {
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 0.25rem;
+      color: var(--text);
+    }
+
+    .notification-message {
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .notification-close {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0.25rem;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .notification-close:hover {
+      color: var(--text);
+    }
+
+    .notification-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      background: currentColor;
+      opacity: 0.3;
+      animation: progressBar 10s linear forwards;
+    }
+
+    @keyframes progressBar {
+      from {
+        width: 100%;
+      }
+      to {
+        width: 0%;
+      }
+    }
+
+    /* Required Fields Warning Banner */
+    .required-fields-banner {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #fff;
+      padding: 1.25rem 1.5rem;
+      border-radius: var(--radius);
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+      }
+      50% {
+        box-shadow: 0 4px 20px rgba(245, 158, 11, 0.5);
+      }
+    }
+
+    .required-fields-banner i {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .required-fields-content {
+      flex: 1;
+    }
+
+    .required-fields-title {
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .required-fields-list {
+      font-size: 0.95rem;
+      opacity: 0.95;
+      margin-top: 0.5rem;
+    }
+
+    .required-fields-list strong {
+      font-weight: 600;
+    }
+
+    .required-fields-banner .btn-close-banner {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: #fff;
+      padding: 0.5rem;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+
+    .required-fields-banner .btn-close-banner:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
   </style>
 </head>
 <body>
+  <!-- Notification Container -->
+  <div class="notification-container" id="notificationContainer"></div>
+
   <!-- Header -->
   <header class="header">
     <div class="header-content">
@@ -1020,6 +1392,34 @@
       <p class="page-subtitle">Manage your account information and preferences</p>
     </div>
 
+    <!-- Required Fields Warning Banner -->
+    {% if has_missing_fields %}
+    <div class="required-fields-banner" id="requiredFieldsBanner">
+      <i class="fas fa-exclamation-triangle"></i>
+      <div class="required-fields-content">
+        <div class="required-fields-title">⚠️ Complete Your Profile</div>
+        <div class="required-fields-list">
+          Please provide the following information to use all features:
+          <strong>{{ missing_fields|join:", " }}</strong>
+        </div>
+      </div>
+      <button type="button" class="btn-close-banner" onclick="document.getElementById('requiredFieldsBanner').style.display='none'">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    {% endif %}
+
+    <!-- Django Messages Display -->
+    {% if messages %}
+      {% for message in messages %}
+        <script>
+          document.addEventListener('DOMContentLoaded', function() {
+            showNotification('{{ message.tags|default:"info" }}', '{{ message|escapejs }}');
+          });
+        </script>
+      {% endfor %}
+    {% endif %}
+
     <!-- Profile Grid -->
     <div class="profile-grid">
       <!-- Profile Card -->
@@ -1038,15 +1438,84 @@
         
         <div class="profile-stats">
           <div class="stat-item">
-            <div class="stat-value">UGX {{ user.profile.get_total_savings|default:0|floatformat:0|intcomma }}</div>
-            <div class="stat-label">Total Savings</div>
+            <div class="stat-value">UGX {{ user.profile.get_amount_saved|default:0|floatformat:0|intcomma }}</div>
+            <div class="stat-label">Amount Saved</div>
           </div>
           <div class="stat-item">
-            <div class="stat-value">UGX {{ user.profile.get_total_interest_gained|default:0|floatformat:0|intcomma }}</div>
-            <div class="stat-label">Interest Gained</div>
+            <div class="stat-value">UGX {{ user.profile.get_total_interest_earned|default:0|floatformat:0|intcomma }}</div>
+            <div class="stat-label">Interest Earned</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">UGX {{ user.profile.get_total_savings|default:0|floatformat:0|intcomma }}</div>
+            <div class="stat-label">Total Savings and Interest</div>
           </div>
         </div>
         
+        <!-- Available Balance & Withheld Amounts Section -->
+        <div class="balance-section">
+          <div class="available-balance-card">
+            <div class="balance-header">
+              <i class="fas fa-wallet"></i>
+              <h4 class="balance-title">Available Balance</h4>
+            </div>
+            <div class="balance-amount">
+              UGX {{ user.profile.get_available_balance|default:0|floatformat:0|intcomma }}
+            </div>
+            <p class="balance-description">Amount available for withdrawal</p>
+          </div>
+          
+          {% if user.profile.get_total_withheld_amount > 0 %}
+          <div class="withheld-amounts-card">
+            <div class="withheld-header">
+              <i class="fas fa-lock"></i>
+              <h4 class="withheld-title">Funds Withheld</h4>
+            </div>
+            <div class="withheld-list">
+              {% if user.profile.get_pending_withdrawal_amount > 0 %}
+              <div class="withheld-item">
+                <div class="withheld-item-icon withdraw">
+                  <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div class="withheld-item-content">
+                  <div class="withheld-item-label">Pending Withdrawals</div>
+                  <div class="withheld-item-amount">UGX {{ user.profile.get_pending_withdrawal_amount|default:0|floatformat:0|intcomma }}</div>
+                </div>
+              </div>
+              {% endif %}
+              
+              {% if user.profile.get_pending_gwc_amount > 0 %}
+              <div class="withheld-item">
+                <div class="withheld-item-icon gwc">
+                  <i class="fas fa-users"></i>
+                </div>
+                <div class="withheld-item-content">
+                  <div class="withheld-item-label">Pending GWC Contributions</div>
+                  <div class="withheld-item-amount">UGX {{ user.profile.get_pending_gwc_amount|default:0|floatformat:0|intcomma }}</div>
+                </div>
+              </div>
+              {% endif %}
+              
+              {% if user.profile.get_pending_mesu_amount > 0 %}
+              <div class="withheld-item">
+                <div class="withheld-item-icon mesu">
+                  <i class="fas fa-graduation-cap"></i>
+                </div>
+                <div class="withheld-item-content">
+                  <div class="withheld-item-label">Pending MESU Investments</div>
+                  <div class="withheld-item-amount">UGX {{ user.profile.get_pending_mesu_amount|default:0|floatformat:0|intcomma }}</div>
+                </div>
+              </div>
+              {% endif %}
+              
+              <div class="withheld-total">
+                <div class="withheld-total-label">Total Withheld</div>
+                <div class="withheld-total-amount">UGX {{ user.profile.get_total_withheld_amount|default:0|floatformat:0|intcomma }}</div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
         <!-- Savings Actions Section -->
         <div class="profile-actions">
           <h4 class="actions-title">What would you like to do with your savings?</h4>
@@ -1319,11 +1788,11 @@
           {% csrf_token %}
           <input type="hidden" name="action" value="withdraw">
           
-          <div class="form-group">
-            <label class="form-label">Available Balance</label>
-            <input type="text" class="form-control" value="UGX {{ user.profile.get_total_savings|default:0|floatformat:0|intcomma }}" readonly>
-            <div class="form-help">Total savings including interest</div>
-          </div>
+            <div class="form-group">
+              <label class="form-label">Available Balance</label>
+              <input type="text" class="form-control" value="UGX {{ user.profile.get_available_balance|default:0|floatformat:0|intcomma }}" readonly>
+              <div class="form-help">Amount available for withdrawal (after deducting pending requests)</div>
+            </div>
           
           <div class="form-group">
             <label class="form-label">Withdrawal Amount (UGX)</label>
@@ -1372,11 +1841,11 @@
           {% csrf_token %}
           <input type="hidden" name="action" value="join_gwc">
           
-          <div class="form-group">
-            <label class="form-label">Available Balance</label>
-            <input type="text" class="form-control" value="UGX {{ user.profile.get_total_savings|default:0|floatformat:0|intcomma }}" readonly>
-            <div class="form-help">Total savings including interest</div>
-          </div>
+            <div class="form-group">
+              <label class="form-label">Available Balance</label>
+              <input type="text" class="form-control" value="UGX {{ user.profile.get_available_balance|default:0|floatformat:0|intcomma }}" readonly>
+              <div class="form-help">Amount available for withdrawal (after deducting pending requests)</div>
+            </div>
           
           <div class="form-group">
             <label class="form-label">Contribution Amount (UGX)</label>
@@ -1430,11 +1899,11 @@
           {% csrf_token %}
           <input type="hidden" name="action" value="buy_mesu">
           
-          <div class="form-group">
-            <label class="form-label">Available Balance</label>
-            <input type="text" class="form-control" value="UGX {{ user.profile.get_total_savings|default:0|floatformat:0|intcomma }}" readonly>
-            <div class="form-help">Total savings including interest</div>
-          </div>
+            <div class="form-group">
+              <label class="form-label">Available Balance</label>
+              <input type="text" class="form-control" value="UGX {{ user.profile.get_available_balance|default:0|floatformat:0|intcomma }}" readonly>
+              <div class="form-help">Amount available for withdrawal (after deducting pending requests)</div>
+            </div>
           
           <div class="form-group">
             <label class="form-label">Investment Amount (UGX)</label>
@@ -1554,27 +2023,101 @@
       }
     });
 
-         // Auto-hide alerts after 5 seconds
-     document.addEventListener('DOMContentLoaded', function() {
-       const alerts = document.querySelectorAll('.alert');
-       alerts.forEach(alert => {
-         setTimeout(() => {
-           alert.style.opacity = '0';
-           setTimeout(() => alert.remove(), 300);
-         }, 5000);
-       });
-       
-       // Make 52WSC project items clickable
-       const clickableProjects = document.querySelectorAll('.project-item.clickable');
-       clickableProjects.forEach(project => {
-         project.addEventListener('click', function() {
-           const link = this.querySelector('a');
-           if (link) {
-             window.location.href = link.href;
-           }
-         });
-       });
-     });
+    // Notification System
+    function showNotification(type, message, title = null) {
+      const container = document.getElementById('notificationContainer');
+      if (!container) return;
+
+      // Determine icon and default title based on type
+      const icons = {
+        'success': 'fa-check-circle',
+        'error': 'fa-exclamation-circle',
+        'warning': 'fa-exclamation-triangle',
+        'info': 'fa-info-circle'
+      };
+
+      const defaultTitles = {
+        'success': 'Success!',
+        'error': 'Error',
+        'warning': 'Warning',
+        'info': 'Information'
+      };
+
+      const icon = icons[type] || icons.info;
+      const notificationTitle = title || defaultTitles[type] || 'Notification';
+
+      // Create notification element
+      const notification = document.createElement('div');
+      notification.className = `notification ${type}`;
+      notification.innerHTML = `
+        <i class="fas ${icon} notification-icon"></i>
+        <div class="notification-content">
+          <div class="notification-title">${notificationTitle}</div>
+          <div class="notification-message">${message}</div>
+        </div>
+        <button type="button" class="notification-close" onclick="closeNotification(this)">
+          <i class="fas fa-times"></i>
+        </button>
+        <div class="notification-progress"></div>
+      `;
+
+      container.appendChild(notification);
+
+      // Auto-remove after 10 seconds
+      setTimeout(() => {
+        closeNotification(notification.querySelector('.notification-close'));
+      }, 10000);
+    }
+
+    function closeNotification(button) {
+      const notification = button.closest('.notification');
+      if (notification) {
+        notification.classList.add('hiding');
+        setTimeout(() => {
+          notification.remove();
+        }, 300);
+      }
+    }
+
+    // Enhanced success notifications for specific actions
+    document.addEventListener('DOMContentLoaded', function() {
+      // Check URL parameters for action success
+      const urlParams = new URLSearchParams(window.location.search);
+      const action = urlParams.get('action');
+      
+      if (action === 'withdraw_success') {
+        const amount = urlParams.get('amount') || '';
+        showNotification('success', 
+          `Your withdrawal request of UGX ${amount} has been submitted successfully! The admin will process it within 1-3 business days.`,
+          'Withdrawal Request Submitted'
+        );
+      } else if (action === 'gwc_success') {
+        const amount = urlParams.get('amount') || '';
+        const type = urlParams.get('type') || '';
+        showNotification('success',
+          `Your GWC contribution request of UGX ${amount} (${type}) has been submitted successfully! Admin will review your request.`,
+          'GWC Contribution Submitted'
+        );
+      } else if (action === 'mesu_success') {
+        const shares = urlParams.get('shares') || '';
+        const amount = urlParams.get('amount') || '';
+        showNotification('success',
+          `Your interest in MESU shares (${shares} share(s) = UGX ${amount}) has been submitted successfully! Admin will review your request.`,
+          'MESU Investment Interest Submitted'
+        );
+      }
+      
+      // Make 52WSC project items clickable
+      const clickableProjects = document.querySelectorAll('.project-item.clickable');
+      clickableProjects.forEach(project => {
+        project.addEventListener('click', function() {
+          const link = this.querySelector('a');
+          if (link) {
+            window.location.href = link.href;
+          }
+        });
+      });
+    });
   </script>
 </body>
 </html>

@@ -3,6 +3,7 @@ from django.views.generic import TemplateView
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.models import User
 from accounts.models import UserProfile, WithdrawalRequest, GWCContribution, MESUInterest
@@ -46,8 +47,23 @@ class ProfileView(TemplateView):
         # Get user's accessible projects
         if hasattr(user, 'profile'):
             context['user_projects'] = user.profile.projects.all()
+            profile = user.profile
+            
+            # Check for missing required information
+            missing_fields = []
+            if not profile.whatsapp_number:
+                missing_fields.append('Phone Number')
+            if not profile.national_id:
+                missing_fields.append('National ID')
+            if not profile.bank_name or not profile.bank_account_number or not profile.bank_account_name:
+                missing_fields.append('Bank Account Details')
+            
+            context['missing_fields'] = missing_fields
+            context['has_missing_fields'] = len(missing_fields) > 0
         else:
             context['user_projects'] = []
+            context['missing_fields'] = []
+            context['has_missing_fields'] = False
             
         context['user'] = user
         return context
@@ -136,10 +152,12 @@ class ProfileView(TemplateView):
                 status='pending'
             )
             
-            messages.success(request, f'Withdrawal request of UGX {withdraw_amount:,.0f} submitted successfully! Admin will process it within 1-3 business days.')
+            # Redirect with success parameter for enhanced notification
+            return redirect(f"{reverse('profile')}?action=withdraw_success&amount={withdraw_amount:,.0f}")
             
         except (ValueError, TypeError) as e:
             messages.error(request, 'Invalid withdrawal amount.')
+            return redirect('profile')
         
         return redirect('profile')
     
@@ -173,10 +191,12 @@ class ProfileView(TemplateView):
                 status='pending'
             )
             
-            messages.success(request, f'GWC contribution request of UGX {gwc_amount:,.0f} ({group_type}) submitted successfully! Admin will review your request.')
+            # Redirect with success parameter for enhanced notification
+            return redirect(f"{reverse('profile')}?action=gwc_success&amount={gwc_amount:,.0f}&type={group_type}")
             
         except (ValueError, TypeError) as e:
             messages.error(request, 'Invalid contribution amount.')
+            return redirect('profile')
         
         return redirect('profile')
     
@@ -209,10 +229,12 @@ class ProfileView(TemplateView):
                 status='pending'
             )
             
-            messages.success(request, f'Interest in MESU shares ({number_of_shares} share(s) = UGX {mesu_amount:,.0f}) submitted successfully! Admin will review your request.')
+            # Redirect with success parameter for enhanced notification
+            return redirect(f"{reverse('profile')}?action=mesu_success&shares={number_of_shares}&amount={mesu_amount:,.0f}")
             
         except (ValueError, TypeError) as e:
             messages.error(request, 'Invalid investment amount.')
+            return redirect('profile')
         
         return redirect('profile')
 

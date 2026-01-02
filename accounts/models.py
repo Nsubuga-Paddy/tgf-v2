@@ -324,6 +324,127 @@ class UserProfile(models.Model):
             pass
         return Decimal("0.00")
 
+    def get_amount_saved(self) -> Decimal:
+        """
+        Get the actual amount saved (deposits minus withdrawals) without any interest.
+        This is the base savings amount before interest calculations.
+        """
+        try:
+            savings_transactions = getattr(self, 'savings_transactions', None)
+            if savings_transactions:
+                from django.db.models import Case, When, F, Value
+                total = savings_transactions.aggregate(
+                    total=Coalesce(
+                        Sum(
+                            Case(
+                                When(transaction_type='deposit', then=F('amount')),
+                                When(transaction_type='withdrawal', then=-F('amount')),
+                                default=Value(Decimal("0.00")),
+                                output_field=DecimalField()
+                            )
+                        ),
+                        Value(Decimal("0.00"), output_field=DecimalField())
+                    )
+                )["total"] or Decimal("0.00")
+                return total
+        except Exception:
+            pass
+        return Decimal("0.00")
+
+    def get_total_interest_earned(self) -> Decimal:
+        """
+        Get total interest earned including:
+        - Interest from investments (matured and ongoing)
+        - 15% interest on uninvested savings (if after Dec 31, 2025)
+        """
+        total_interest = Decimal("0.00")
+        
+        # Add interest from investments
+        try:
+            investments = getattr(self, 'investments', None)
+            if investments:
+                for investment in investments.filter(status__in=['fixed', 'matured']):
+                    if hasattr(investment, 'interest_gained_so_far'):
+                        total_interest += investment.interest_gained_so_far
+        except Exception:
+            pass
+        
+        # Add uninvested savings interest (15% on Dec 31, 2025)
+        try:
+            if date.today() >= date(2025, 12, 31):
+                savings_transactions = getattr(self, 'savings_transactions', None)
+                if savings_transactions:
+                    from django.db.models import Case, When, F
+                    total_invested = self.get_total_investments()
+                    base_savings = savings_transactions.aggregate(
+                        total=Coalesce(
+                            Sum(
+                                Case(
+                                    When(transaction_type='deposit', then=F('amount')),
+                                    When(transaction_type='withdrawal', then=-F('amount')),
+                                    default=Value(Decimal("0.00")),
+                                    output_field=DecimalField()
+                                )
+                            ),
+                            Value(Decimal("0.00"), output_field=DecimalField())
+                        )
+                    )["total"] or Decimal("0.00")
+                    uninvested = base_savings - total_invested if base_savings > total_invested else Decimal("0.00")
+                    if uninvested > 0:
+                        total_interest += uninvested * Decimal("0.15")
+        except Exception:
+            pass
+        
+        return total_interest
+
+    def get_pending_withdrawal_amount(self) -> Decimal:
+        """Get total amount in pending withdrawal requests"""
+        try:
+            pending_withdrawals = self.withdrawal_requests.filter(status='pending')
+            total = pending_withdrawals.aggregate(
+                total=Coalesce(Sum('amount'), Value(Decimal("0.00"), output_field=DecimalField()))
+            )["total"] or Decimal("0.00")
+            return total
+        except Exception:
+            return Decimal("0.00")
+
+    def get_pending_gwc_amount(self) -> Decimal:
+        """Get total amount in pending GWC contributions"""
+        try:
+            pending_gwc = self.gwc_contributions.filter(status='pending')
+            total = pending_gwc.aggregate(
+                total=Coalesce(Sum('amount'), Value(Decimal("0.00"), output_field=DecimalField()))
+            )["total"] or Decimal("0.00")
+            return total
+        except Exception:
+            return Decimal("0.00")
+
+    def get_pending_mesu_amount(self) -> Decimal:
+        """Get total amount in pending MESU investments"""
+        try:
+            pending_mesu = self.mesu_interests.filter(status='pending')
+            total = pending_mesu.aggregate(
+                total=Coalesce(Sum('investment_amount'), Value(Decimal("0.00"), output_field=DecimalField()))
+            )["total"] or Decimal("0.00")
+            return total
+        except Exception:
+            return Decimal("0.00")
+
+    def get_total_withheld_amount(self) -> Decimal:
+        """Get total amount withheld in all pending requests"""
+        return (
+            self.get_pending_withdrawal_amount() +
+            self.get_pending_gwc_amount() +
+            self.get_pending_mesu_amount()
+        )
+
+    def get_available_balance(self) -> Decimal:
+        """Get available balance for withdrawal (total savings minus withheld amounts)"""
+        total_savings = self.get_total_savings()
+        withheld = self.get_total_withheld_amount()
+        available = total_savings - withheld
+        return max(available, Decimal("0.00"))  # Don't go negative
+
     # ---- Normalizers / Cleaners ----
     def clean(self):
         # Normalize National ID to uppercase & strip spaces/hyphens standardization if needed
