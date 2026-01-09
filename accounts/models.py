@@ -489,17 +489,25 @@ class UserProfile(models.Model):
         if creating and not self.account_number:
             initials = self._initials_from_user(self.user)
             # Retry loop for extremely rare IntegrityError
-            for _ in range(5):
+            last_exception = None
+            for attempt in range(5):
                 candidate = self._generate_account_number(initials)
                 self.account_number = candidate
                 try:
                     with transaction.atomic():
                         return super().save(*args, **kwargs)
-                except IntegrityError:
+                except IntegrityError as e:
                     # Rare collision; retry with a fresh sequence
+                    last_exception = e
                     self.account_number = None
-            # If we somehow still collide, bubble up the error
-            raise
+            # If we somehow still collide after 5 attempts, raise the last exception
+            if last_exception:
+                raise last_exception
+            # If no exception was caught but we still failed, raise a generic error
+            raise IntegrityError(
+                "Could not generate a unique account number after multiple attempts. "
+                "Please try again or contact support."
+            )
         return super().save(*args, **kwargs)
 
     # ---- Convenience helpers ----
@@ -516,10 +524,25 @@ class UserProfile(models.Model):
 # -------------------------------------------------------------------
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def ensure_user_profile(sender, instance, created, **kwargs):
+    """
+    Auto-create a UserProfile when a User is created.
+    Note: whatsapp_number is required, so this signal will only create a profile
+    if one doesn't already exist. The signup view should handle setting whatsapp_number
+    immediately after user creation.
+    """
     if created:
-        # Create a bare profile (account number will be set on save)
-        profile = UserProfile(user=instance)
-        profile.save()
+        # Only create profile if it doesn't exist
+        if not hasattr(instance, 'profile') or not instance.profile:
+            try:
+                # The signup view will set whatsapp_number immediately after user creation
+                # If profile creation fails here, the signup view will handle it
+                profile = UserProfile(user=instance)
+                profile.save()
+            except Exception:
+                # If profile creation fails (e.g., missing whatsapp_number),
+                # the signup view will handle creating it with the phone number
+                # This is expected behavior during signup
+                pass
 
 
 # -------------------------------------------------------------------

@@ -35,7 +35,25 @@ def signup(request):
     if request.method == "POST":
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()  # This will create the User and UserProfile via signal
+            # Get the whatsapp_number from the form before saving
+            whatsapp_number = form.cleaned_data.get('whatsapp_number')
+            
+            # Save the user first (signal will try to create profile but may fail without phone)
+            user = form.save()
+            
+            # Create or update the profile with the phone number
+            # The signal may have failed to create the profile due to missing whatsapp_number
+            from .models import UserProfile
+            try:
+                profile = user.profile
+            except UserProfile.DoesNotExist:
+                # Profile doesn't exist (signal failed), create it now
+                profile = UserProfile(user=user)
+            
+            # Set the phone number and save
+            profile.whatsapp_number = whatsapp_number
+            profile.save()
+            
             messages.success(request, f"Account created for {user.username}! Your account is now pending verification by an administrator. You will be able to access the dashboard once verified.")
             return redirect("accounts:login")
     else:
