@@ -476,13 +476,13 @@ class UserProfile(models.Model):
     
     def get_previous_year_total_with_interest(self) -> Decimal:
         """
-        Get total savings and interest from previous year that has matured.
-        This is what's available for withdrawal (includes interest from last year).
-        Includes:
-        - Previous year deposits
-        - Minus withdrawals and GWC contributions (regardless of year)
-        - Plus interest from previous year investments
-        - Plus 15% interest on uninvested savings from previous year (if past Dec 31)
+        Get total savings and interest from previous year that has matured,
+        BEFORE considering any withdrawals or GWC contributions.
+
+        This method intentionally ignores withdrawals and GWC deductions.
+        Those are applied later in get_available_balance via:
+        - Approved/processed withdrawals & GWC contributions
+        - Pending (withheld) withdrawals, GWC, and MESU requests
         """
         try:
             from datetime import date
@@ -503,24 +503,8 @@ class UserProfile(models.Model):
                 total=Coalesce(Sum('amount'), Value(Decimal("0.00"), output_field=DecimalField()))
             )["total"] or Decimal("0.00")
             
-            # Subtract all withdrawals and GWC contributions (regardless of year)
-            # These reduce the available balance from previous year savings
-            all_withdrawals = savings_transactions.filter(
-                transaction_type='withdrawal'
-            ).aggregate(
-                total=Coalesce(Sum('amount'), Value(Decimal("0.00"), output_field=DecimalField()))
-            )["total"] or Decimal("0.00")
-            
-            all_gwc = savings_transactions.filter(
-                transaction_type='gwc_contribution'
-            ).aggregate(
-                total=Coalesce(Sum('amount'), Value(Decimal("0.00"), output_field=DecimalField()))
-            )["total"] or Decimal("0.00")
-            
-            # Base amount from previous year (after withdrawals/GWC)
-            base_amount = previous_year_deposits - all_withdrawals - all_gwc
-            if base_amount < 0:
-                base_amount = Decimal("0.00")
+            # Base amount from previous year (before any withdrawals/GWC)
+            base_amount = previous_year_deposits
             
             # Add interest from previous year investments
             previous_year_interest = Decimal("0.00")
@@ -556,6 +540,65 @@ class UserProfile(models.Model):
             return base_amount + previous_year_interest
         except Exception:
             return Decimal("0.00")
+
+    # ---- Helpers for approved / pending deductions from matured pot ----
+
+    def get_approved_withdrawal_amount(self) -> Decimal:
+        """
+        Total amount for withdrawal requests that have been approved/processed.
+        These are permanently deducted from last year's matured savings.
+        """
+        try:
+            from .models import WithdrawalRequest  # local import to avoid circulars in some tools
+        except Exception:
+            # Fallback if relative import path changes; use direct model reference
+            try:
+                WithdrawalRequest = self.withdrawal_requests.model  # type: ignore[attr-defined]
+            except Exception:
+                return Decimal("0.00")
+
+        try:
+            total = self.withdrawal_requests.filter(
+                status__in=["approved", "processed"]
+            ).aggregate(
+                total=Coalesce(Sum("amount"), Value(Decimal("0.00"), output_field=DecimalField()))
+            )["total"] or Decimal("0.00")
+            return total
+        except Exception:
+            return Decimal("0.00")
+
+    def get_approved_gwc_amount(self) -> Decimal:
+        """
+        Total amount for GWC contributions that have been approved/processed.
+        These are also deducted from last year's matured savings.
+        """
+        try:
+            from .models import GWCContribution  # local import to avoid circulars in some tools
+        except Exception:
+            try:
+                GWCContribution = self.gwc_contributions.model  # type: ignore[attr-defined]
+            except Exception:
+                return Decimal("0.00")
+
+        try:
+            total = self.gwc_contributions.filter(
+                status__in=["approved", "processed"]
+            ).aggregate(
+                total=Coalesce(Sum("amount"), Value(Decimal("0.00"), output_field=DecimalField()))
+            )["total"] or Decimal("0.00")
+            return total
+        except Exception:
+            return Decimal("0.00")
+
+    def get_total_approved_deductions(self) -> Decimal:
+        """
+        Combined approved/processed withdrawals and GWC contributions.
+
+        NOTE: MESU investments move funds into shares but do not currently
+        reduce the matured savings pot here. If that should change, add a
+        similar helper for MESU and include it in this total.
+        """
+        return self.get_approved_withdrawal_amount() + self.get_approved_gwc_amount()
 
     def get_pending_withdrawal_amount(self) -> Decimal:
         """Get total amount in pending withdrawal requests"""
@@ -601,17 +644,34 @@ class UserProfile(models.Model):
     def get_available_balance(self) -> Decimal:
         """
         Get available balance for withdrawal.
-        Includes total savings and interest from previous year that has matured.
-        Withdrawals and GWC contributions are deducted from this amount.
-        Current year savings are locked until the 52 weeks collapse (year end).
+        Logic:
+        - Start with total savings and interest from previous year that has matured
+          (get_previous_year_total_with_interest).
+        - Subtract amounts that have already been permanently used:
+            * Approved/processed withdrawals
+            * Approved/processed GWC contributions
+        - Subtract amounts that are currently withheld in pending requests:
+            * Pending withdrawals
+            * Pending GWC contributions
+            * Pending MESU investments
+
+        This ensures:
+        - When a request is first created (pending), the amount is withheld once.
+        - When a request is later approved/processed, it moves from "withheld"
+          to "approved", without double-reducing the available balance.
+        - Current year savings remain locked until the 52 weeks collapse (year end).
         """
         try:
-            # Get previous year total with interest
+            # 1. Get previous year matured pot (before any deductions)
             previous_year_total = self.get_previous_year_total_with_interest()
             
-            # Subtract pending requests
+            # 2. Subtract amounts that have already been used (approved/processed)
+            approved_deductions = self.get_total_approved_deductions()
+
+            # 3. Subtract amounts currently withheld in pending requests
             withheld = self.get_total_withheld_amount()
-            available = previous_year_total - withheld
+
+            available = previous_year_total - approved_deductions - withheld
             
             return max(available, Decimal("0.00"))  # Don't go negative
         except Exception:

@@ -272,14 +272,15 @@ def member_savings(request):
             # Get all transactions
             all_transactions = user_profile.savings_transactions.all().order_by('created_at')
             
-            # Calculate net deposits (deposits - withdrawals - GWC contributions)
-            # This represents the actual running balance
+            # Calculate gross deposits (including matured interest deposits)
+            # and separately track withdrawals and GWC contributions for reporting.
             total_deposits = Decimal('0.00')
             total_withdrawals = Decimal('0.00')
             total_gwc = Decimal('0.00')
             
             for transaction in all_transactions:
                 if transaction.transaction_type == 'deposit':
+                    # Includes normal deposits and matured-interest deposits
                     total_deposits += transaction.amount
                 elif transaction.transaction_type == 'withdrawal':
                     total_withdrawals += transaction.amount
@@ -287,6 +288,7 @@ def member_savings(request):
                     total_gwc += transaction.amount
             
             # Net deposit = deposits - withdrawals - GWC contributions
+            # (kept for summaries, but running_total below now tracks deposit pool only)
             net_deposits = total_deposits - total_withdrawals - total_gwc
             
             # Get total savings (includes interest from investments and uninvested savings)
@@ -319,14 +321,17 @@ def member_savings(request):
             else:
                 balance_brought_forward = Decimal('0.00')
             
-            # Calculate running totals for display
+            # Calculate running deposit total for display.
+            # IMPORTANT:
+            # - Only deposits (including matured-interest deposits) increase this number.
+            # - Withdrawals and GWC contributions are shown as rows, but they do NOT
+            #   reduce this running deposit metric. Their effect is handled in the
+            #   "Available Balance" math on the profile page via matured-pot deductions.
             running_total = Decimal('0.00')
             for transaction in all_transactions:
                 if transaction.transaction_type == 'deposit':
                     running_total += transaction.amount
-                elif transaction.transaction_type in ('withdrawal', 'gwc_contribution'):
-                    running_total -= transaction.amount
-                # Add running total to transaction for display
+                # For withdrawals and GWC contributions we leave running_total unchanged.
                 transaction.display_running_total = running_total
             
             # Get last 10 transactions for display (newest first)
