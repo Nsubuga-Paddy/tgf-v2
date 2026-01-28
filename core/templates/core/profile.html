@@ -1438,16 +1438,19 @@
         
         <div class="profile-stats">
           <div class="stat-item">
-            <div class="stat-value">UGX {{ user.profile.get_amount_saved|default:0|floatformat:0|intcomma }}</div>
+            <div class="stat-value">UGX {{ user.profile.get_current_year_amount_saved|default:0|floatformat:0|intcomma }}</div>
             <div class="stat-label">Amount Saved</div>
+            <div class="stat-note" style="font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem;">Current year deposits only</div>
           </div>
           <div class="stat-item">
-            <div class="stat-value">UGX {{ user.profile.get_total_interest_earned|default:0|floatformat:0|intcomma }}</div>
+            <div class="stat-value">UGX {{ user.profile.get_current_year_daily_interest|default:0|floatformat:0|intcomma }}</div>
             <div class="stat-label">Interest Earned</div>
+            <div class="stat-note" style="font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem;">15% annualized daily interest</div>
           </div>
           <div class="stat-item">
-            <div class="stat-value">UGX {{ user.profile.get_total_savings|default:0|floatformat:0|intcomma }}</div>
+            <div class="stat-value">UGX {{ user.profile.get_current_year_total_savings_and_interest|default:0|floatformat:0|intcomma }}</div>
             <div class="stat-label">Total Savings and Interest</div>
+            <div class="stat-note" style="font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem;">Current year deposits + daily interest</div>
           </div>
         </div>
         
@@ -1461,7 +1464,7 @@
             <div class="balance-amount">
               UGX {{ user.profile.get_available_balance|default:0|floatformat:0|intcomma }}
             </div>
-            <p class="balance-description">Amount available for withdrawal</p>
+            <p class="balance-description">Amount available for withdrawal (from last year's matured savings + interest)</p>
           </div>
           
           {% if user.profile.get_total_withheld_amount > 0 %}

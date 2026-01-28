@@ -45,9 +45,17 @@
               <h3 class="text-center">Login</h3>
             </div>
             <div class="card-body">
-              {% if messages %} {% for message in messages %}
-              <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-              {% endfor %} {% endif %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+
+              {% if login_error %}
+                <div class="alert alert-danger">
+                  {{ login_error }}
+                </div>
+              {% endif %}
 
               <form method="post" action="{% url 'accounts:login' %}">
                 {% csrf_token %}
@@ -57,6 +65,7 @@
                     type="text"
                     name="username"
                     class="form-control"
+                    value="{{ form.data.username }}"
                     required
                   />
                 </div>

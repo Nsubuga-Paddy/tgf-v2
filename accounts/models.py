@@ -1,7 +1,7 @@
 # accounts/models.py
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import date
 
 from django.conf import settings
@@ -223,7 +223,7 @@ class UserProfile(models.Model):
             # Use getattr to avoid circular import issues
             savings_transactions = getattr(self, 'savings_transactions', None)
             if savings_transactions:
-                # Get total deposits minus withdrawals
+                # Get total deposits minus withdrawals and GWC contributions
                 from django.db.models import Case, When, F, Value
                 total = savings_transactions.aggregate(
                     total=Coalesce(
@@ -231,6 +231,7 @@ class UserProfile(models.Model):
                             Case(
                                 When(transaction_type='deposit', then=F('amount')),
                                 When(transaction_type='withdrawal', then=-F('amount')),
+                                When(transaction_type='gwc_contribution', then=-F('amount')),
                                 default=Value(Decimal("0.00")),
                                 output_field=DecimalField()
                             )
@@ -258,6 +259,7 @@ class UserProfile(models.Model):
                                 Case(
                                     When(transaction_type='deposit', then=F('amount')),
                                     When(transaction_type='withdrawal', then=-F('amount')),
+                                    When(transaction_type='gwc_contribution', then=-F('amount')),
                                     default=Value(Decimal("0.00")),
                                     output_field=DecimalField()
                                 )
@@ -328,6 +330,7 @@ class UserProfile(models.Model):
         """
         Get the actual amount saved (deposits minus withdrawals) without any interest.
         This is the base savings amount before interest calculations.
+        NOTE: For profile page, use get_current_year_amount_saved() instead.
         """
         try:
             savings_transactions = getattr(self, 'savings_transactions', None)
@@ -339,6 +342,7 @@ class UserProfile(models.Model):
                             Case(
                                 When(transaction_type='deposit', then=F('amount')),
                                 When(transaction_type='withdrawal', then=-F('amount')),
+                                When(transaction_type='gwc_contribution', then=-F('amount')),
                                 default=Value(Decimal("0.00")),
                                 output_field=DecimalField()
                             )
@@ -350,12 +354,35 @@ class UserProfile(models.Model):
         except Exception:
             pass
         return Decimal("0.00")
+    
+    def get_current_year_amount_saved(self) -> Decimal:
+        """
+        Get current year deposits only (resets every year).
+        This shows only deposits from the current year, no withdrawals/GWC deductions.
+        """
+        try:
+            from django.utils import timezone
+            current_year = timezone.now().year
+            
+            savings_transactions = getattr(self, 'savings_transactions', None)
+            if savings_transactions:
+                current_year_deposits = savings_transactions.filter(
+                    transaction_type='deposit',
+                    transaction_date__year=current_year
+                ).aggregate(
+                    total=Coalesce(Sum('amount'), Value(Decimal("0.00"), output_field=DecimalField()))
+                )["total"] or Decimal("0.00")
+                return current_year_deposits
+        except Exception:
+            pass
+        return Decimal("0.00")
 
     def get_total_interest_earned(self) -> Decimal:
         """
         Get total interest earned including:
         - Interest from investments (matured and ongoing)
         - 15% interest on uninvested savings (if after Dec 31, 2025)
+        NOTE: For profile page, use get_current_year_daily_interest() for current year interest.
         """
         total_interest = Decimal("0.00")
         
@@ -382,6 +409,7 @@ class UserProfile(models.Model):
                                 Case(
                                     When(transaction_type='deposit', then=F('amount')),
                                     When(transaction_type='withdrawal', then=-F('amount')),
+                                    When(transaction_type='gwc_contribution', then=-F('amount')),
                                     default=Value(Decimal("0.00")),
                                     output_field=DecimalField()
                                 )
@@ -396,6 +424,138 @@ class UserProfile(models.Model):
             pass
         
         return total_interest
+    
+    def get_current_year_daily_interest(self) -> Decimal:
+        """
+        Get daily interest being earned on current year deposits (15% annualized).
+        This calculates accumulated daily interest: (deposits * 0.15 / 365) * days_elapsed_in_year
+        Same calculation as "Unfixed Savings Interest" card in member dashboard.
+        """
+        try:
+            from django.utils import timezone
+            from datetime import date
+            
+            current_year = timezone.now().year
+            today = date.today()
+            start_of_year = date(current_year, 1, 1)
+            days_elapsed = (today - start_of_year).days + 1  # +1 to include today
+            
+            # Get current year deposits only (uninvested amount)
+            current_year_deposits = self.get_current_year_amount_saved()
+            
+            # Subtract current year investments to get uninvested amount
+            current_year_invested = Decimal("0.00")
+            try:
+                investments = getattr(self, 'investments', None)
+                if investments:
+                    for inv in investments.filter(start_date__year=current_year, status='fixed'):
+                        current_year_invested += inv.amount_invested
+            except Exception:
+                pass
+            
+            uninvested_amount = current_year_deposits - current_year_invested if current_year_deposits > current_year_invested else Decimal("0.00")
+            
+            if uninvested_amount > 0:
+                # Calculate daily interest rate (15% annual = 15/365 per day)
+                daily_rate = Decimal("0.15") / Decimal("365")
+                # Calculate accumulated interest for days elapsed so far
+                daily_interest = uninvested_amount * daily_rate * Decimal(days_elapsed)
+                return daily_interest.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        except Exception:
+            pass
+        return Decimal("0.00")
+    
+    def get_current_year_total_savings_and_interest(self) -> Decimal:
+        """
+        Get total of current year deposits + daily interest gained.
+        This is for the "Total Savings and Interest" display in profile page.
+        """
+        current_year_deposits = self.get_current_year_amount_saved()
+        daily_interest = self.get_current_year_daily_interest()
+        return current_year_deposits + daily_interest
+    
+    def get_previous_year_total_with_interest(self) -> Decimal:
+        """
+        Get total savings and interest from previous year that has matured.
+        This is what's available for withdrawal (includes interest from last year).
+        Includes:
+        - Previous year deposits
+        - Minus withdrawals and GWC contributions (regardless of year)
+        - Plus interest from previous year investments
+        - Plus 15% interest on uninvested savings from previous year (if past Dec 31)
+        """
+        try:
+            from datetime import date
+            from django.utils import timezone
+            
+            current_year = timezone.now().year
+            previous_year = current_year - 1
+            
+            savings_transactions = getattr(self, 'savings_transactions', None)
+            if not savings_transactions:
+                return Decimal("0.00")
+            
+            # Get deposits from previous year only
+            previous_year_deposits = savings_transactions.filter(
+                transaction_type='deposit',
+                transaction_date__year=previous_year
+            ).aggregate(
+                total=Coalesce(Sum('amount'), Value(Decimal("0.00"), output_field=DecimalField()))
+            )["total"] or Decimal("0.00")
+            
+            # Subtract all withdrawals and GWC contributions (regardless of year)
+            # These reduce the available balance from previous year savings
+            all_withdrawals = savings_transactions.filter(
+                transaction_type='withdrawal'
+            ).aggregate(
+                total=Coalesce(Sum('amount'), Value(Decimal("0.00"), output_field=DecimalField()))
+            )["total"] or Decimal("0.00")
+            
+            all_gwc = savings_transactions.filter(
+                transaction_type='gwc_contribution'
+            ).aggregate(
+                total=Coalesce(Sum('amount'), Value(Decimal("0.00"), output_field=DecimalField()))
+            )["total"] or Decimal("0.00")
+            
+            # Base amount from previous year (after withdrawals/GWC)
+            base_amount = previous_year_deposits - all_withdrawals - all_gwc
+            if base_amount < 0:
+                base_amount = Decimal("0.00")
+            
+            # Add interest from previous year investments
+            previous_year_interest = Decimal("0.00")
+            try:
+                investments = getattr(self, 'investments', None)
+                if investments:
+                    # Get investments that started in previous year
+                    for investment in investments.filter(start_date__year=previous_year):
+                        if hasattr(investment, 'interest_gained_so_far'):
+                            previous_year_interest += investment.interest_gained_so_far
+            except Exception:
+                pass
+            
+            # Add 15% interest on uninvested savings from previous year
+            # This is calculated if we're past Dec 31 of previous year
+            if date.today() >= date(previous_year, 12, 31):
+                try:
+                    # Calculate total invested from previous year
+                    total_invested_prev_year = Decimal("0.00")
+                    investments = getattr(self, 'investments', None)
+                    if investments:
+                        for inv in investments.filter(start_date__year=previous_year):
+                            total_invested_prev_year += inv.amount_invested
+                    
+                    # Uninvested amount = previous year deposits (before withdrawals) - investments
+                    # But we need to use deposits before withdrawals for the 15% calculation
+                    uninvested_prev_year = previous_year_deposits - total_invested_prev_year
+                    if uninvested_prev_year > 0:
+                        previous_year_interest += uninvested_prev_year * Decimal("0.15")
+                except Exception:
+                    pass
+            
+            return base_amount + previous_year_interest
+        except Exception:
+            return Decimal("0.00")
 
     def get_pending_withdrawal_amount(self) -> Decimal:
         """Get total amount in pending withdrawal requests"""
@@ -439,11 +599,23 @@ class UserProfile(models.Model):
         )
 
     def get_available_balance(self) -> Decimal:
-        """Get available balance for withdrawal (total savings minus withheld amounts)"""
-        total_savings = self.get_total_savings()
-        withheld = self.get_total_withheld_amount()
-        available = total_savings - withheld
-        return max(available, Decimal("0.00"))  # Don't go negative
+        """
+        Get available balance for withdrawal.
+        Includes total savings and interest from previous year that has matured.
+        Withdrawals and GWC contributions are deducted from this amount.
+        Current year savings are locked until the 52 weeks collapse (year end).
+        """
+        try:
+            # Get previous year total with interest
+            previous_year_total = self.get_previous_year_total_with_interest()
+            
+            # Subtract pending requests
+            withheld = self.get_total_withheld_amount()
+            available = previous_year_total - withheld
+            
+            return max(available, Decimal("0.00"))  # Don't go negative
+        except Exception:
+            return Decimal("0.00")
 
     # ---- Normalizers / Cleaners ----
     def clean(self):
@@ -585,6 +757,50 @@ class WithdrawalRequest(models.Model):
     
     def __str__(self):
         return f"{self.user_profile.display_name} - UGX {self.amount:,.0f} - {self.get_status_display()}"
+    
+    def save(self, *args, **kwargs):
+        """Override save to automatically create SavingsTransaction when approved"""
+        # Get the old status if this is an update
+        old_status = None
+        if self.pk:
+            try:
+                old_instance = WithdrawalRequest.objects.get(pk=self.pk)
+                old_status = old_instance.status
+            except WithdrawalRequest.DoesNotExist:
+                pass
+        
+        # Save the model first
+        super().save(*args, **kwargs)
+        
+        # If status changed to 'approved' and we haven't created a transaction yet
+        if self.status == 'approved' and old_status != 'approved':
+            # Check if a transaction already exists for this withdrawal request
+            try:
+                from savings_52_weeks.models import SavingsTransaction
+                existing_transaction = SavingsTransaction.objects.filter(
+                    withdrawal_request=self
+                ).first()
+                
+                if not existing_transaction:
+                    # Create a withdrawal transaction
+                    SavingsTransaction.objects.create(
+                        user_profile=self.user_profile,
+                        amount=self.amount,
+                        transaction_type='withdrawal',
+                        transaction_date=timezone.now().date(),
+                        receipt_number=f"WDR-{self.pk}",
+                        withdrawal_request=self,
+                        # For withdrawals, we don't calculate covered weeks
+                        fully_covered_weeks=[],
+                        remaining_balance=Decimal("0.00"),
+                        cumulative_total=Decimal("0.00"),
+                        next_week=1,
+                    )
+            except Exception as e:
+                # Log error but don't fail the save
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error creating withdrawal transaction: {e}")
 
 
 # -------------------------------------------------------------------
@@ -636,6 +852,50 @@ class GWCContribution(models.Model):
     
     def __str__(self):
         return f"{self.user_profile.display_name} - UGX {self.amount:,.0f} ({self.get_group_type_display()}) - {self.get_status_display()}"
+    
+    def save(self, *args, **kwargs):
+        """Override save to automatically create SavingsTransaction when approved"""
+        # Get the old status if this is an update
+        old_status = None
+        if self.pk:
+            try:
+                old_instance = GWCContribution.objects.get(pk=self.pk)
+                old_status = old_instance.status
+            except GWCContribution.DoesNotExist:
+                pass
+        
+        # Save the model first
+        super().save(*args, **kwargs)
+        
+        # If status changed to 'approved' and we haven't created a transaction yet
+        if self.status == 'approved' and old_status != 'approved':
+            # Check if a transaction already exists for this GWC contribution
+            try:
+                from savings_52_weeks.models import SavingsTransaction
+                existing_transaction = SavingsTransaction.objects.filter(
+                    gwc_contribution=self
+                ).first()
+                
+                if not existing_transaction:
+                    # Create a GWC contribution transaction
+                    SavingsTransaction.objects.create(
+                        user_profile=self.user_profile,
+                        amount=self.amount,
+                        transaction_type='gwc_contribution',
+                        transaction_date=timezone.now().date(),
+                        receipt_number=f"GWC-{self.pk}",
+                        gwc_contribution=self,
+                        # For GWC contributions, we don't calculate covered weeks
+                        fully_covered_weeks=[],
+                        remaining_balance=Decimal("0.00"),
+                        cumulative_total=Decimal("0.00"),
+                        next_week=1,
+                    )
+            except Exception as e:
+                # Log error but don't fail the save
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error creating GWC contribution transaction: {e}")
 
 
 # -------------------------------------------------------------------

@@ -643,6 +643,222 @@
         font-size: 1rem;
       }
     }
+
+    /* Week Progress Section Styles */
+    .week-progress-section {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .week-progress-header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .savings-compact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .savings-main-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 1.5rem;
+      border: 1px solid var(--border);
+    }
+
+    .savings-icon {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-d));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .savings-details {
+      flex: 1;
+    }
+
+    .savings-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin: 0 0 0.5rem 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .savings-amount {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--brand);
+      margin: 0;
+      line-height: 1;
+    }
+
+    .savings-formula {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin: 0.25rem 0 0 0;
+    }
+
+    .savings-stats-compact {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .stat-compact {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      border: 1px solid var(--border);
+    }
+
+    .stat-compact i {
+      width: 32px;
+      height: 32px;
+      background: var(--primary-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--brand);
+      font-size: 0.875rem;
+      flex-shrink: 0;
+    }
+
+    .stat-compact .stat-label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-compact .stat-value {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 0.25rem;
+    }
+
+    .motivational-message-compact {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border-left: 4px solid var(--warning);
+    }
+
+    .motivational-message-compact i {
+      color: var(--warning);
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .motivational-message-compact p {
+      color: #92400e;
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    /* Responsive Design for Week Progress */
+    @media (max-width: 768px) {
+      .week-progress-section {
+        padding: 1rem;
+      }
+
+      .savings-compact-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      
+      .savings-main-info {
+        padding: 1rem;
+        text-align: center;
+        flex-direction: column;
+      }
+      
+      .savings-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+      }
+      
+      .savings-amount {
+        font-size: 1.5rem;
+      }
+
+      .savings-stats-compact {
+        flex-direction: row;
+        gap: 0.5rem;
+      }
+
+      .stat-compact {
+        flex: 1;
+        padding: 0.75rem;
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+      }
+
+      .motivational-message-compact {
+        padding: 0.75rem;
+      }
+
+      .motivational-message-compact p {
+        font-size: 0.75rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .savings-stats-compact {
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .stat-compact {
+        flex-direction: row;
+        text-align: left;
+      }
+    }
   </style>
 </head>
 <body>
@@ -712,18 +928,6 @@
             Personal Transactions
           </a>
         </li>
-        <li class="nav-item">
-          <a href="{% url 'savings_52_weeks:report' %}" class="nav-link">
-            <i class="fas fa-file-alt"></i>
-            Reports
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="{% url 'savings_52_weeks:chat_room' %}" class="nav-link">
-            <i class="fas fa-comments"></i>
-            Chat Room
-          </a>
-        </li>
       </ul>
     </nav>
     </aside>
@@ -751,12 +955,13 @@
             <i class="fas fa-wallet"></i>
           </div>
         </div>
-        <div class="stat-value" id="totalSaved">UGX {{ savings_data.total_savings|floatformat:0|default:"0"|intcomma }}</div>
+        <div class="stat-value" id="totalSaved">UGX {{ savings_data.current_year_deposits|floatformat:0|default:"0"|intcomma }}</div>
+        <div class="stat-meta">Current year deposits only (locked until 52 weeks complete)</div>
         <div class="stat-meta">Target: UGX 13,780,000</div>
         <div class="progress-bar">
           <div class="progress-fill" id="progressBar" style="width: {{ savings_data.progress_percentage|default:0 }}%"></div>
-            </div>
-          </div>
+        </div>
+      </div>
 
       <div class="stat-card">
         <div class="stat-header">
@@ -766,8 +971,11 @@
           </div>
         </div>
         <div class="stat-value" id="carryForward">UGX {{ savings_data.balance_brought_forward|floatformat:0|default:"0"|intcomma }}</div>
-        <div class="stat-meta">Fully Covered Weeks: <span id="weeksCompleted">{{savings_data.weeks_completed|default:0 }}</span></div>
-        <div class="stat-meta">Next Week: <span id="currentWeek">{{ savings_data.next_week_to_cover|default:1 }}</span></div>
+        <div class="stat-meta">
+          Unallocated balance for weeks not yet fully covered
+          <br>Fully Covered Weeks: <span id="weeksCompleted">{{savings_data.weeks_completed|default:0 }}</span>
+          <br>Next Week: <span id="currentWeek">{{ savings_data.next_week_to_cover|default:1 }}</span>
+        </div>
       </div>
 
       <div class="stat-card">
@@ -801,7 +1009,51 @@
       </div>
     </div>
 
-   
+    <!-- Current Week Progress Section -->
+    <div class="week-progress-section fade-in-up">
+      <div class="week-progress-header">
+        <h3 class="section-title">
+          <i class="fas fa-calendar-alt"></i>
+          Weekly Savings Target
+        </h3>
+      </div>
+      
+      <div class="savings-compact-grid">
+        <div class="savings-main-info">
+          <div class="savings-icon">
+            <i class="fas fa-wallet"></i>
+          </div>
+          <div class="savings-details">
+            <h4 class="savings-title">Required Savings</h4>
+            <div class="savings-amount" id="requiredSavings">UGX {{ savings_data.required_savings|floatformat:0|default:"0"|intcomma }}</div>
+            <p class="savings-formula">Week <span id="currentWeek">{{ savings_data.current_week|default:"1" }}</span> × UGX 10,000</p>
+          </div>
+        </div>
+
+        <div class="savings-stats-compact">
+          <div class="stat-compact">
+            <i class="fas fa-calendar-week"></i>
+            <div>
+              <span class="stat-label">Current Week</span>
+              <span class="stat-value">Week <span id="currentWeekDisplay">{{ savings_data.current_week|default:"1" }}</span></span>
+            </div>
+          </div>
+
+          <div class="stat-compact">
+            <i class="fas fa-flag-checkered"></i>
+            <div>
+              <span class="stat-label">Remaining</span>
+              <span class="stat-value" id="remainingWeeks">{{ savings_data.remaining_weeks|default:"51" }} weeks</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="motivational-message-compact">
+          <i class="fas fa-lightbulb"></i>
+          <p>Stay consistent! Small weekly contributions lead to significant annual savings.</p>
+        </div>
+      </div>
+    </div>
 
     <!-- Investment History -->
     <div class="content-card">
@@ -888,12 +1140,12 @@
                     <tr>
                       <td>{{ transaction.transaction_date|date:"M d, Y" }}</td>
                       <td>
-                        <span class="badge {% if transaction.transaction_type == 'deposit' %}badge-success{% elif transaction.transaction_type == 'withdrawal' %}badge-danger{% else %}badge-secondary{% endif %}">
+                        <span class="badge {% if transaction.transaction_type == 'deposit' %}badge-success{% elif transaction.transaction_type == 'withdrawal' %}badge-danger{% elif transaction.transaction_type == 'gwc_contribution' %}badge-warning{% else %}badge-secondary{% endif %}">
                           {{ transaction.get_transaction_type_display|title }}
                         </span>
                       </td>
-                      <td class="{% if transaction.transaction_type == 'withdrawal' %}text-danger{% endif %}">
-                        {% if transaction.transaction_type == 'withdrawal' %}-{% endif %}UGX {{ transaction.amount|floatformat:0|intcomma }}
+                      <td class="{% if transaction.transaction_type == 'withdrawal' or transaction.transaction_type == 'gwc_contribution' %}text-danger{% endif %}">
+                        {% if transaction.transaction_type == 'withdrawal' or transaction.transaction_type == 'gwc_contribution' %}-{% endif %}UGX {{ transaction.amount|floatformat:0|intcomma }}
                       </td>
                       <td>
                         {% if transaction.transaction_type == 'deposit' %}

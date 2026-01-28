@@ -3,6 +3,7 @@ from django.shortcuts import render
 from accounts.decorators import project_required
 from decimal import Decimal
 from django.db.models import Sum, Case, When, F, Value, DecimalField
+from django.utils import timezone
 from .models import SavingsTransaction, Investment
 
 @project_required('52 Weeks Saving Challenge')
@@ -27,7 +28,7 @@ def group_dashboard(request):
             print(f"Debug: Users: {[u.user.username for u in verified_users]}")
         
         if verified_users.exists():
-            # Calculate group total savings (all deposits minus all withdrawals)
+            # Calculate group total savings (all deposits minus all withdrawals and GWC contributions)
             total_savings = SavingsTransaction.objects.filter(
                 user_profile__in=verified_users
             ).aggregate(
@@ -35,6 +36,7 @@ def group_dashboard(request):
                     Case(
                         When(transaction_type='deposit', then=F('amount')),
                         When(transaction_type='withdrawal', then=-F('amount')),
+                        When(transaction_type='gwc_contribution', then=-F('amount')),
                         default=Value(0),
                         output_field=DecimalField(max_digits=14, decimal_places=2),
                     )
@@ -267,67 +269,137 @@ def member_savings(request):
     # Get user's savings data
     savings_data = {}
     if user_profile:
-        # Get total savings
-        total_savings = SavingsTransaction.get_user_total_savings(user_profile)
-        
-        # Get challenge progress
-        challenge_progress = SavingsTransaction.get_user_challenge_progress(user_profile)
-        
-        # Get latest transaction for balance brought forward and next week
-        latest_transaction = user_profile.savings_transactions.filter(
-            transaction_type='deposit'
-        ).order_by('-created_at').first()
-        
-        # Get user's transaction history (both deposits and withdrawals)
-        all_transactions = user_profile.savings_transactions.all().order_by('created_at')  # All transactions chronologically for running totals
-        
-        # Calculate running totals for display
-        running_total = Decimal('0.00')
-        for transaction in all_transactions:
-            if transaction.transaction_type == 'deposit':
-                running_total += transaction.amount
-            elif transaction.transaction_type == 'withdrawal':
-                running_total -= transaction.amount
-            # Add running total to transaction for display
-            transaction.display_running_total = running_total
-        
-        # Get last 10 transactions for display (newest first)
-        transactions = list(all_transactions)[-10:][::-1]  # Last 10, reversed for newest first
-        
-        # Get investment data
-        investments = user_profile.investments.all()
-        total_invested = sum(inv.amount_invested for inv in investments if inv.status == 'fixed')
-        total_interest_expected = sum(inv.total_interest_expected for inv in investments if inv.status == 'fixed')
-        total_interest_gained = sum(inv.interest_gained_so_far for inv in investments if inv.status == 'fixed')
-        uninvested_amount = total_savings - total_invested
-        
-        # Get latest investment's maturity date
-        latest_investment = investments.filter(status='fixed').order_by('-start_date').first()
-        latest_maturity_date = latest_investment.maturity_date if latest_investment else None
-        
-        # Calculate 15% interest on uninvested savings (for full 52-week period)
-        uninvested_interest = (uninvested_amount * Decimal('0.15')) if uninvested_amount > 0 else Decimal('0.00')
-        
-        savings_data = {
-            'total_savings': total_savings,
-            'challenge_progress': challenge_progress,
-            'latest_transaction': latest_transaction,
-            'balance_brought_forward': latest_transaction.remaining_balance if latest_transaction else Decimal('0.00'),
-            'next_week_to_cover': latest_transaction.next_week if latest_transaction else 1,
-            'weeks_completed': challenge_progress['weeks_completed'],
-            'total_weeks': challenge_progress['total_weeks'],
-            'progress_percentage': challenge_progress['progress_percentage'],
-            'transactions': transactions,
-            'investments': {
-                'total_invested': total_invested,
-                'total_interest_expected': total_interest_expected,
-                'total_interest_gained': total_interest_gained,
-                'uninvested_amount': uninvested_amount,
-                'uninvested_interest': uninvested_interest,
-                'latest_maturity_date': latest_maturity_date,
-                'investment_list': investments
+            # Get all transactions
+            all_transactions = user_profile.savings_transactions.all().order_by('created_at')
+            
+            # Calculate net deposits (deposits - withdrawals - GWC contributions)
+            # This represents the actual running balance
+            total_deposits = Decimal('0.00')
+            total_withdrawals = Decimal('0.00')
+            total_gwc = Decimal('0.00')
+            
+            for transaction in all_transactions:
+                if transaction.transaction_type == 'deposit':
+                    total_deposits += transaction.amount
+                elif transaction.transaction_type == 'withdrawal':
+                    total_withdrawals += transaction.amount
+                elif transaction.transaction_type == 'gwc_contribution':
+                    total_gwc += transaction.amount
+            
+            # Net deposit = deposits - withdrawals - GWC contributions
+            net_deposits = total_deposits - total_withdrawals - total_gwc
+            
+            # Get total savings (includes interest from investments and uninvested savings)
+            # This uses the UserProfile method which includes all interest calculations
+            total_savings = user_profile.get_total_savings()
+            
+            # Get challenge progress for current year
+            current_year = timezone.now().year
+            challenge_progress = SavingsTransaction.get_user_challenge_progress(user_profile, year=current_year)
+            
+            # Get the most recent transaction (any type) for balance brought forward
+            latest_transaction_all_types = user_profile.savings_transactions.all().order_by('-created_at').first()
+            
+            # Get latest deposit transaction for next week calculation (current year only)
+            current_year = timezone.now().year
+            latest_deposit_transaction = user_profile.savings_transactions.filter(
+                transaction_type='deposit',
+                transaction_date__year=current_year
+            ).order_by('-created_at').first()
+            
+            # Calculate balance brought forward based on most recent transaction
+            # If last transaction is withdrawal or GWC, balance forward is 0
+            # Otherwise, use the remaining_balance from the latest deposit
+            if latest_transaction_all_types:
+                if latest_transaction_all_types.transaction_type in ('withdrawal', 'gwc_contribution'):
+                    balance_brought_forward = Decimal('0.00')
+                else:
+                    # It's a deposit, use its remaining_balance
+                    balance_brought_forward = latest_transaction_all_types.remaining_balance if hasattr(latest_transaction_all_types, 'remaining_balance') else Decimal('0.00')
+            else:
+                balance_brought_forward = Decimal('0.00')
+            
+            # Calculate running totals for display
+            running_total = Decimal('0.00')
+            for transaction in all_transactions:
+                if transaction.transaction_type == 'deposit':
+                    running_total += transaction.amount
+                elif transaction.transaction_type in ('withdrawal', 'gwc_contribution'):
+                    running_total -= transaction.amount
+                # Add running total to transaction for display
+                transaction.display_running_total = running_total
+            
+            # Get last 10 transactions for display (newest first)
+            transactions = list(all_transactions)[-10:][::-1]  # Last 10, reversed for newest first
+            
+            # Get investment data
+            investments = user_profile.investments.all()
+            total_invested = sum(inv.amount_invested for inv in investments if inv.status == 'fixed')
+            total_interest_expected = sum(inv.total_interest_expected for inv in investments if inv.status == 'fixed')
+            total_interest_gained = sum(inv.interest_gained_so_far for inv in investments if inv.status == 'fixed')
+            
+            # Calculate uninvested amount based on net deposits (not gross deposits)
+            uninvested_amount = net_deposits - total_invested if net_deposits > total_invested else Decimal('0.00')
+            
+            # Get latest investment's maturity date
+            latest_investment = investments.filter(status='fixed').order_by('-start_date').first()
+            latest_maturity_date = latest_investment.maturity_date if latest_investment else None
+            
+            # Calculate 15% interest on uninvested savings (for full 52-week period)
+            uninvested_interest = (uninvested_amount * Decimal('0.15')) if uninvested_amount > 0 else Decimal('0.00')
+            
+            # Calculate current week of the year and weekly progress
+            from datetime import date
+            today = date.today()
+            start_of_year = date(today.year, 1, 1)
+            days_elapsed = (today - start_of_year).days
+            current_week = min(days_elapsed // 7 + 1, 52)  # Cap at week 52
+            
+            # Calculate required savings for current week
+            required_savings = current_week * 10000  # Week N × UGX 10,000
+            remaining_weeks = max(52 - current_week, 0)
+            
+            # Calculate current year deposits only (for Total Savings card display)
+            # Only deposits count - withdrawals and GWC contributions affect last year's matured savings
+            current_year_deposits = Decimal('0.00')
+            for t in all_transactions.filter(transaction_date__year=current_year, transaction_type='deposit'):
+                current_year_deposits += t.amount
+            
+            # Calculate progress percentage based on current year deposits only
+            total_target = Decimal('13780000')  # 13,780,000 UGX
+            current_year_progress_percentage = (current_year_deposits / total_target * 100) if total_target > 0 else 0
+            current_year_progress_percentage = min(current_year_progress_percentage, 100)
+            
+            savings_data = {
+                'total_savings': total_savings,  # Full total including all interest (for other calculations)
+                'current_year_deposits': current_year_deposits,  # Current year deposits only (for Total Savings card)
+                'net_deposits': net_deposits,  # Running deposit balance (after withdrawals/GWC)
+                'total_deposits': total_deposits,  # Gross deposits
+                'total_withdrawals': total_withdrawals,  # Total withdrawals
+                'total_gwc': total_gwc,  # Total GWC contributions
+                'challenge_progress': challenge_progress,
+                'latest_transaction': latest_deposit_transaction,
+                # Balance brought forward: 0 if last transaction is withdrawal/GWC, 
+                # otherwise the remaining_balance from the latest deposit
+                'balance_brought_forward': balance_brought_forward,
+                'next_week_to_cover': latest_deposit_transaction.next_week if latest_deposit_transaction else 1,
+                'weeks_completed': challenge_progress['weeks_completed'],
+                'total_weeks': challenge_progress['total_weeks'],
+                'progress_percentage': current_year_progress_percentage,  # Based on current year net savings
+                'current_week': current_week,
+                'required_savings': required_savings,
+                'remaining_weeks': remaining_weeks,
+                'transactions': transactions,
+                'investments': {
+                    'total_invested': total_invested,
+                    'total_interest_expected': total_interest_expected,
+                    'total_interest_gained': total_interest_gained,
+                    'uninvested_amount': uninvested_amount,
+                    'uninvested_interest': uninvested_interest,
+                    'latest_maturity_date': latest_maturity_date,
+                    'investment_list': investments
+                }
             }
-        }
     
     context = {
         'user': user,
@@ -336,22 +408,3 @@ def member_savings(request):
     }
     return render(request, "savings_52_weeks/52wsc-member-dashboard.html", context)
 
-@project_required('52 Weeks Saving Challenge')
-def report(request):
-    # Renders the member's personal savings report page
-    user = request.user
-    context = {
-        'user': user,
-        'user_profile': user.profile if hasattr(user, 'profile') else None,
-    }
-    return render(request, "savings_52_weeks/52wsc-report.html", context)
-
-@project_required('52 Weeks Saving Challenge')
-def chat_room(request):
-    # Renders the 52WSC group chat room page
-    user = request.user
-    context = {
-        'user': user,
-        'user_profile': user.profile if hasattr(user, 'profile') else None,
-    }
-    return render(request, "savings_52_weeks/52wsc-chat-room.html", context)

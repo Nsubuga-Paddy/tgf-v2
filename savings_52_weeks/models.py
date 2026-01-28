@@ -44,6 +44,7 @@ class SavingsTransaction(models.Model):
         ('deposit', 'Deposit'),
         ('withdrawal', 'Withdrawal'),
         ('adjustment', 'Adjustment'),
+        ('gwc_contribution', 'GWC Contribution'),
     ]
 
     user_profile = models.ForeignKey(
@@ -72,6 +73,25 @@ class SavingsTransaction(models.Model):
         blank=True,
         null=True,
         help_text="Receipt or reference number for this deposit"
+    )
+    
+    # Optional links to withdrawal/GWC requests (using string reference to avoid circular import)
+    withdrawal_request = models.ForeignKey(
+        'accounts.WithdrawalRequest',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='savings_transactions',
+        help_text="Linked withdrawal request (if this transaction is from a withdrawal)"
+    )
+    
+    gwc_contribution = models.ForeignKey(
+        'accounts.GWCContribution',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='savings_transactions',
+        help_text="Linked GWC contribution (if this transaction is from a GWC contribution)"
     )
 
     date_saved = models.DateTimeField(default=timezone.now)
@@ -108,11 +128,12 @@ class SavingsTransaction(models.Model):
 
         Week N target = N * 10,000 UGX
         """
-        if self.transaction_type != 'deposit':
+        if self.transaction_type not in ('deposit',):
             # Only deposits participate in week coverage logic
+            # Withdrawals and GWC contributions don't affect week coverage
             self.fully_covered_weeks = []
-            self.remaining_balance = self.amount or Decimal("0.00")
-            self.cumulative_total = self.remaining_balance
+            self.remaining_balance = Decimal("0.00")
+            self.cumulative_total = Decimal("0.00")
             self.next_week = 1
             return
 
@@ -182,11 +203,15 @@ class SavingsTransaction(models.Model):
         return Decimal("0.00")
     
     def _get_user_previous_balance(self, profile):
-        """Get the user's previous balance brought forward from previous transactions"""
+        """Get the user's previous balance brought forward from previous transactions in the same year"""
         try:
-            # Get the most recent transaction to see what balance was brought forward
+            # Get the transaction date year to filter by same year
+            transaction_year = self.transaction_date.year if hasattr(self, 'transaction_date') and self.transaction_date else timezone.now().year
+            
+            # Get the most recent transaction from the same year to see what balance was brought forward
             latest_transaction = profile.savings_transactions.filter(
-                transaction_type='deposit'
+                transaction_type='deposit',
+                transaction_date__year=transaction_year
             ).exclude(pk=self.pk).order_by('-created_at').first()
             
             if latest_transaction and latest_transaction.remaining_balance:
@@ -197,11 +222,15 @@ class SavingsTransaction(models.Model):
             return Decimal("0.00")
     
     def _find_next_week_needing_funding(self, profile):
-        """Find the next week that needs funding based on previous transactions"""
+        """Find the next week that needs funding based on previous transactions in the same year"""
         try:
-            # Get all previous transactions to see which weeks are already covered
+            # Get the transaction date year to filter by same year
+            transaction_year = self.transaction_date.year if hasattr(self, 'transaction_date') and self.transaction_date else timezone.now().year
+            
+            # Get all previous transactions from the same year to see which weeks are already covered
             previous_transactions = profile.savings_transactions.filter(
-                transaction_type='deposit'
+                transaction_type='deposit',
+                transaction_date__year=transaction_year
             ).exclude(pk=self.pk).order_by('created_at')
             
             covered_weeks = set()
@@ -235,11 +264,18 @@ class SavingsTransaction(models.Model):
             return Decimal('0.00')
     
     @classmethod
-    def get_user_challenge_progress(cls, profile):
-        """Get user's progress in the 52-week challenge"""
+    def get_user_challenge_progress(cls, profile, year=None):
+        """Get user's progress in the 52-week challenge for a specific year"""
         try:
-            # Get all deposit transactions
-            deposits = profile.savings_transactions.filter(transaction_type='deposit')
+            # Use current year if not specified
+            if year is None:
+                year = timezone.now().year
+            
+            # Get all deposit transactions from the specified year
+            deposits = profile.savings_transactions.filter(
+                transaction_type='deposit',
+                transaction_date__year=year
+            )
             
             total_saved = Decimal('0.00')
             covered_weeks = []
@@ -261,16 +297,19 @@ class SavingsTransaction(models.Model):
                 'progress_percentage': min(progress_percentage, 100),
                 'covered_weeks': covered_weeks,
                 'weeks_completed': len(set(item['week'] for item in covered_weeks if item.get('fully_covered', False))),
-                'total_weeks': 52
+                'total_weeks': 52,
+                'year': year
             }
         except Exception:
+            current_year = timezone.now().year if year is None else year
             return {
                 'total_saved': Decimal('0.00'),
                 'total_target': Decimal('13780000'),
                 'progress_percentage': 0,
                 'covered_weeks': [],
                 'weeks_completed': 0,
-                'total_weeks': 52
+                'total_weeks': 52,
+                'year': current_year
             }
     
     def get_week_amount(self, week_data):
@@ -467,6 +506,7 @@ class Investment(models.Model):
         """
         Automatically check if investment has matured and update status.
         Returns True if status was changed, False otherwise.
+        Also creates a deposit transaction for matured interest.
         """
         if self.status == 'matured':
             return False  # Already matured
@@ -476,6 +516,40 @@ class Investment(models.Model):
             old_status = self.status
             self.status = 'matured'
             self.save(update_fields=['status'])
+            
+            # If status changed to matured, create deposit transaction for interest
+            if old_status != 'matured':
+                try:
+                    # Check if a transaction already exists for this matured investment
+                    existing_transaction = SavingsTransaction.objects.filter(
+                        receipt_number=f"INT-{self.pk}"
+                    ).first()
+                    
+                    if not existing_transaction:
+                        # Get the full interest amount (at maturity)
+                        interest_amount = self.total_interest_expected
+                        
+                        if interest_amount > 0:
+                            # Create a deposit transaction for the matured interest
+                            SavingsTransaction.objects.create(
+                                user_profile=self.user_profile,
+                                amount=interest_amount,
+                                transaction_type='deposit',
+                                transaction_date=today,
+                                receipt_number=f"INT-{self.pk}",
+                                # For interest deposits, we don't calculate covered weeks
+                                # They're just added to the balance
+                                fully_covered_weeks=[],
+                                remaining_balance=Decimal("0.00"),
+                                cumulative_total=Decimal("0.00"),
+                                next_week=1,
+                            )
+                except Exception as e:
+                    # Log error but don't fail the save
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Error creating matured interest transaction: {e}")
+            
             return old_status != 'matured'
         return False
 

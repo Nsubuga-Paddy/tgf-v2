@@ -134,14 +134,14 @@ class ProfileView(TemplateView):
         
         try:
             withdraw_amount = Decimal(request.POST.get('withdraw_amount', '0'))
-            total_savings = profile.get_total_savings()
+            available_balance = profile.get_available_balance()
             
             if withdraw_amount < 1000:
                 messages.error(request, 'Minimum withdrawal amount is UGX 1,000.')
                 return redirect('profile')
             
-            if withdraw_amount > total_savings:
-                messages.error(request, 'Insufficient balance. Available: UGX {:,}'.format(int(total_savings)))
+            if withdraw_amount > available_balance:
+                messages.error(request, 'Insufficient balance. Available: UGX {:,}'.format(int(available_balance)))
                 return redirect('profile')
             
             # Create withdrawal request record
@@ -169,14 +169,14 @@ class ProfileView(TemplateView):
         try:
             gwc_amount = Decimal(request.POST.get('gwc_amount', '0'))
             group_type = request.POST.get('gwc_group_type', '')
-            total_savings = profile.get_total_savings()
+            available_balance = profile.get_available_balance()
             
             if gwc_amount < 1000:
                 messages.error(request, 'Minimum contribution amount is UGX 1,000.')
                 return redirect('profile')
             
-            if gwc_amount > total_savings:
-                messages.error(request, 'Insufficient balance. Available: UGX {:,}'.format(int(total_savings)))
+            if gwc_amount > available_balance:
+                messages.error(request, 'Insufficient balance. Available: UGX {:,}'.format(int(available_balance)))
                 return redirect('profile')
             
             if not group_type:
