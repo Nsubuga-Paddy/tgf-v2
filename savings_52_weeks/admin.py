@@ -59,19 +59,22 @@ class SavingsTransactionAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
     def get_queryset(self, request):
         """
-        Annotate each row with a running sum of deposits for that user_profile,
+        Annotate each row with a running sum (deposits - withdrawals - GWC contributions) for that user_profile,
         ordered by (transaction_date, created_at, id) to keep it deterministic.
         Requires Postgres, MySQL 8+, or SQLite 3.25+ (window functions).
+        This matches the calculation used in the member dashboard.
         """
         qs = super().get_queryset(request).select_related('user_profile', 'user_profile__user')
-        deposit_only = Case(
+        # Calculate net: deposits add, withdrawals and GWC contributions subtract
+        net_amount = Case(
             When(transaction_type='deposit', then=F('amount')),
+            When(transaction_type__in=('withdrawal', 'gwc_contribution'), then=-F('amount')),
             default=Value(0),
             output_field=DecimalField(max_digits=14, decimal_places=2),
         )
         return qs.annotate(
             running_total_deposit=Window(
-                expression=Sum(deposit_only),
+                expression=Sum(net_amount),
                 partition_by=[F('user_profile_id')],
                 order_by=[F('transaction_date').asc(), F('created_at').asc(), F('id').asc()],
             )
@@ -81,13 +84,18 @@ class SavingsTransactionAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
     def total_deposit_running(self, obj):
         """
-        Cumulative deposits up to *this* row for this user (previous + current).
+        Cumulative net balance up to *this* row for this user (deposits - withdrawals - GWC contributions).
+        This matches the calculation used in the member dashboard.
         """
         val = getattr(obj, 'running_total_deposit', None)
         if val is None:
             return '—'
+        # Format with proper sign indication
+        if val < 0:
+            return f"<span style='color: #dc2626;'>UGX{val:,.0f}</span>"
         return f"UGX{val:,.0f}"
-    total_deposit_running.short_description = "Total Deposit (Running)"
+    total_deposit_running.short_description = "Net Balance (Running)"
+    total_deposit_running.allow_tags = True
 
     def covered_weeks_display(self, obj):
         """
@@ -114,18 +122,33 @@ class SavingsTransactionAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
     
     def balance_bf_display(self, obj):
-        """Balance brought forward (unallocated remainder after this allocation)."""
+        """
+        Balance brought forward (unallocated remainder after this allocation).
+        For withdrawals/GWC, shows 0. For deposits, shows remaining_balance.
+        This matches the logic used in the member dashboard.
+        """
+        # If this is a withdrawal or GWC contribution, balance forward is 0
+        if obj.transaction_type in ('withdrawal', 'gwc_contribution'):
+            return "UGX 0"
+        
+        # For deposits, show the remaining balance (unallocated for weeks)
         try:
-            return f"UGX{float(obj.remaining_balance):,.0f}"
+            balance = obj.remaining_balance or Decimal('0.00')
+            return f"UGX{float(balance):,.0f}"
         except Exception:
-            return str(obj.remaining_balance)
+            return str(obj.remaining_balance) if obj.remaining_balance else "UGX 0"
     balance_bf_display.short_description = "Balance BF"
 
 
     def next_week_display(self, obj):
         """
         Show 'Week N' or 'Complete' when all 52 are done.
+        For withdrawals/GWC contributions, shows 'N/A' since they don't affect week coverage.
         """
+        # Withdrawals and GWC contributions don't have week coverage
+        if obj.transaction_type in ('withdrawal', 'gwc_contribution'):
+            return "N/A"
+        
         if obj.next_week and obj.next_week <= 52:
             return f"Week {obj.next_week}"
         return "Complete"
@@ -249,9 +272,15 @@ class InvestmentAdmin(ExportableAdminMixin, admin.ModelAdmin):
     mark_as_fixed.short_description = "Mark selected investments as fixed"
     
     def mark_as_matured(self, request, queryset):
-        """Mark selected investments as matured"""
-        updated = queryset.update(status='matured')
-        self.message_user(request, f'{updated} investments marked as matured.')
+        """Mark selected investments as matured and create deposit transactions for interest"""
+        count = 0
+        for investment in queryset:
+            if investment.status != 'matured':
+                # Use check_and_update_status to ensure transaction is created
+                investment.check_and_update_status()
+                if investment.status == 'matured':
+                    count += 1
+        self.message_user(request, f'{count} investments marked as matured. Interest transactions created automatically.')
     mark_as_matured.short_description = "Mark selected investments as matured"
     
     def calculate_interest(self, request, queryset):
