@@ -3,16 +3,69 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth.views import PasswordResetConfirmView, PasswordResetCompleteView
+from django.core.mail import send_mail
 from django.shortcuts import render, redirect
 from django.urls import reverse, reverse_lazy
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.conf import settings
 
-from .forms import CustomUserCreationForm
+from .forms import CustomUserCreationForm, PasswordResetRequestForm
+from .models import UserProfile
 
 User = get_user_model()
 
 # --- Helpers ---
+def _find_user_by_username_email_phone(value):
+    """
+    Find a User by username, email, or profile whatsapp_number.
+    Returns (user, None) if found, (None, error_message) if not found or no email.
+    """
+    value = (value or "").strip()
+    if not value:
+        return None, "Please enter your username, email or phone number."
+
+    # Try username (exact)
+    user = User.objects.filter(username=value).first()
+    if user:
+        if not user.email:
+            return None, "No email address is on file for this account. Please contact an administrator to reset your password."
+        return user, None
+
+    # Try email (case-insensitive)
+    user = User.objects.filter(email__iexact=value).first()
+    if user:
+        if not user.email:
+            return None, "No email address is on file for this account. Please contact an administrator to reset your password."
+        return user, None
+
+    # Try phone (normalize with phonenumber_field if possible)
+    try:
+        from phonenumber_field.phonenumber import PhoneNumber
+        pn = PhoneNumber.from_string(value, region="UG")
+        if pn and pn.is_valid():
+            profile = UserProfile.objects.filter(whatsapp_number=pn).first()
+            if profile:
+                user = profile.user
+                if not getattr(user, "email", None) or not user.email.strip():
+                    return None, "No email address is on file for this account. Please contact an administrator to reset your password."
+                return user, None
+    except Exception:
+        pass
+    # Also try raw string match for whatsapp_number (stored format may match)
+    profile = UserProfile.objects.filter(whatsapp_number=value).first()
+    if profile:
+        user = profile.user
+        if not getattr(user, "email", None) or not user.email.strip():
+            return None, "No email address is on file for this account. Please contact an administrator to reset your password."
+        return user, None
+
+    return None, "No account found with that username, email or phone number. Please check and try again."
+
+
 def _safe_next_url(request, default_name="landing"):
     """
     Return a safe redirect target from ?next=, otherwise a sensible default.
@@ -140,4 +193,75 @@ def logout_view(request):
         logout(request)
         messages.success(request, "You have been successfully logged out.")
     return redirect("accounts:login")
+
+
+# --- Password reset (forgot password) ---
+def password_reset_request(request):
+    """
+    Forgot password: user enters username, email or phone.
+    We find the user and send a password reset link to their email.
+    """
+    if request.user.is_authenticated:
+        messages.info(request, "You are already signed in.")
+        return redirect("landing")
+
+    if request.method == "POST":
+        form = PasswordResetRequestForm(request.POST)
+        if form.is_valid():
+            value = form.cleaned_data["username_email_phone"]
+            user, error = _find_user_by_username_email_phone(value)
+            if error:
+                messages.error(request, error)
+                return render(request, "core/forgot_password.html", {"form": form})
+
+            # Generate reset link
+            token = default_token_generator.make_token(user)
+            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+            reset_url = request.build_absolute_uri(
+                reverse("accounts:password_reset_confirm", kwargs={"uidb64": uidb64, "token": token})
+            )
+            subject = "Reset your MCS password"
+            message = (
+                f"Hello {user.get_username()},\n\n"
+                f"You requested a password reset. Click the link below to set a new password:\n\n"
+                f"{reset_url}\n\n"
+                f"If you did not request this, ignore this email. The link expires in 24 hours.\n\n"
+                f"— MCS"
+            )
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@mcs.local"),
+                    [user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                messages.error(
+                    request,
+                    "We could not send the reset email. Please try again later or contact support.",
+                )
+                return render(request, "core/forgot_password.html", {"form": form})
+
+            return redirect("accounts:password_reset_done")
+    else:
+        form = PasswordResetRequestForm()
+
+    return render(request, "core/forgot_password.html", {"form": form})
+
+
+def password_reset_done(request):
+    """Shown after user submits forgot-password: 'Check your email'."""
+    return render(request, "core/password_reset_done.html")
+
+
+class CustomPasswordResetConfirmView(PasswordResetConfirmView):
+    """Set new password from the link in the email."""
+    template_name = "core/password_reset_confirm.html"
+    success_url = reverse_lazy("accounts:password_reset_complete")
+
+
+class CustomPasswordResetCompleteView(PasswordResetCompleteView):
+    """Shown after password has been changed."""
+    template_name = "core/password_reset_complete.html"
 

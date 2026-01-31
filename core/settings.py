@@ -192,3 +192,22 @@ LOGOUT_REDIRECT_URL = 'accounts:login'
 # Session Settings
 SESSION_COOKIE_AGE = 3600  # 1 hour
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Email (for password reset etc.)
+# In development, emails are printed to the console.
+# In production, set these environment variables (e.g. on Railway):
+#   DEFAULT_FROM_EMAIL, EMAIL_HOST, EMAIL_PORT, EMAIL_USE_SSL or EMAIL_USE_TLS,
+#   EMAIL_HOST_USER, EMAIL_HOST_PASSWORD
+# For port 465 (SMTPS): EMAIL_PORT=465, EMAIL_USE_SSL=True, EMAIL_USE_TLS=False
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@mcsug.org')
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+    # SMTP settings (only used when DEBUG is False)
+    EMAIL_HOST = config('EMAIL_HOST', default='')
+    EMAIL_PORT = config('EMAIL_PORT', default=465, cast=int)
+    EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=True, cast=bool)
+    EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=False, cast=bool)
+    EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='noreply@mcsug.org')
+    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
