@@ -190,9 +190,52 @@ LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'landing'
 LOGOUT_REDIRECT_URL = 'accounts:login'
 
+# Email: console in development, SMTP over SSL in production (see Railway variables)
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@mcsug.org')
+else:
+    EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+    # SSL/TLS settings for mail.mcsug.org (SMTP port 465)
+    EMAIL_HOST = config('EMAIL_HOST', default='mail.mcsug.org')
+    EMAIL_PORT = config('EMAIL_PORT', default=465, cast=int)
+    EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=True, cast=bool)
+    EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=False, cast=bool)
+    EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='noreply@mcsug.org')
+    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+    DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=config('EMAIL_HOST_USER', default='noreply@mcsug.org'))
+
 # Session Settings
 SESSION_COOKIE_AGE = 3600  # 1 hour
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
- 
+# Logging: send app and Django logs to console (visible in Railway logs)
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "accounts": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
 

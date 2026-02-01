@@ -1,11 +1,14 @@
 # accounts/views.py
+import logging
+import smtplib
+
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.views import PasswordResetConfirmView, PasswordResetCompleteView
-from django.core.mail import send_mail
+from django.core.mail import send_mail, BadHeaderError
 from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
@@ -18,6 +21,7 @@ from .forms import CustomUserCreationForm, PasswordResetRequestForm
 from .models import UserProfile
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 # --- Helpers ---
 def _find_user_by_email(email):
@@ -208,11 +212,56 @@ def password_reset_request(request):
                     [user.email],
                     fail_silently=False,
                 )
-            except Exception as e:
-                messages.error(
-                    request,
-                    "We could not send the reset email. Please try again later or contact support.",
+            except smtplib.SMTPAuthenticationError as e:
+                logger.exception(
+                    "Password reset email failed (SMTP auth): %s. Check EMAIL_HOST_USER and EMAIL_HOST_PASSWORD.",
+                    e,
                 )
+                msg = (
+                    "We could not send the reset email (authentication failed). "
+                    "Please try again later or contact support."
+                )
+                if settings.DEBUG:
+                    msg += f" [Debug: {e!s}]"
+                messages.error(request, msg)
+                return render(request, "core/forgot_password.html", {"form": form})
+            except smtplib.SMTPRecipientsRefused as e:
+                logger.exception("Password reset email failed (recipient refused): %s", e)
+                msg = "We could not send the reset email (recipient refused). Please contact support."
+                if settings.DEBUG:
+                    msg += f" [Debug: {e!s}]"
+                messages.error(request, msg)
+                return render(request, "core/forgot_password.html", {"form": form})
+            except smtplib.SMTPException as e:
+                logger.exception("Password reset email failed (SMTP): %s", e)
+                msg = "We could not send the reset email. Please try again later or contact support."
+                if settings.DEBUG:
+                    msg += f" [Debug: {type(e).__name__}: {e!s}]"
+                messages.error(request, msg)
+                return render(request, "core/forgot_password.html", {"form": form})
+            except (OSError, ConnectionError) as e:
+                logger.exception(
+                    "Password reset email failed (connection): %s. Check EMAIL_HOST and network.",
+                    e,
+                )
+                msg = "We could not send the reset email (connection error). Please try again later."
+                if settings.DEBUG:
+                    msg += f" [Debug: {e!s}]"
+                messages.error(request, msg)
+                return render(request, "core/forgot_password.html", {"form": form})
+            except BadHeaderError as e:
+                logger.exception("Password reset email failed (bad header): %s", e)
+                msg = "We could not send the reset email (invalid content). Please contact support."
+                if settings.DEBUG:
+                    msg += f" [Debug: {e!s}]"
+                messages.error(request, msg)
+                return render(request, "core/forgot_password.html", {"form": form})
+            except Exception as e:
+                logger.exception("Password reset email failed (unexpected): %s", e)
+                msg = "We could not send the reset email. Please try again later or contact support."
+                if settings.DEBUG:
+                    msg += f" [Debug: {type(e).__name__}: {e!s}]"
+                messages.error(request, msg)
                 return render(request, "core/forgot_password.html", {"form": form})
 
             return redirect("accounts:password_reset_done")
