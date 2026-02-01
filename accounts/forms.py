@@ -9,22 +9,22 @@ User = get_user_model()
 
 class PasswordResetRequestForm(forms.Form):
     """
-    Form for forgot-password: user enters username, email, or phone number.
+    Form for forgot-password: user enters email only.
     """
-    username_email_phone = forms.CharField(
-        label="Username, email or phone number",
+    email = forms.EmailField(
+        label="Email address",
         max_length=254,
         required=True,
-        widget=forms.TextInput(attrs={
+        widget=forms.EmailInput(attrs={
             "class": "form-control",
-            "placeholder": "Enter your username, email or phone (e.g. +2567...)",
+            "placeholder": "Enter the email you signed up with",
             "autofocus": True,
         }),
-        help_text="Enter any one: your username, email address, or WhatsApp/phone number.",
+        help_text="Enter the email address you used when registering.",
     )
 
-    def clean_username_email_phone(self):
-        value = (self.cleaned_data.get("username_email_phone") or "").strip()
+    def clean_email(self):
+        value = (self.cleaned_data.get("email") or "").strip().lower()
         if not value:
             raise forms.ValidationError("This field is required.")
         return value
