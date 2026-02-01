@@ -10,8 +10,9 @@ from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.views import PasswordResetConfirmView, PasswordResetCompleteView
 from django.core.mail import send_mail, BadHeaderError
 from django.shortcuts import render, redirect
+from django.template import TemplateDoesNotExist, TemplateSyntaxError
 from django.template.loader import render_to_string
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse, reverse_lazy, NoReverseMatch
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -189,22 +190,22 @@ def password_reset_request(request):
                 messages.error(request, error)
                 return render(request, "core/forgot_password.html", {"form": form})
 
-            # Generate reset link
-            token = default_token_generator.make_token(user)
-            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-            subject = "Reset your MCS password"
-            message = render_to_string(
-                "core/password_reset_email.html",
-                {
-                    "user": user,
-                    "protocol": request.scheme,
-                    "domain": request.get_host(),
-                    "uid": uidb64,
-                    "token": token,
-                },
-                request=request,
-            )
+            # Build email and send (wrap all in try so template/URL/send errors are caught)
             try:
+                token = default_token_generator.make_token(user)
+                uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+                subject = "Reset your MCS password"
+                message = render_to_string(
+                    "core/password_reset_email.html",
+                    {
+                        "user": user,
+                        "protocol": request.scheme,
+                        "domain": request.get_host(),
+                        "uid": uidb64,
+                        "token": token,
+                    },
+                    request=request,
+                )
                 send_mail(
                     subject,
                     message,
@@ -212,6 +213,26 @@ def password_reset_request(request):
                     [user.email],
                     fail_silently=False,
                 )
+            except NoReverseMatch as e:
+                logger.exception(
+                    "Password reset failed (URL reverse in template): %s. Check password_reset_email.html and URL name 'accounts:password_reset_confirm'.",
+                    e,
+                )
+                msg = "We could not prepare the reset email (configuration error). Please contact support."
+                if settings.DEBUG:
+                    msg += f" [Debug: {type(e).__name__}: {e!s}]"
+                messages.error(request, msg)
+                return render(request, "core/forgot_password.html", {"form": form})
+            except (TemplateDoesNotExist, TemplateSyntaxError) as e:
+                logger.exception(
+                    "Password reset failed (template): %s. Check core/password_reset_email.html.",
+                    e,
+                )
+                msg = "We could not prepare the reset email (template error). Please contact support."
+                if settings.DEBUG:
+                    msg += f" [Debug: {type(e).__name__}: {e!s}]"
+                messages.error(request, msg)
+                return render(request, "core/forgot_password.html", {"form": form})
             except smtplib.SMTPAuthenticationError as e:
                 logger.exception(
                     "Password reset email failed (SMTP auth): %s. Check EMAIL_HOST_USER and EMAIL_HOST_PASSWORD.",
@@ -257,7 +278,10 @@ def password_reset_request(request):
                 messages.error(request, msg)
                 return render(request, "core/forgot_password.html", {"form": form})
             except Exception as e:
-                logger.exception("Password reset email failed (unexpected): %s", e)
+                logger.exception(
+                    "Password reset failed (unexpected): %s. Check logs for traceback (template, URL, or send_mail).",
+                    e,
+                )
                 msg = "We could not send the reset email. Please try again later or contact support."
                 if settings.DEBUG:
                     msg += f" [Debug: {type(e).__name__}: {e!s}]"
