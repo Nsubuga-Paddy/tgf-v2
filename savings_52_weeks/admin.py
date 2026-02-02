@@ -272,7 +272,7 @@ class InvestmentAdmin(ExportableAdminMixin, admin.ModelAdmin):
     mark_as_fixed.short_description = "Mark selected investments as fixed"
     
     def mark_as_matured(self, request, queryset):
-        """Mark selected investments as matured and create deposit transactions for interest"""
+        """Mark selected investments as matured and create deposit transactions for interest earned"""
         count = 0
         for investment in queryset:
             if investment.status != 'matured':
@@ -280,7 +280,7 @@ class InvestmentAdmin(ExportableAdminMixin, admin.ModelAdmin):
                 investment.check_and_update_status()
                 if investment.status == 'matured':
                     count += 1
-        self.message_user(request, f'{count} investments marked as matured. Interest transactions created automatically.')
+        self.message_user(request, f'{count} investments marked as matured. Interest deposit transactions created automatically.')
     mark_as_matured.short_description = "Mark selected investments as matured"
     
     def calculate_interest(self, request, queryset):

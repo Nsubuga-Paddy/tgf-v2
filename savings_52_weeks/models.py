@@ -506,51 +506,46 @@ class Investment(models.Model):
         """
         Automatically check if investment has matured and update status.
         Returns True if status was changed, False otherwise.
-        Also creates a deposit transaction for matured interest.
+        Upon maturity, creates a deposit transaction for the interest earned only.
+        (The principal was already recorded as a deposit when the fixed deposit was made.)
         """
         if self.status == 'matured':
             return False  # Already matured
-            
+
         today = timezone.localdate()
         if today >= self.maturity_date:
             old_status = self.status
             self.status = 'matured'
             self.save(update_fields=['status'])
-            
-            # If status changed to matured, create deposit transaction for interest
+
+            # If status changed to matured, create deposit for interest only
             if old_status != 'matured':
                 try:
-                    # Check if a transaction already exists for this matured investment
+                    import logging
+                    logger = logging.getLogger(__name__)
+
                     existing_transaction = SavingsTransaction.objects.filter(
-                        receipt_number=f"INT-{self.pk}"
-                    ).first()
-                    
+                        user_profile=self.user_profile,
+                        receipt_number=f"INT-{self.pk}",
+                        transaction_type='deposit',
+                    ).exists()
+
                     if not existing_transaction:
-                        # Get the full interest amount (at maturity)
-                        interest_amount = self.total_interest_expected
-                        
+                        interest_amount = self.total_interest_expected or Decimal("0")
                         if interest_amount > 0:
-                            # Create a deposit transaction for the matured interest
                             SavingsTransaction.objects.create(
                                 user_profile=self.user_profile,
                                 amount=interest_amount,
                                 transaction_type='deposit',
                                 transaction_date=today,
                                 receipt_number=f"INT-{self.pk}",
-                                # For interest deposits, we don't calculate covered weeks
-                                # They're just added to the balance
-                                fully_covered_weeks=[],
-                                remaining_balance=Decimal("0.00"),
-                                cumulative_total=Decimal("0.00"),
-                                next_week=1,
                             )
                 except Exception as e:
-                    # Log error but don't fail the save
                     import logging
                     logger = logging.getLogger(__name__)
-                    logger.error(f"Error creating matured interest transaction: {e}")
-            
-            return old_status != 'matured'
+                    logger.error(f"Error creating matured interest deposit transaction: {e}")
+
+            return True
         return False
 
     @property
@@ -566,18 +561,19 @@ class Investment(models.Model):
         return delta.days
 
     @classmethod
-    def check_all_investments_status(cls):
+    def check_all_investments_status(cls, user_profile=None):
         """
-        Check and update status for all investments.
+        Check and update status for investments.
+        If user_profile is given, only check that user's investments.
         Returns list of investments that matured.
         """
         matured_investments = []
-        fixed_investments = cls.objects.filter(status='fixed')
-        
-        for investment in fixed_investments:
+        qs = cls.objects.filter(status='fixed')
+        if user_profile is not None:
+            qs = qs.filter(user_profile=user_profile)
+        for investment in qs:
             if investment.check_and_update_status():
                 matured_investments.append(investment)
-        
         return matured_investments
 
     @classmethod

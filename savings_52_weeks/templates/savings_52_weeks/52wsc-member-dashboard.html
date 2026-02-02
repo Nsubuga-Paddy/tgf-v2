@@ -1003,8 +1003,9 @@
         </div>
         <div class="stat-value" id="uninvestedAmount">UGX {{ savings_data.investments.uninvested_amount|floatformat:0|default:"0"|intcomma }}</div>
         <div class="stat-meta">
-          Expected Interest (15%): <span id="uninvestedInterest">UGX {{ savings_data.investments.uninvested_interest|floatformat:0|default:"0"|intcomma }}</span>
-          <br>Maturity: <span id="savingsMaturityDate">December 31, 2025</span>
+          <strong>Interest Earned (YTD):</strong> <span id="unfixedInterestEarnedYtd">UGX {{ savings_data.investments.unfixed_interest_earned_ytd|floatformat:0|default:"0"|intcomma }}</span>
+          <br>Expected at Year-End (15%): <span id="uninvestedInterest">UGX {{ savings_data.investments.uninvested_interest|floatformat:0|default:"0"|intcomma }}</span>
+          <br>Deposited to account: <span id="savingsMaturityDate">December 31, {% now "Y" %}</span>
         </div>
       </div>
     </div>

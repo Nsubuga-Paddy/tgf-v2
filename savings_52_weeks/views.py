@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.db.models import Sum, Case, When, F, Value, DecimalField
 from django.utils import timezone
 from .models import SavingsTransaction, Investment
+from .interest_utils import calculate_unfixed_interest_ytd, get_expected_full_year_interest
 
 @project_required('52 Weeks Saving Challenge')
 def group_dashboard(request):
@@ -265,11 +266,15 @@ def member_savings(request):
     # Renders the member's personal savings page
     user = request.user
     user_profile = user.profile if hasattr(user, 'profile') else None
-    
+
+    # Check for matured fixed deposits and create deposit transactions before loading data
+    if user_profile:
+        Investment.check_all_investments_status(user_profile=user_profile)
+
     # Get user's savings data
     savings_data = {}
     if user_profile:
-            # Get all transactions
+            # Get all transactions (including any newly created matured FD deposits)
             all_transactions = user_profile.savings_transactions.all().order_by('created_at')
             
             # Calculate gross deposits (including matured interest deposits)
@@ -321,17 +326,15 @@ def member_savings(request):
             else:
                 balance_brought_forward = Decimal('0.00')
             
-            # Calculate running deposit total for display.
-            # IMPORTANT:
-            # - Only deposits (including matured-interest deposits) increase this number.
-            # - Withdrawals and GWC contributions are shown as rows, but they do NOT
-            #   reduce this running deposit metric. Their effect is handled in the
-            #   "Available Balance" math on the profile page via matured-pot deductions.
+            # Calculate running balance for display (net of deposits, withdrawals, GWC).
+            # Deposits (including matured FD principal+interest) increase the balance.
+            # Withdrawals and GWC contributions reduce the balance.
             running_total = Decimal('0.00')
             for transaction in all_transactions:
                 if transaction.transaction_type == 'deposit':
                     running_total += transaction.amount
-                # For withdrawals and GWC contributions we leave running_total unchanged.
+                elif transaction.transaction_type in ('withdrawal', 'gwc_contribution'):
+                    running_total -= transaction.amount
                 transaction.display_running_total = running_total
             
             # Get last 10 transactions for display (newest first)
@@ -350,8 +353,11 @@ def member_savings(request):
             latest_investment = investments.filter(status='fixed').order_by('-start_date').first()
             latest_maturity_date = latest_investment.maturity_date if latest_investment else None
             
-            # Calculate 15% interest on uninvested savings (for full 52-week period)
-            uninvested_interest = (uninvested_amount * Decimal('0.15')) if uninvested_amount > 0 else Decimal('0.00')
+            # 15% annualized interest on unfixed savings:
+            # - Earned YTD: daily-accrued interest from Jan 1 to today (for Interest Earned card)
+            # - Expected full year: estimate if balance stays constant (for reference)
+            unfixed_interest_earned_ytd = calculate_unfixed_interest_ytd(user_profile)
+            uninvested_interest = get_expected_full_year_interest(user_profile)
             
             # Calculate current week of the year and weekly progress
             from datetime import date
@@ -401,6 +407,7 @@ def member_savings(request):
                     'total_interest_gained': total_interest_gained,
                     'uninvested_amount': uninvested_amount,
                     'uninvested_interest': uninvested_interest,
+                    'unfixed_interest_earned_ytd': unfixed_interest_earned_ytd,
                     'latest_maturity_date': latest_maturity_date,
                     'investment_list': investments
                 }
