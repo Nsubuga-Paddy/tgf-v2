@@ -1,8 +1,50 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
+from django.db.models import Count
+from django.utils.translation import gettext_lazy as _
 from .models import UserProfile, Project, AccountNumberCounter, WithdrawalRequest, GWCContribution, MESUInterest
 from core.admin_base import ExportableAdminMixin
+
+
+class ProjectAccessListFilter(admin.SimpleListFilter):
+    """Filter users by project access (for User admin)."""
+    title = _('Project access')
+    parameter_name = 'project'
+
+    def lookups(self, request, model_admin):
+        projects = Project.objects.all().order_by('name')
+        lookups = [(p.id, p.name) for p in projects]
+        lookups.insert(0, ('_none_', _('No project access')))
+        return lookups
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == '_none_':
+            return queryset.annotate(project_count=Count('profile__projects')).filter(project_count=0)
+        if value:
+            return queryset.filter(profile__projects__id=value).distinct()
+        return queryset
+
+
+class UserProfileProjectAccessListFilter(admin.SimpleListFilter):
+    """Filter user profiles by project access."""
+    title = _('Project access')
+    parameter_name = 'project'
+
+    def lookups(self, request, model_admin):
+        projects = Project.objects.all().order_by('name')
+        lookups = [(p.id, p.name) for p in projects]
+        lookups.insert(0, ('_none_', _('No project access')))
+        return lookups
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == '_none_':
+            return queryset.annotate(project_count=Count('projects')).filter(project_count=0)
+        if value:
+            return queryset.filter(projects__id=value).distinct()
+        return queryset
 
 
 class UserProfileInline(admin.StackedInline):
@@ -30,7 +72,7 @@ class UserProfileInline(admin.StackedInline):
 class UserAdmin(BaseUserAdmin):
     inlines = (UserProfileInline,)
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'get_account_number', 'get_verification_status')
-    list_filter = ('is_staff', 'is_superuser', 'is_active', 'profile__is_verified', 'profile__is_admin')
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'profile__is_verified', 'profile__is_admin', ProjectAccessListFilter)
     search_fields = ('username', 'first_name', 'last_name', 'email', 'profile__account_number')
     ordering = ('username',)
     
@@ -52,7 +94,7 @@ class UserAdmin(BaseUserAdmin):
 @admin.register(UserProfile)
 class UserProfileAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ('user', 'account_number', 'whatsapp_number', 'get_bank_info', 'is_verified', 'is_admin', 'get_projects', 'created_at')
-    list_filter = ('is_verified', 'is_admin', 'projects', 'created_at', 'bank_name')
+    list_filter = ('is_verified', 'is_admin', UserProfileProjectAccessListFilter, 'created_at', 'bank_name')
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'account_number', 'whatsapp_number', 'bank_name', 'bank_account_number', 'bank_account_name')
     readonly_fields = ('account_number', 'created_at', 'updated_at')
     filter_horizontal = ('projects',)
