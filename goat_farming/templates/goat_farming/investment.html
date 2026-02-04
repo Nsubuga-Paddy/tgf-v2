@@ -11,8 +11,8 @@
 
   <style>
     :root {
-      --brand: #fd7e14;
-      --brand-d: #e06c0c;
+      --brand: #ff6b00;
+      --brand-d: #e05f00;
       --bg: #f7f7f9;
       --card: #ffffff;
       --text: #1f2937;
@@ -203,7 +203,6 @@
       </li>
       <li class="nav-item"><a href="{% url 'goat_farming:investment' %}" class="nav-link active"><i class="fas fa-chart-line"></i>Investment Info</a></li>
       <li class="nav-item"><a href="{% url 'goat_farming:transactions' %}" class="nav-link"><i class="fas fa-exchange-alt"></i>Transactions</a></li>
-        <li class="nav-item"><a href="#" class="nav-link"><i class="fas fa-satellite"></i>Visual Tracking</a></li>
     </ul>
   </aside>
 
@@ -262,7 +261,7 @@
             <ul style="list-style: none; padding: 0;">
               <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
                 <i class="fas fa-check-circle" style="color: var(--success);"></i>
-                <span><strong>Kids per Female:</strong> 2 kids per breeding cycle</span>
+                <span><strong>Kids per Female:</strong> Configurable per package (default 2 per goat)</span>
               </li>
               <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
                 <i class="fas fa-sync-alt" style="color: var(--info);"></i>
@@ -274,7 +273,7 @@
               </li>
               <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
                 <i class="fas fa-trophy" style="color: var(--brand);"></i>
-                <span><strong>Total Returns:</strong> 3x original investment in 14 months</span>
+                <span><strong>Total Returns:</strong> Original goats + kids (per package setting) in 14 months</span>
               </li>
             </ul>
           </div>
@@ -453,13 +452,13 @@
             <div style="margin-bottom: 1rem;">
               <strong style="color: var(--text);">How many kids per goat?</strong>
               <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.875rem;">
-                Each female goat typically produces 2 kids per breeding cycle.
+                Each package defines expected kids per goat (default 2). Admins set this when creating packages.
               </p>
             </div>
             <div style="margin-bottom: 1rem;">
               <strong style="color: var(--text);">What's the total ROI?</strong>
               <p style="margin: 0.25rem 0; color: var(--muted); font-size: 0.875rem;">
-                You get 3x your original investment: 2 original goats + 4 kids = 6 goats total.
+                Total return = original goats + (goats × kids per goat). Varies by package (e.g. 2 goats × 2 kids = 4, total 6; or 2 goats × 3 kids = 6, total 8).
               </p>
             </div>
             <div style="margin-bottom: 1rem;">

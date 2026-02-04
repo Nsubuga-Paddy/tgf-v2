@@ -9,5 +9,4 @@ urlpatterns = [
     path('investment/<int:investment_id>/details/', views.investment_details, name='investment_details'),
     path('transactions/', views.transactions_page, name='transactions'),
     path('transactions/<int:transaction_id>/details/', views.transaction_details, name='transaction_details'),
-    path('tracking/', views.tracking_page, name='tracking'),
 ]

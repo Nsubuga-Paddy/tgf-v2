@@ -12,6 +12,7 @@ from accounts.models import UserProfile
 
 # Constants
 GOAT_UNIT_PRICE_DEFAULT = Decimal("600000.00")
+CGF_CASHOUT_PRICE_PER_GOAT = Decimal("400000.00")  # Value per goat when selling/cashing out
 ACCOUNT_GOAT_CAPACITY = 10
 
 def get_receipt_prefix() -> str:
@@ -87,6 +88,10 @@ class InvestmentPackage(models.Model):
         decimal_places=2, 
         default=GOAT_UNIT_PRICE_DEFAULT
     )
+    kids_per_goat = models.PositiveSmallIntegerField(
+        default=2,
+        help_text="Expected kids per goat at end of 14-month cycle"
+    )
     management_fee_tier = models.ForeignKey(
         ManagementFeeTier, 
         on_delete=models.PROTECT,
@@ -112,13 +117,23 @@ class InvestmentPackage(models.Model):
         """Total package cost (goats + management fee)"""
         return self.goat_cost + self.management_fee
 
+    @property
+    def expected_kids_per_package(self) -> int:
+        """Expected kids at end of 14-month cycle (goat_count * kids_per_goat)"""
+        return self.goat_count * self.kids_per_goat
+
 class UserFarmAccount(models.Model):
     """User's goat holdings in a specific farm"""
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='farm_accounts')
     farm = models.ForeignKey(Farm, on_delete=models.CASCADE, related_name='user_accounts')
     current_goats = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    expected_kids = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Admin override for expected kids at end of cycle. Leave blank to use calculated value from package."
+    )
+    created_at = models.DateTimeField(default=timezone.now, help_text="Account creation date (editable for backdating existing data)")
 
     class Meta:
         unique_together = ('user', 'farm')
@@ -149,7 +164,7 @@ class PackagePurchase(models.Model):
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     
-    purchase_date = models.DateTimeField(auto_now_add=True)
+    purchase_date = models.DateTimeField(default=timezone.now, help_text="Purchase date (editable for backdating existing data)")
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -256,6 +271,62 @@ class Payment(models.Model):
             self.purchase.status = 'pending'
             
         self.purchase.save()
+
+
+class CGFActionRequest(models.Model):
+    """User action requests for Commercial Goat Farming (Sell & Cash Out, Take Goats, Transfer)"""
+    REQUEST_TYPE_CHOICES = [
+        ('sell_cash_out', 'Sell & Cash Out'),
+        ('take_goats', 'Take Goats'),
+        ('transfer', 'Transfer (Breeding → Commercial)'),
+    ]
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('processed', 'Processed'),
+    ]
+
+    user_profile = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='cgf_action_requests'
+    )
+    request_type = models.CharField(
+        max_length=30,
+        choices=REQUEST_TYPE_CHOICES,
+        help_text="Type of action requested"
+    )
+    goats_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of goats for this action (sell, take, or transfer)"
+    )
+    notes = models.TextField(blank=True, null=True, help_text="User notes or additional details")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    admin_notes = models.TextField(blank=True, null=True, help_text="Admin notes")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    processed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "CGF Action Request"
+        verbose_name_plural = "CGF Action Requests"
+
+    def __str__(self):
+        return f"{self.user_profile.display_name} - {self.get_request_type_display()} ({self.get_status_display()})"
+
+    @property
+    def cash_value(self):
+        """UGX value when selling goats (goats_count × price per goat). Used for sell_cash_out requests."""
+        count = self.goats_count or 0
+        return count * 400000  # UGX per goat
+
 
 # Initialize default data
 def setup_default_data():

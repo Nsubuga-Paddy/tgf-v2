@@ -40,17 +40,20 @@ def get_total_invested_as_of(user_profile, as_of_date: date) -> Decimal:
     """
     Total amount in fixed deposits as of the given date.
     An investment is 'fixed' on date D if start_date <= D < maturity_date.
+    Note: maturity_date is a property (not a DB field), so we filter in Python.
     """
-    from savings_52_weeks.models import Investment
-    return Investment.objects.filter(
+    from savings_52_weeks.models import Investment, add_months
+
+    investments = Investment.objects.filter(
         user_profile=user_profile,
         start_date__lte=as_of_date,
-    ).exclude(
-        # Exclude matured: maturity_date <= as_of_date means it had matured by then
-        maturity_date__lte=as_of_date,
-    ).aggregate(
-        total=Coalesce(Sum('amount_invested'), Value(Decimal("0.00"), output_field=DecimalField()))
-    )['total'] or Decimal("0.00")
+    )
+    total = Decimal("0.00")
+    for inv in investments:
+        maturity = add_months(inv.start_date, inv.maturity_months)
+        if maturity > as_of_date:  # Not yet matured as of this date
+            total += inv.amount_invested or Decimal("0.00")
+    return total
 
 
 def get_unfixed_balance_as_of(user_profile, as_of_date: date) -> Decimal:

@@ -11,8 +11,8 @@
 
   <style>
     :root {
-      --brand: #fd7e14;
-      --brand-d: #e06c0c;
+      --brand: #ff6b00;
+      --brand-d: #e05f00;
       --bg: #f7f7f9;
       --card: #ffffff;
       --text: #1f2937;
@@ -238,7 +238,6 @@
       </li>
       <li class="nav-item"><a href="{% url 'goat_farming:investment' %}" class="nav-link"><i class="fas fa-chart-line"></i>Investment Info</a></li>
       <li class="nav-item"><a href="{% url 'goat_farming:transactions' %}" class="nav-link"><i class="fas fa-exchange-alt"></i>Transactions</a></li>
-        <li class="nav-item"><a href="#" class="nav-link"><i class="fas fa-satellite"></i>Visual Tracking</a></li>
     </ul>
   </aside>
 
@@ -286,7 +285,7 @@
       <div class="stat-card fade-in-up">
         <div class="stat-header"><div class="stat-icon info"><i class="fas fa-baby"></i></div></div>
         <div class="stat-value">{{ total_expected_kids|default:"0" }}</div>
-        <div class="stat-label">Expected Kids (2 per goat)</div>
+        <div class="stat-label">Expected Kids</div>
         <div class="stat-meta">
           <i class="fas fa-calendar-alt"></i>
           <span>Next maturity: 
@@ -338,9 +337,9 @@
                 </td>
                 <td>
                   <div class="stat-value" style="font-size: 1.25rem; margin-bottom: 0; color: var(--success);">
-                    <span class="expected-kids" data-goats="{{ account.current_goats }}">{{ account.current_goats|add:account.current_goats }}</span>
+                    {{ account.resolved_expected_kids|default:0 }}
                   </div>
-                  <small class="text-muted">Kids (2 per goat)</small>
+                  <small class="text-muted">Expected kids</small>
                 </td>
                 <td>
                   <div class="kidding-info" data-created="{{ account.created_at|date:'Y-m-d' }}">
@@ -369,7 +368,7 @@
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
           <div>
             <strong>Breeding Cycle:</strong> Every 14 months<br>
-            <strong>Kids per Birth:</strong> 2 kids per female goat<br>
+            <strong>Kids per Birth:</strong> Configurable per package (default 2 per goat)<br>
             <strong>Gestation Period:</strong> 5 months
           </div>
           <div>
@@ -494,16 +493,8 @@
     document.addEventListener('click', (e) => { if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) sidebar.classList.remove('show'); });
     window.addEventListener('resize', () => { if (window.innerWidth > 1024) sidebar.classList.remove('show'); });
 
-    // Calculate expected kids and kidding dates
+    // Calculate kidding dates (14 months from account creation)
     document.addEventListener('DOMContentLoaded', function() {
-      // Calculate expected kids (2 per goat)
-      document.querySelectorAll('.expected-kids').forEach(function(element) {
-        const goats = parseInt(element.getAttribute('data-goats')) || 0;
-        const expectedKids = goats * 2;
-        element.textContent = expectedKids;
-      });
-
-      // Calculate kidding dates (14 months from account creation)
       document.querySelectorAll('.kidding-info').forEach(function(element) {
         const createdDate = new Date(element.getAttribute('data-created'));
         const kiddingDate = new Date(createdDate);

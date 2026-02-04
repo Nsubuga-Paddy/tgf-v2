@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 
 from .models import (
     Farm, ManagementFeeTier, InvestmentPackage, 
-    UserFarmAccount, PackagePurchase, Payment
+    UserFarmAccount, PackagePurchase, Payment, CGFActionRequest
 )
 from core.admin_base import ExportableAdminMixin
 
@@ -47,7 +47,7 @@ class ManagementFeeTierAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
 @admin.register(InvestmentPackage)
 class InvestmentPackageAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ['name', 'goat_count', 'goat_cost_display', 'management_fee_display', 'total_cost_display', 'is_active']
+    list_display = ['name', 'goat_count', 'kids_per_goat', 'goat_cost_display', 'management_fee_display', 'total_cost_display', 'is_active']
     list_filter = ['is_active', 'management_fee_tier']
     
     def goat_cost_display(self, obj):
@@ -75,6 +75,7 @@ class PackagePurchaseAdmin(ExportableAdminMixin, admin.ModelAdmin):
         'amount_paid_display', 'balance_due_display', 'payment_status',
         'goats_status', 'purchase_date'
     ]
+    list_editable = ['purchase_date']
     list_filter = ['status', 'farm', 'package']
     search_fields = ['user__user__username', 'user__user__first_name', 'user__user__last_name']
     inlines = [PaymentInline]
@@ -151,11 +152,11 @@ class PackagePurchaseAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
 @admin.register(UserFarmAccount)
 class UserFarmAccountAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ['user_display', 'farm', 'current_goats', 'is_active', 'created_at']
+    list_display = ['user_display', 'farm', 'current_goats', 'expected_kids', 'is_active', 'created_at']
     list_filter = ['farm', 'is_active', 'created_at']
     search_fields = ['user__user__username', 'user__user__first_name', 'user__user__last_name', 'user__account_number']
     ordering = ['farm', 'user']
-    readonly_fields = ['created_at']
+    list_editable = ['current_goats', 'expected_kids', 'is_active', 'created_at']
     
     def user_display(self, obj):
         """Display user name and their system account number"""
@@ -204,3 +205,31 @@ class PaymentAdmin(ExportableAdminMixin, admin.ModelAdmin):
                 'style': 'font-family: monospace; font-size: 14px;'
             })
         return form
+
+
+@admin.register(CGFActionRequest)
+class CGFActionRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
+    list_display = ['user_profile', 'request_type_display', 'goats_count', 'status', 'created_at']
+    list_filter = ['request_type', 'status', 'created_at']
+    search_fields = ['user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name', 'user_profile__account_number', 'notes']
+    readonly_fields = ['created_at', 'updated_at']
+    fieldsets = (
+        ('Request Information', {
+            'fields': ('user_profile', 'request_type', 'goats_count', 'notes', 'status')
+        }),
+        ('Admin Actions', {
+            'fields': ('admin_notes', 'processed_at')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+    def request_type_display(self, obj):
+        return obj.get_request_type_display()
+    request_type_display.short_description = 'Action Type'
+    request_type_display.admin_order_field = 'request_type'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user_profile__user')

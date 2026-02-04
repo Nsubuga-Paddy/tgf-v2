@@ -42,9 +42,14 @@ def cgf_dashboard(request):
     # Total goats across all accounts
     total_goats = user_farm_accounts.aggregate(total=Sum("current_goats"))["total"] or 0
 
-    # Expected kids (2 per goat)
-    total_expected_kids = total_goats * 2
-    
+    # Expected kids: package-based total for fallback; per-account uses admin override if set
+    allocated_purchases = package_purchases.filter(status='allocated').select_related('package')
+    package_based_total = sum(
+        p.goats_allocated * getattr(p.package, 'kids_per_goat', 2)
+        for p in allocated_purchases
+    )
+    effective_kids_per_goat = (package_based_total / total_goats) if total_goats else 0
+
     # Calculate next maturity date (earliest account created + 14 months)
     next_maturity_date = None
     if user_farm_accounts.exists():
@@ -66,8 +71,9 @@ def cgf_dashboard(request):
         .order_by("-payment_date")[:10]
     )
 
-    # Group accounts by farm for better display
+    # Group accounts by farm; use admin override for expected_kids if set, else calculated
     farms_with_accounts = {}
+    total_expected_kids = 0
     for account in user_farm_accounts:
         farm_name = account.farm.name
         if farm_name not in farms_with_accounts:
@@ -76,6 +82,13 @@ def cgf_dashboard(request):
                 'accounts': [],
                 'total_goats': 0
             }
+        resolved_kids = (
+            account.expected_kids
+            if account.expected_kids is not None
+            else int(account.current_goats * effective_kids_per_goat)
+        )
+        account.resolved_expected_kids = resolved_kids
+        total_expected_kids += resolved_kids
         farms_with_accounts[farm_name]['accounts'].append(account)
         farms_with_accounts[farm_name]['total_goats'] += account.current_goats
 
@@ -113,8 +126,9 @@ def investment_page(request):
     )
     
     for purchase in package_purchases:
-        # Calculate expected returns based on package
-        expected_returns = purchase.package.goat_count + (purchase.package.goat_count * 2)  # Original + kids
+        # Calculate expected returns based on package (original + kids)
+        kids_per = getattr(purchase.package, 'kids_per_goat', 2)
+        expected_returns = purchase.package.goat_count + (purchase.package.goat_count * kids_per)
         
         # Determine status color
         if purchase.status == 'allocated':
@@ -169,8 +183,9 @@ def investment_details(request, investment_id):
         else:
             progress = 25
         
-        # Expected returns
-        expected_returns = purchase.package.goat_count + (purchase.package.goat_count * 2)
+        # Expected returns (original + kids using package.kids_per_goat)
+        kids_per = getattr(purchase.package, 'kids_per_goat', 2)
+        expected_returns = purchase.package.goat_count + (purchase.package.goat_count * kids_per)
         
         # Expected date (simplified - you can enhance this)
         from datetime import timedelta
@@ -358,219 +373,3 @@ def transaction_details(request, transaction_id):
         
     except Exception as e:
         return JsonResponse({'error': 'Transaction not found'}, status=404)
-
-
-@login_required
-@project_required("Commercial Goat Farming")
-def tracking_page(request):
-    """Display visual farm tracking with satellite imagery and real-time data"""
-    user_profile: UserProfile = request.user.profile
-    
-    # Get user's farm accounts for tracking data
-    user_farm_accounts = (
-        UserFarmAccount.objects.filter(user=user_profile, is_active=True)
-        .select_related("farm")
-        .order_by("farm__name", "created_at")
-    )
-    
-    # Calculate farm statistics
-    total_goats = user_farm_accounts.aggregate(total=Sum("current_goats"))["total"] or 0
-    healthy_goats = total_goats  # Simplified - you can enhance this with health status
-    pregnant_goats = max(0, total_goats // 3)  # Simplified calculation
-    total_offspring = total_goats * 2  # Expected offspring
-    
-    # Create farm zones data for map overlays
-    farm_zones = []
-    for account in user_farm_accounts:
-        farm_zones.append({
-            'name': f"{account.farm.name} - Zone {account.id}",
-            'goats_count': account.current_goats,
-            'area': f"{account.current_goats * 0.1:.1f} ha"  # Simplified area calculation
-        })
-    
-    # Mock satellite data (you can replace with real API calls)
-    from django.utils import timezone
-    satellite_data = {
-        'coverage_area': '5 km²',
-        'resolution': '10m',
-        'weather_conditions': 'Clear',
-        'temperature': '25°C',
-        'humidity': '65%',
-        'wind_speed': '12 km/h',
-        'last_updated': timezone.now()
-    }
-    
-    # Mock farm videos (you can replace with real video data)
-    farm_videos = [
-        {
-            'title': 'Weekly Farm Update',
-            'description': 'Latest developments and goat health updates from our farm',
-            'youtube_id': 'dQw4w9WgXcQ',
-            'date': timezone.now(),
-            'category': 'update'
-        },
-        {
-            'title': 'Goat Feeding',
-            'description': 'Daily feeding routine and goat behavior',
-            'youtube_id': 'dQw4w9WgXcQ',
-            'date': timezone.now(),
-            'category': 'feeding'
-        },
-        {
-            'title': 'Health Check',
-            'description': 'Veterinary examination and health monitoring',
-            'youtube_id': 'dQw4w9WgXcQ',
-            'date': timezone.now(),
-            'category': 'health'
-        },
-        {
-            'title': 'New Kids Born',
-            'description': 'Celebrating new additions to our herd',
-            'youtube_id': 'dQw4w9WgXcQ',
-            'date': timezone.now(),
-            'category': 'breeding'
-        },
-        {
-            'title': 'Farm Tour',
-            'description': 'Complete tour of our facilities and operations',
-            'youtube_id': 'dQw4w9WgXcQ',
-            'date': timezone.now(),
-            'category': 'tour'
-        }
-    ]
-
-    # Mock farm photos (you can replace with real photo data)
-    farm_photos = [
-        {
-            'title': 'Healthy Goat Herd',
-            'description': 'Our main herd grazing in the morning',
-            'image_url': 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=500&h=300&fit=crop',
-            'category': 'goats',
-            'likes': 24,
-            'date': timezone.now()
-        },
-        {
-            'title': 'Modern Barn',
-            'description': 'Our newly constructed goat shelter',
-            'image_url': 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=500&h=300&fit=crop',
-            'category': 'facilities',
-            'likes': 18,
-            'date': timezone.now()
-        },
-        {
-            'title': 'Feeding Time',
-            'description': 'Goats enjoying their afternoon meal',
-            'image_url': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop',
-            'category': 'activities',
-            'likes': 32,
-            'date': timezone.now()
-        },
-        {
-            'title': 'New Kids',
-            'description': 'Recently born kids playing together',
-            'image_url': 'https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=500&h=300&fit=crop',
-            'category': 'goats',
-            'likes': 45,
-            'date': timezone.now()
-        },
-        {
-            'title': 'Water System',
-            'description': 'Automated water dispensing system',
-            'image_url': 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500&h=300&fit=crop',
-            'category': 'facilities',
-            'likes': 12,
-            'date': timezone.now()
-        },
-        {
-            'title': 'Health Check',
-            'description': 'Veterinary examination in progress',
-            'image_url': 'https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=500&h=300&fit=crop',
-            'category': 'activities',
-            'likes': 28,
-            'date': timezone.now()
-        }
-    ]
-
-    # Mock live cameras (you can replace with real camera feeds)
-    live_cameras = [
-        {
-            'name': 'Main Farm View',
-            'description': 'Overview of the main goat grazing area',
-            'location': 'main_farm',
-            'status': 'live',
-            'quality': 'HD'
-        },
-        {
-            'name': 'Feeding Station',
-            'description': 'Monitor feeding activities and goat behavior',
-            'location': 'feeding_area',
-            'status': 'live',
-            'quality': 'HD'
-        },
-        {
-            'name': 'Barn Monitoring',
-            'description': 'Interior view of the goat shelter',
-            'location': 'barn_interior',
-            'status': 'live',
-            'quality': 'HD'
-        }
-    ]
-
-    # Mock farm activities (you can replace with real activity tracking)
-    farm_activities = [
-        {
-            'title': 'Health Check Completed',
-            'description': 'Routine health check for all zones completed successfully',
-            'icon': 'stethoscope',
-            'color': 'info',
-            'color_rgb': '14,165,233',
-            'date': timezone.now()
-        },
-        {
-            'title': 'Feed Distribution',
-            'description': 'Morning feed distributed to all zones',
-            'icon': 'wheat-awn',
-            'color': 'success',
-            'color_rgb': '22,163,74',
-            'date': timezone.now()
-        },
-        {
-            'title': 'Water Level Check',
-            'description': 'All water troughs at optimal levels',
-            'icon': 'tint',
-            'color': 'primary',
-            'color_rgb': '13,110,253',
-            'date': timezone.now()
-        },
-        {
-            'title': 'Satellite Scan',
-            'description': 'High-resolution satellite imagery captured',
-            'icon': 'satellite',
-            'color': 'secondary',
-            'color_rgb': '108,117,125',
-            'date': timezone.now()
-        },
-        {
-            'title': 'Vegetation Analysis',
-            'description': 'Pasture health assessment completed',
-            'icon': 'leaf',
-            'color': 'success',
-            'color_rgb': '22,163,74',
-            'date': timezone.now()
-        }
-    ]
-    
-    context = {
-        'satellite_data': satellite_data,
-        'farm_zones': farm_zones,
-        'total_goats': total_goats,
-        'healthy_goats': healthy_goats,
-        'pregnant_goats': pregnant_goats,
-        'total_offspring': total_offspring,
-        'farm_activities': farm_activities,
-        'farm_videos': farm_videos,
-        'farm_photos': farm_photos,
-        'live_cameras': live_cameras,
-    }
-    
-    return render(request, "goat_farming/tracking.html", context)
