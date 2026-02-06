@@ -209,16 +209,20 @@ class PaymentAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
 @admin.register(CGFActionRequest)
 class CGFActionRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ['user_profile', 'request_type_display', 'goats_count', 'status', 'created_at']
+    list_display = ['user_profile', 'request_type_display', 'goats_count', 'cash_value_display', 'notes_preview', 'status', 'created_at', 'link_to_profile']
     list_filter = ['request_type', 'status', 'created_at']
+    list_editable = ['status']
     search_fields = ['user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name', 'user_profile__account_number', 'notes']
     readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'created_at'
     fieldsets = (
-        ('Request Information', {
-            'fields': ('user_profile', 'request_type', 'goats_count', 'notes', 'status')
+        ('Request Details', {
+            'fields': ('user_profile', 'request_type', 'goats_count', 'notes', 'status'),
+            'description': 'Review the CGF action request (Sell & Cash Out, Take Goats, or Transfer). Update status to approve, reject, or mark as processed.'
         }),
-        ('Admin Actions', {
-            'fields': ('admin_notes', 'processed_at')
+        ('Admin Action', {
+            'fields': ('admin_notes', 'processed_at'),
+            'description': 'Add notes (e.g. pickup date, transfer details, payment ref) and set processed date when complete.'
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
@@ -230,6 +234,24 @@ class CGFActionRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
         return obj.get_request_type_display()
     request_type_display.short_description = 'Action Type'
     request_type_display.admin_order_field = 'request_type'
+
+    def cash_value_display(self, obj):
+        if obj.request_type == 'sell_cash_out' and obj.goats_count:
+            return f'UGX {obj.cash_value:,.0f}'
+        return '—'
+    cash_value_display.short_description = 'Cash Value (Sell)'
+
+    def notes_preview(self, obj):
+        if obj.notes:
+            return obj.notes[:40] + '...' if len(obj.notes) > 40 else obj.notes
+        return '—'
+    notes_preview.short_description = 'User Notes'
+
+    def link_to_profile(self, obj):
+        from django.urls import reverse
+        url = reverse('admin:accounts_userprofile_change', args=[obj.user_profile.id])
+        return format_html('<a href="{}">View Profile</a>', url)
+    link_to_profile.short_description = 'User'
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user_profile__user')

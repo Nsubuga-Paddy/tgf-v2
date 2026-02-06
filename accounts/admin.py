@@ -435,20 +435,24 @@ admin.site.register(User, UserAdmin)
 
 @admin.register(WithdrawalRequest)
 class WithdrawalRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ('user_profile', 'amount', 'status', 'created_at', 'get_bank_info')
+    list_display = ('user_profile', 'amount_display', 'reason_preview', 'status', 'created_at', 'get_bank_info', 'link_to_profile')
     list_filter = ('status', 'created_at')
+    list_editable = ('status',)
     search_fields = ('user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name', 'user_profile__account_number')
     readonly_fields = ('created_at', 'updated_at', 'get_bank_info')
+    date_hierarchy = 'created_at'
     fieldsets = (
-        ('Request Information', {
-            'fields': ('user_profile', 'amount', 'reason', 'status')
+        ('Request Details', {
+            'fields': ('user_profile', 'amount', 'reason', 'status'),
+            'description': 'Review the withdrawal request. Use status to approve, reject, or mark as processed.'
         }),
-        ('Bank Account Details', {
+        ('Bank Account (from user profile)', {
             'fields': ('get_bank_info',),
-            'description': 'Bank account information from user profile'
+            'description': 'Use these details to process the payment.'
         }),
-        ('Admin Actions', {
-            'fields': ('admin_notes', 'processed_at')
+        ('Admin Action', {
+            'fields': ('admin_notes', 'processed_at'),
+            'description': 'Add notes (e.g. transaction ref, date paid) and set processed date when complete.'
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
@@ -456,6 +460,23 @@ class WithdrawalRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
         })
     )
     
+    def amount_display(self, obj):
+        return f"UGX {obj.amount:,.0f}"
+    amount_display.short_description = 'Amount'
+
+    def reason_preview(self, obj):
+        if obj.reason:
+            return obj.reason[:50] + '...' if len(obj.reason) > 50 else obj.reason
+        return '—'
+    reason_preview.short_description = 'Reason'
+
+    def link_to_profile(self, obj):
+        from django.utils.html import format_html
+        from django.urls import reverse
+        url = reverse('admin:accounts_userprofile_change', args=[obj.user_profile.id])
+        return format_html('<a href="{}">View Profile</a>', url)
+    link_to_profile.short_description = 'User'
+
     def get_bank_info(self, obj):
         """Display bank account information from user profile"""
         profile = obj.user_profile
@@ -464,7 +485,7 @@ class WithdrawalRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
             return f"{profile.bank_name} | {profile.bank_account_number} | {account_name}"
         return 'Not provided'
     get_bank_info.short_description = 'Bank Account'
-    
+
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user_profile__user')
     
@@ -731,22 +752,37 @@ class WithdrawalRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
 @admin.register(GWCContribution)
 class GWCContributionAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ('user_profile', 'amount', 'group_type', 'status', 'created_at')
+    list_display = ('user_profile', 'amount_display', 'group_type', 'status', 'created_at', 'link_to_profile')
     list_filter = ('status', 'group_type', 'created_at')
+    list_editable = ('status',)
     search_fields = ('user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name', 'user_profile__account_number')
     readonly_fields = ('created_at', 'updated_at')
+    date_hierarchy = 'created_at'
     fieldsets = (
-        ('Contribution Information', {
-            'fields': ('user_profile', 'amount', 'group_type', 'status')
+        ('Contribution Details', {
+            'fields': ('user_profile', 'amount', 'group_type', 'status'),
+            'description': 'Review the GWC contribution request. Update status to approve, reject, or mark as processed.'
         }),
-        ('Admin Actions', {
-            'fields': ('admin_notes', 'processed_at')
+        ('Admin Action', {
+            'fields': ('admin_notes', 'processed_at'),
+            'description': 'Add notes and set processed date when the contribution has been applied.'
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
             'classes': ('collapse',)
         })
     )
+
+    def amount_display(self, obj):
+        return f"UGX {obj.amount:,.0f}"
+    amount_display.short_description = 'Amount'
+
+    def link_to_profile(self, obj):
+        from django.utils.html import format_html
+        from django.urls import reverse
+        url = reverse('admin:accounts_userprofile_change', args=[obj.user_profile.id])
+        return format_html('<a href="{}">View Profile</a>', url)
+    link_to_profile.short_description = 'User'
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user_profile__user')
@@ -754,22 +790,37 @@ class GWCContributionAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
 @admin.register(MESUInterest)
 class MESUInterestAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ('user_profile', 'investment_amount', 'number_of_shares', 'status', 'created_at')
+    list_display = ('user_profile', 'investment_amount_display', 'number_of_shares', 'status', 'created_at', 'link_to_profile')
     list_filter = ('status', 'created_at')
+    list_editable = ('status',)
     search_fields = ('user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name', 'user_profile__account_number')
     readonly_fields = ('number_of_shares', 'created_at', 'updated_at')
+    date_hierarchy = 'created_at'
     fieldsets = (
-        ('Investment Information', {
-            'fields': ('user_profile', 'investment_amount', 'number_of_shares', 'notes', 'status')
+        ('Investment Details', {
+            'fields': ('user_profile', 'investment_amount', 'number_of_shares', 'notes', 'status'),
+            'description': 'Review the MESU share purchase interest. Update status to approve, reject, or mark as processed.'
         }),
-        ('Admin Actions', {
-            'fields': ('admin_notes', 'processed_at')
+        ('Admin Action', {
+            'fields': ('admin_notes', 'processed_at'),
+            'description': 'Add notes and set processed date when the shares have been allocated.'
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
             'classes': ('collapse',)
         })
     )
+
+    def investment_amount_display(self, obj):
+        return f"UGX {obj.investment_amount:,.0f}"
+    investment_amount_display.short_description = 'Amount'
+
+    def link_to_profile(self, obj):
+        from django.utils.html import format_html
+        from django.urls import reverse
+        url = reverse('admin:accounts_userprofile_change', args=[obj.user_profile.id])
+        return format_html('<a href="{}">View Profile</a>', url)
+    link_to_profile.short_description = 'User'
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user_profile__user')
