@@ -6,6 +6,7 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.models import User
+from django.utils import timezone
 from accounts.models import UserProfile, WithdrawalRequest, GWCContribution, MESUInterest
 from goat_farming.models import CGFActionRequest
 from accounts.decorators import verified_required
@@ -201,7 +202,10 @@ class ProfileView(TemplateView):
                     'status_display': r.get_status_display(),
                     'created_at': r.created_at,
                 })
-            all_requests.sort(key=lambda x: x['created_at'], reverse=True)
+            def _sort_key(item):
+                dt = item['created_at']
+                return dt if timezone.is_aware(dt) else timezone.make_aware(dt)
+            all_requests.sort(key=_sort_key, reverse=True)
             context['all_action_requests'] = all_requests
 
             # Check for missing required information
