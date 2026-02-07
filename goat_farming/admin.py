@@ -209,7 +209,7 @@ class PaymentAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
 @admin.register(CGFActionRequest)
 class CGFActionRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ['user_profile', 'request_type_display', 'goats_count', 'cash_value_display', 'notes_preview', 'status', 'created_at', 'link_to_profile']
+    list_display = ['user_full_name', 'request_type_display', 'goats_count', 'cash_value_display', 'notes_preview', 'status', 'get_bank_info', 'created_at']
     list_filter = ['request_type', 'status', 'created_at']
     list_editable = ['status']
     search_fields = ['user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name', 'user_profile__account_number', 'notes']
@@ -247,11 +247,21 @@ class CGFActionRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
         return '—'
     notes_preview.short_description = 'User Notes'
 
-    def link_to_profile(self, obj):
-        from django.urls import reverse
-        url = reverse('admin:accounts_userprofile_change', args=[obj.user_profile.id])
-        return format_html('<a href="{}">View Profile</a>', url)
-    link_to_profile.short_description = 'User'
+    def user_full_name(self, obj):
+        profile = obj.user_profile
+        user = profile.user
+        name = f"{user.first_name or ''} {user.last_name or ''}".strip()
+        return name or user.get_username()
+    user_full_name.short_description = 'Full Name'
+    user_full_name.admin_order_field = 'user_profile__user__last_name'
+
+    def get_bank_info(self, obj):
+        profile = obj.user_profile
+        if profile.bank_name and profile.bank_account_number:
+            account_name = profile.bank_account_name or 'N/A'
+            return f"{profile.bank_name} | {profile.bank_account_number} | {account_name}"
+        return 'Not provided'
+    get_bank_info.short_description = 'Bank Details'
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user_profile__user')
