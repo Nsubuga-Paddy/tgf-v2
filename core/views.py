@@ -79,7 +79,6 @@ class ProfileView(TemplateView):
                 try:
                     from goat_farming.models import UserFarmAccount, PackagePurchase
                     from django.db.models import Sum
-                    from django.utils import timezone
                     from datetime import timedelta
                     user_farm_accounts = UserFarmAccount.objects.filter(user=profile, is_active=True).select_related('farm')
                     total_goats = user_farm_accounts.aggregate(t=Sum('current_goats'))['t'] or 0

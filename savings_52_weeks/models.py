@@ -537,7 +537,7 @@ class Investment(models.Model):
                                 user_profile=self.user_profile,
                                 amount=interest_amount,
                                 transaction_type='deposit',
-                                transaction_date=today,
+                                transaction_date=self.maturity_date,
                                 receipt_number=f"INT-{self.pk}",
                             )
                 except Exception as e:

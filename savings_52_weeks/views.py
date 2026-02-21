@@ -275,7 +275,7 @@ def member_savings(request):
     savings_data = {}
     if user_profile:
             # Get all transactions (including any newly created matured FD deposits)
-            all_transactions = user_profile.savings_transactions.all().order_by('created_at')
+            all_transactions = user_profile.savings_transactions.all().order_by('transaction_date', 'created_at')
             
             # Calculate gross deposits (including matured interest deposits)
             # and separately track withdrawals and GWC contributions for reporting.
