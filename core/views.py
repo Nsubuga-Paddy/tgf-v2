@@ -53,13 +53,17 @@ class ProfileView(TemplateView):
             context['has_52wsc'] = profile.projects.filter(name='52 Weeks Saving Challenge').exists()
             context['has_cgf'] = profile.projects.filter(name='Commercial Goat Farming').exists()
 
-            # 52WSC card data: current year saved, daily interest YTD, available balance (from last year)
+            # 52WSC card data: current year saved, interest (unfixed YTD + fixed), available balance (from last year)
             if context['has_52wsc']:
                 context['w52_current_year_saved'] = profile.get_current_year_amount_saved()
                 context['w52_available_balance'] = profile.get_available_balance()
                 try:
                     from savings_52_weeks.interest_utils import calculate_unfixed_interest_ytd
-                    context['w52_interest_ytd'] = calculate_unfixed_interest_ytd(profile)
+                    unfixed_ytd = calculate_unfixed_interest_ytd(profile)
+                    fixed_interest = sum(
+                        inv.interest_gained_so_far for inv in profile.investments.all()
+                    )
+                    context['w52_interest_ytd'] = unfixed_ytd + fixed_interest
                 except Exception:
                     context['w52_interest_ytd'] = Decimal('0')
                 # Pending requests (withheld) - user can see what they've requested

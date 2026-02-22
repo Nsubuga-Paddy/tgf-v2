@@ -1,7 +1,7 @@
 # wsc/views.py
 from django.shortcuts import render
 from accounts.decorators import project_required
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from django.db.models import Sum, Case, When, F, Value, DecimalField
 from django.utils import timezone
 from .models import SavingsTransaction, Investment
@@ -358,7 +358,11 @@ def member_savings(request):
             # - Expected full year: estimate if balance stays constant (for reference)
             unfixed_interest_earned_ytd = calculate_unfixed_interest_ytd(user_profile)
             uninvested_interest = get_expected_full_year_interest(user_profile)
-            
+            # Daily interest on unfixed balance (15% / 365) for card display
+            daily_unfixed_interest = (
+                uninvested_amount * Decimal('0.15') / Decimal('365')
+            ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if uninvested_amount else Decimal('0.00')
+
             # Calculate current week of the year and weekly progress
             from datetime import date
             today = date.today()
@@ -407,6 +411,7 @@ def member_savings(request):
                     'total_interest_gained': total_interest_gained,
                     'uninvested_amount': uninvested_amount,
                     'uninvested_interest': uninvested_interest,
+                    'daily_unfixed_interest': daily_unfixed_interest,
                     'unfixed_interest_earned_ytd': unfixed_interest_earned_ytd,
                     'latest_maturity_date': latest_maturity_date,
                     'investment_list': investments

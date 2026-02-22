@@ -372,9 +372,23 @@
       margin-bottom: 0.5rem;
     }
 
+    .stat-value-sublabel {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
     .stat-meta {
       font-size: 0.75rem;
       color: var(--muted);
+    }
+
+    .stat-meta-highlight {
+      background: rgba(238, 139, 53, 0.83);
+      color: #fff;
+      padding: 0.35rem 0.5rem;
+      border-radius: var(--radius-xs);
+      margin-top: 0.35rem;
     }
 
     .progress-bar {
@@ -956,11 +970,11 @@
           </div>
         </div>
         <div class="stat-value" id="totalSaved">UGX {{ savings_data.current_year_deposits|floatformat:0|default:"0"|intcomma }}</div>
-        <div class="stat-meta">Current year deposits only (locked until 52 weeks complete)</div>
         <div class="stat-meta">Target: UGX 13,780,000</div>
         <div class="progress-bar">
           <div class="progress-fill" id="progressBar" style="width: {{ savings_data.progress_percentage|default:0 }}%"></div>
         </div>
+        <div class="stat-meta stat-meta-highlight">Current year deposits only (locked until 52 weeks complete)</div>
       </div>
 
       <div class="stat-card">
@@ -971,11 +985,12 @@
           </div>
         </div>
         <div class="stat-value" id="carryForward">UGX {{ savings_data.balance_brought_forward|floatformat:0|default:"0"|intcomma }}</div>
+
         <div class="stat-meta">
-          Unallocated balance for weeks not yet fully covered
           <br>Fully Covered Weeks: <span id="weeksCompleted">{{savings_data.weeks_completed|default:0 }}</span>
           <br>Next Week: <span id="currentWeek">{{ savings_data.next_week_to_cover|default:1 }}</span>
         </div>
+        <div class="stat-meta stat-meta-highlight">Unallocated balance for weeks not yet fully covered</div>
       </div>
 
       <div class="stat-card">
@@ -986,7 +1001,7 @@
           </div>
         </div>
         <div class="stat-value" id="amountInvested">UGX {{ savings_data.investments.total_invested|floatformat:0|default:"0"|intcomma }}</div>
-        <div class="stat-meta">
+        <div class="stat-meta stat-meta-highlight">
           Expected Interest: <span id="expectedInterest">UGX {{ savings_data.investments.total_interest_expected|floatformat:0|default:"0"|intcomma }}</span>
           {% if savings_data.investments.latest_maturity_date %}
           <br>Maturity: <span id="maturityDate">{{ savings_data.investments.latest_maturity_date|date:"M d, Y" }}</span>
@@ -996,16 +1011,17 @@
 
       <div class="stat-card">
         <div class="stat-header">
-          <span class="stat-label">Unfixed Savings Interest</span>
+          <span class="stat-label">Interest on Unfixed Savings</span>
           <div class="stat-icon" style="background: #f3e8ff; color: #7c3aed;">
             <i class="fas fa-percentage"></i>
           </div>
         </div>
-        <div class="stat-value" id="uninvestedAmount">UGX {{ savings_data.investments.uninvested_amount|floatformat:0|default:"0"|intcomma }}</div>
+        <div class="stat-value" id="dailyUnfixedInterest">UGX {{ savings_data.investments.daily_unfixed_interest|floatformat:2|default:"0.00"|intcomma }} <span class="stat-value-sublabel">daily</span></div>
         <div class="stat-meta">
-          <strong>Interest Earned (YTD):</strong> <span id="unfixedInterestEarnedYtd">UGX {{ savings_data.investments.unfixed_interest_earned_ytd|floatformat:0|default:"0"|intcomma }}</span>
-          <br>Expected at Year-End (15%): <span id="uninvestedInterest">UGX {{ savings_data.investments.uninvested_interest|floatformat:0|default:"0"|intcomma }}</span>
-          <br>Deposited to account: <span id="savingsMaturityDate">December 31, {% now "Y" %}</span>
+          YearToDate: UGX {{ savings_data.investments.unfixed_interest_earned_ytd|floatformat:0|default:"0"|intcomma }}
+        </div>
+        <div class="stat-meta stat-meta-highlight">
+          15% annualized on unfixed savings
         </div>
       </div>
     </div>
