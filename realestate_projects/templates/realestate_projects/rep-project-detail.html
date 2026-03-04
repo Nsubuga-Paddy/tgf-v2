@@ -1,0 +1,942 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ project.name }} - Real Estate Project - MCS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --brand: #ff6b00;
+      --brand-d: #e05f00;
+      --bg: #f7f7f9;
+      --card: #ffffff;
+      --text: #1f2937;
+      --text-secondary: #6b7280;
+      --muted: #6b7280;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --info: #0ea5e9;
+      --secondary: #64748b;
+      --border: #e5e7eb;
+      --shadow: 0 8px 24px rgba(0,0,0,.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --radius-xs: 8px;
+      --primary-light: #fef3e7;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .header {
+      background: var(--brand);
+      border-bottom: 1px solid var(--brand-d);
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      box-shadow: var(--shadow);
+      color: #fff;
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .logo img {
+      height: 40px;
+      width: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .user-menu { position: relative; }
+
+    .user-button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 500;
+      color: #fff;
+    }
+
+    .user-button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 600;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .user-avatar img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      max-width: 32px;
+      max-height: 32px;
+      min-width: 32px;
+      min-height: 32px;
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 2;
+    }
+
+    .dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 0.5rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-width: 200px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px);
+      transition: all 0.2s ease;
+    }
+
+    .dropdown.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      color: var(--text);
+      text-decoration: none;
+      transition: background 0.2s ease;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:hover { background: var(--bg); color: var(--brand); }
+
+    .mobile-menu-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0.5rem;
+    }
+
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 280px;
+      height: 100vh;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      z-index: 999;
+      overflow-y: auto;
+      padding-top: 80px;
+    }
+
+    .sidebar-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .sidebar-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .sidebar-title i { color: var(--brand); }
+
+    .nav-list {
+      list-style: none;
+      padding: 1.5rem 0;
+    }
+
+    .nav-item { margin-bottom: 0.5rem; }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      color: var(--muted);
+      text-decoration: none;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      transition: all 0.2s ease;
+      font-weight: 500;
+      margin-right: 1rem;
+    }
+
+    .nav-link:hover {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .nav-link.active {
+      background: var(--brand);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .nav-link.active i { color: #fff; }
+
+    .nav-project-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.3;
+    }
+
+    .nav-project-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .nav-project-location {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .main-content {
+      margin-left: 280px;
+      margin-top: 80px;
+      padding: 1.5rem 2rem;
+      min-height: calc(100vh - 80px);
+    }
+
+    .page-header {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .page-title {
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 0.35rem;
+    }
+
+    .page-subtitle {
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .account-info {
+      text-align: right;
+    }
+
+    .account-number {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .account-value {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--brand);
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .badge-running {
+      background: #ecfdf5;
+      color: #15803d;
+    }
+
+    .badge-closed {
+      background: #f3f4f6;
+      color: #4b5563;
+    }
+
+    .badge-upcoming {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);
+      gap: 1.5rem;
+      align-items: flex-start;
+    }
+
+    .detail-main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+      align-items: stretch;
+    }
+
+    .content-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 1.25rem 1.75rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text);
+    }
+
+    .card-title i { color: var(--brand); }
+
+    .card-subtitle {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    .card-body {
+      padding: 1.5rem 1.75rem 1.75rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .stat-card {
+      background: #ffffff;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      padding: 1rem 1.1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .stat-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .stat-meta {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+
+    .no-access {
+      font-size: 0.9rem;
+      color: #b91c1c;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .no-access i { color: #b91c1c; }
+
+    .transactions-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .transactions-table th,
+    .transactions-table td {
+      padding: 0.5rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .transactions-table th {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      background: #f9fafb;
+    }
+
+    .transactions-empty {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .back-link {
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .back-link:hover {
+      color: var(--brand);
+    }
+
+    @media (max-width: 1024px) {
+      .mobile-menu-toggle { display: block; }
+
+      .sidebar {
+        left: -280px;
+        transition: left 0.3s ease;
+      }
+
+      .sidebar.open { left: 0; }
+
+      .main-content {
+        margin-left: 0;
+      }
+
+      .content-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .detail-main-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        padding: 1rem;
+      }
+
+      .page-header {
+        padding: 1.5rem;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .account-info {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <button class="mobile-menu-toggle" id="mobileMenuToggle">
+        <i class="fas fa-bars"></i>
+      </button>
+
+      <a href="{% url 'landing' %}" class="logo">
+        <img src="{% static 'core/images/logo.png' %}" alt="MCS Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+        <span class="logo-text">MCS</span>
+      </a>
+
+      <div class="user-menu">
+        <button class="user-button" id="userButton">
+          <div class="user-avatar">
+            {% if user.profile.photo %}
+              <img src="{{ user.profile.photo.url }}" alt="Profile Photo">
+            {% else %}
+              {{ user.profile.initials|default:user.username|first|upper }}
+            {% endif %}
+          </div>
+          <span>{{ user.first_name|default:user.get_username }}</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+
+        <div class="dropdown" id="userDropdown">
+          <a href="{% url 'profile' %}" class="dropdown-item">
+            <i class="fas fa-user"></i>
+            Profile
+          </a>
+          <a href="#" class="dropdown-item">
+            <i class="fas fa-cog"></i>
+            Settings
+          </a>
+          <a href="{% url 'accounts:logout' %}" class="dropdown-item">
+            <i class="fas fa-sign-out-alt"></i>
+            Logout
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h3 class="sidebar-title">
+        <i class="fas fa-building"></i>
+        Real Estate Projects
+      </h3>
+    </div>
+
+    <nav>
+      <ul class="nav-list">
+        <li class="nav-item">
+          <a href="{% url 'realestate_projects:rep' %}" class="nav-link">
+            <i class="fas fa-chart-line"></i>
+            Dashboard
+          </a>
+        </li>
+        <li class="nav-item">
+          <span class="nav-link active" style="cursor: default;">
+            <i class="fas fa-city"></i>
+            <div class="nav-project-text">
+              <span class="nav-project-name">{{ project.name }}</span>
+              <span class="nav-project-location">{{ project.location }}</span>
+            </div>
+          </span>
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="main-content">
+    <a href="{% url 'realestate_projects:rep' %}" class="back-link">
+      <i class="fas fa-arrow-left"></i>
+      Back to Real Estate dashboard
+    </a>
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">
+          {{ project.name }}
+        </h1>
+        <p class="page-subtitle">
+          <span class="pill">
+            <i class="fas fa-location-dot"></i>
+            {{ project.location }}
+          </span>
+          <span class="pill">
+            <i class="fas fa-calendar-day"></i>
+            Start: {{ project.start_date }}
+          </span>
+          <span class="pill">
+            <i class="fas fa-calendar-check"></i>
+            End: {{ project.end_date }}
+          </span>
+        </p>
+      </div>
+      <div class="account-info">
+        <div class="account-number">Account Number</div>
+        <div class="account-value">
+          {{ user_profile.account_number|default:"Not assigned" }}
+        </div>
+        <div style="margin-top:0.4rem;">
+          {% if project.status == project.STATUS_RUNNING %}
+            <span class="badge-status badge-running">
+              <i class="fas fa-play"></i> Running
+            </span>
+          {% elif project.status == project.STATUS_CLOSED %}
+            <span class="badge-status badge-closed">
+              <i class="fas fa-flag-checkered"></i> Closed
+            </span>
+          {% else %}
+            <span class="badge-status badge-upcoming">
+              <i class="fas fa-clock"></i> Upcoming
+            </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-main-grid">
+      <section>
+        <div class="content-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">
+                <i class="fas fa-file-invoice-dollar"></i>
+                Project financial snapshot
+              </h2>
+              <p class="card-subtitle">
+                High-level report for this project: land size, vendor amount, and operational costs.
+              </p>
+            </div>
+          </div>
+          <div class="card-body">
+            {% if user_has_access %}
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-label">
+                  <i class="fas fa-map"></i> Land size
+                </div>
+                <div class="stat-value">
+                  {% if project.land_size %}
+                    {{ project.land_size|floatformat:2 }} {{ project.land_size_unit|default:"" }}
+                  {% else %}
+                    Not set
+                  {% endif %}
+                </div>
+                <div class="stat-meta">
+                  Size of land being acquired for this project.
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">
+                  <i class="fas fa-hand-holding-dollar"></i> Total required by vendor
+                </div>
+                <div class="stat-value">
+                  {% if project.vendor_total_amount %}
+                    UGX {{ project.vendor_total_amount|floatformat:0|intcomma }}
+                  {% else %}
+                    Not set
+                  {% endif %}
+                </div>
+                <div class="stat-meta">
+                  Agreed total amount to be paid to the vendor.
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">
+                  <i class="fas fa-gear"></i> Operational costs
+                </div>
+                <div class="stat-value">
+                  {% if project.operational_costs %}
+                    UGX {{ project.operational_costs|floatformat:0|intcomma }}
+                  {% else %}
+                    Not set
+                  {% endif %}
+                </div>
+                <div class="stat-meta">
+                  Projected operational and overhead costs for the project.
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">
+                  <i class="fas fa-layer-group"></i> Summary
+                </div>
+                <div class="stat-value">
+                  {% if project.vendor_total_amount or project.operational_costs %}
+                    {% with vendor=project.vendor_total_amount|default:0 ops=project.operational_costs|default:0 %}
+                    UGX {{ vendor|add:ops|floatformat:0|intcomma }}
+                    {% endwith %}
+                  {% else %}
+                    -
+                  {% endif %}
+                </div>
+                <div class="stat-meta">
+                  Vendor amount + operational costs (approximate total budget).
+                </div>
+              </div>
+            </div>
+            {% else %}
+            <p class="no-access">
+              <i class="fas fa-lock"></i>
+              You do not have access to detailed financial information for this project. Please contact the cooperative admin if you believe this is an error.
+            </p>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="content-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">
+                <i class="fas fa-users"></i>
+                Member completion overview
+              </h2>
+              <p class="card-subtitle">
+                Automatically derived from transactions: members with a transaction marked “Fully paid” vs “Partially paid”.
+              </p>
+            </div>
+          </div>
+          <div class="card-body">
+            {% if user_has_access %}
+            <div style="display:flex;flex-wrap:wrap;gap:1rem;">
+              <div class="stat-card">
+                <div class="stat-label">
+                  <i class="fas fa-user-check"></i> Fully paid
+                </div>
+                <div class="stat-value">
+                  {{ completed_members_count }}
+                </div>
+                <div class="stat-meta">
+                  Total match contributions:
+                  {% if completed_total_match %}
+                    UGX {{ completed_total_match|floatformat:0|intcomma }}
+                  {% else %}
+                    UGX 0
+                  {% endif %}
+                </div>
+                <div class="stat-meta">
+                  Total payments made:
+                  UGX {{ completed_payments_total|floatformat:0|intcomma }}
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">
+                  <i class="fas fa-user-clock"></i> Partial payments
+                </div>
+                <div class="stat-value">
+                  {{ incomplete_members_count }}
+                </div>
+                <div class="stat-meta">
+                  Total match contributions:
+                  {% if incomplete_total_match %}
+                    UGX {{ incomplete_total_match|floatformat:0|intcomma }}
+                  {% else %}
+                    UGX 0
+                  {% endif %}
+                </div>
+                <div class="stat-meta">
+                  Total payments made:
+                  UGX {{ partial_payments_total|floatformat:0|intcomma }}
+                </div>
+              </div>
+            </div>
+            {% else %}
+            <p class="no-access">
+              <i class="fas fa-lock"></i>
+              You do not have access to member completion statistics for this project.
+            </p>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="content-card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">
+            <i class="fas fa-receipt"></i>
+            Your transactions
+          </h2>
+          <p class="card-subtitle">
+            Project-specific transaction history showing your payments, pending balance, and status.
+          </p>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if user_match_contribution %}
+        <div class="stats-grid" style="margin-bottom: 1rem;">
+          <div class="stat-card">
+            <div class="stat-label">
+              <i class="fas fa-sack-dollar"></i> Match contribution
+            </div>
+            <div class="stat-value">
+              UGX {{ user_match_contribution|floatformat:0|intcomma }}
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              <i class="fas fa-coins"></i> Total paid
+            </div>
+            <div class="stat-value">
+              UGX {{ user_total_paid|floatformat:0|intcomma }}
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              <i class="fas fa-scale-balanced"></i> Pending balance
+            </div>
+            <div class="stat-value">
+              {% if user_pending_balance is not None %}
+                UGX {{ user_pending_balance|floatformat:0|intcomma }}
+              {% else %}
+                -
+              {% endif %}
+            </div>
+            <div class="stat-meta">
+              Status:
+              {% if user_payment_completed %}
+                <span style="color:#15803d;font-weight:600;">Completed</span>
+              {% else %}
+                <span style="color:#b91c1c;font-weight:600;">In progress</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if user_transactions %}
+        <table class="transactions-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Amount (UGX)</th>
+              <th>Acquisition</th>
+              <th>Balance (UGX)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for txn in user_transactions %}
+            <tr>
+              <td>
+                {% if txn.transaction_date %}
+                  {{ txn.transaction_date|date:"Y-m-d" }}
+                {% else %}
+                  {{ txn.created_at|date:"Y-m-d H:i" }}
+                {% endif %}
+              </td>
+              <td>{{ txn.amount|floatformat:0|intcomma }}</td>
+              <td>
+                {% if txn.acquisition_quantity %}
+                  {{ txn.acquisition_quantity|floatformat:2 }} {{ txn.acquisition_unit|default:"" }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>
+                {% if txn.balance_after is not None %}
+                  UGX {{ txn.balance_after|floatformat:0|intcomma }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>{{ txn.get_payment_status_display }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="transactions-empty">
+          No transactions recorded for you on this project yet.
+        </p>
+        {% endif %}
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+      const sidebar = document.getElementById('sidebar');
+      const userButton = document.getElementById('userButton');
+      const userDropdown = document.getElementById('userDropdown');
+
+      if (mobileMenuToggle && sidebar) {
+        mobileMenuToggle.addEventListener('click', function (e) {
+          e.stopPropagation();
+          sidebar.classList.toggle('open');
+        });
+      }
+
+      if (userButton && userDropdown) {
+        userButton.addEventListener('click', function (e) {
+          e.stopPropagation();
+          userDropdown.classList.toggle('show');
+        });
+
+        document.addEventListener('click', function () {
+          userDropdown.classList.remove('show');
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
+

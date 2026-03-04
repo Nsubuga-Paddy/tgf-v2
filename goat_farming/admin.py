@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 
 from .models import (
-    Farm, ManagementFeeTier, InvestmentPackage, 
+    Farm, ManagementFeeTier, InvestmentPackage,
     UserFarmAccount, PackagePurchase, Payment, CGFActionRequest
 )
 from core.admin_base import ExportableAdminMixin
@@ -209,31 +209,112 @@ class PaymentAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
 @admin.register(CGFActionRequest)
 class CGFActionRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ['user_full_name', 'request_type_display', 'goats_count', 'cash_value_display', 'notes_preview', 'status', 'get_bank_info', 'created_at']
-    list_filter = ['request_type', 'status', 'created_at']
+    list_display = [
+        'user_full_name',
+        'phone_display',
+        'account_details_display',
+        'farm_display',
+        'total_goats_display',
+        'request_type_display',
+        'goats_count',
+        'goats_remaining_display',
+        'cash_value_display',
+        'get_bank_info',
+        'notes_preview',
+        'status',
+        'created_at',
+    ]
+    list_filter = ['request_type', 'status', 'farm', 'created_at']
     list_editable = ['status']
-    search_fields = ['user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name', 'user_profile__account_number', 'notes']
-    readonly_fields = ['created_at', 'updated_at']
+    search_fields = [
+        'user_profile__user__username',
+        'user_profile__user__first_name',
+        'user_profile__user__last_name',
+        'user_profile__account_number',
+        'user_profile__whatsapp_number',
+        'notes',
+    ]
+    readonly_fields = [
+        'created_at',
+        'updated_at',
+        'user_full_name',
+        'phone_display',
+        'account_details_display',
+        'farm_display',
+        'total_goats_display',
+        'goats_remaining_display',
+        'cash_value_display',
+    ]
     date_hierarchy = 'created_at'
     fieldsets = (
         ('Request Details', {
-            'fields': ('user_profile', 'request_type', 'goats_count', 'notes', 'status'),
-            'description': 'Review the CGF action request (Sell & Cash Out, Take Goats, or Transfer). Update status to approve, reject, or mark as processed.'
+            'fields': (
+                'user_profile',
+                'farm',
+                'request_type',
+                'goats_count',
+                'notes',
+                'status',
+            ),
+            'description': 'Review the CGF action request (Sell & Cash Out, Take Goats, or Transfer). Update status to approve, reject, or mark as processed.',
+        }),
+        ('User & account info (read-only)', {
+            'fields': (
+                'user_full_name',
+                'phone_display',
+                'account_details_display',
+                'farm_display',
+                'total_goats_display',
+                'goats_remaining_display',
+                'cash_value_display',
+            ),
+            'description': 'User contact and account details; total goats and remaining (for cash out). All information is downloadable via Export actions on the list.',
         }),
         ('Admin Action', {
             'fields': ('admin_notes', 'processed_at'),
-            'description': 'Add notes (e.g. pickup date, transfer details, payment ref) and set processed date when complete.'
+            'description': 'Add notes (e.g. pickup date, transfer details, payment ref) and set processed date when complete.',
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
+            'classes': ('collapse',),
+        }),
     )
 
     def request_type_display(self, obj):
         return obj.get_request_type_display()
     request_type_display.short_description = 'Action Type'
     request_type_display.admin_order_field = 'request_type'
+
+    def farm_display(self, obj):
+        if obj.farm_id:
+            return obj.farm.name
+        accounts = UserFarmAccount.objects.filter(user=obj.user_profile).select_related('farm')
+        if not accounts.exists():
+            return '—'
+        names = [a.farm.name for a in accounts]
+        return ', '.join(names) if len(names) <= 2 else f"{names[0]} (+{len(names)-1} more)"
+    farm_display.short_description = 'Farm'
+
+    def total_goats_display(self, obj):
+        qs = UserFarmAccount.objects.filter(user=obj.user_profile)
+        if obj.farm_id:
+            qs = qs.filter(farm=obj.farm)
+        total = qs.aggregate(total=Sum('current_goats'))['total'] or 0
+        return total
+    total_goats_display.short_description = 'Total goats'
+
+    def goats_remaining_display(self, obj):
+        if obj.request_type != 'sell_cash_out':
+            return '—'
+        total = self.total_goats_display(obj)
+        count = obj.goats_count or 0
+        remaining = max(0, total - count)
+        return format_html(
+            '<span style="color: {};">{} (remaining after cash out)</span>',
+            'green' if remaining >= 0 else 'red',
+            remaining,
+        )
+    goats_remaining_display.short_description = 'Goats remaining'
 
     def cash_value_display(self, obj):
         if obj.request_type == 'sell_cash_out' and obj.goats_count:
@@ -255,6 +336,25 @@ class CGFActionRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
     user_full_name.short_description = 'Full Name'
     user_full_name.admin_order_field = 'user_profile__user__last_name'
 
+    def phone_display(self, obj):
+        profile = obj.user_profile
+        number = getattr(profile, 'whatsapp_number', None)
+        if number:
+            return str(number)
+        return '—'
+    phone_display.short_description = 'Phone (WhatsApp)'
+
+    def account_details_display(self, obj):
+        profile = obj.user_profile
+        acct = profile.account_number or '—'
+        parts = [f"Account: {acct}"]
+        if profile.bank_name and profile.bank_account_number:
+            parts.append(f"Bank: {profile.bank_name} | {profile.bank_account_number}")
+            if profile.bank_account_name:
+                parts.append(f"Name: {profile.bank_account_name}")
+        return ' | '.join(parts)
+    account_details_display.short_description = 'Account details'
+
     def get_bank_info(self, obj):
         profile = obj.user_profile
         if profile.bank_name and profile.bank_account_number:
@@ -264,4 +364,4 @@ class CGFActionRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
     get_bank_info.short_description = 'Bank Details'
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('user_profile__user')
+        return super().get_queryset(request).select_related('user_profile__user', 'farm')

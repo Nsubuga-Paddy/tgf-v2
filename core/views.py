@@ -173,7 +173,7 @@ class ProfileView(TemplateView):
             for r in profile.gwc_contributions.all().order_by('-created_at'):
                 all_requests.append({
                     'project': '52WSC',
-                    'type_label': f'GWC ({r.get_group_type_display()})',
+                    'type_label': 'Transfer to GWC',
                     'icon': 'fa-users',
                     'detail': f"UGX {r.amount:,.0f}",
                     'status': r.status,

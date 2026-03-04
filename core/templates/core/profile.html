@@ -2925,8 +2925,8 @@
         const amount = urlParams.get('amount') || '';
         const type = urlParams.get('type') || '';
         showNotification('success',
-          `Your GWC contribution request of UGX ${amount} (${type}) has been submitted successfully! Admin will review your request.`,
-          'GWC Contribution Submitted'
+          `Your request to transfer UGX ${amount} to GWC (${type}) has been submitted. Admin will review your request. The amount is withheld until approved.`,
+          'Transfer to GWC Requested'
         );
       } else if (action === 'mesu_success') {
         const shares = urlParams.get('shares') || '';

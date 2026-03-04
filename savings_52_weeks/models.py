@@ -44,7 +44,7 @@ class SavingsTransaction(models.Model):
         ('deposit', 'Deposit'),
         ('withdrawal', 'Withdrawal'),
         ('adjustment', 'Adjustment'),
-        ('gwc_contribution', 'GWC Contribution'),
+        ('gwc_contribution', 'Transfer to GWC'),
     ]
 
     user_profile = models.ForeignKey(

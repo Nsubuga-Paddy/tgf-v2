@@ -1,0 +1,979 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real Estate Projects - MCS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --brand: #ff6b00;
+      --brand-d: #e05f00;
+      --bg: #f7f7f9;
+      --card: #ffffff;
+      --text: #1f2937;
+      --text-secondary: #6b7280;
+      --muted: #6b7280;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --info: #0ea5e9;
+      --secondary: #64748b;
+      --border: #e5e7eb;
+      --shadow: 0 8px 24px rgba(0,0,0,.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --radius-xs: 8px;
+      --primary-light: #fef3e7;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: var(--brand);
+      border-bottom: 1px solid var(--brand-d);
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      box-shadow: var(--shadow);
+      color: #fff;
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .logo img {
+      height: 40px;
+      width: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .user-menu {
+      position: relative;
+    }
+
+    .user-button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 500;
+      color: #fff;
+    }
+
+    .user-button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 600;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .user-avatar img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      max-width: 32px;
+      max-height: 32px;
+      min-width: 32px;
+      min-height: 32px;
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 2;
+    }
+
+    .dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 0.5rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-width: 200px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px);
+      transition: all 0.2s ease;
+    }
+
+    .dropdown.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      color: var(--text);
+      text-decoration: none;
+      transition: background 0.2s ease;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dropdown-item:last-child {
+      border-bottom: none;
+    }
+
+    .dropdown-item:hover {
+      background: var(--bg);
+      color: var(--brand);
+    }
+
+    /* Mobile Menu Toggle */
+    .mobile-menu-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0.5rem;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 280px;
+      height: 100vh;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      z-index: 999;
+      overflow-y: auto;
+      padding-top: 80px;
+    }
+
+    .sidebar-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .sidebar-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .sidebar-title i {
+      color: var(--brand);
+    }
+
+    .nav-list {
+      list-style: none;
+      padding: 1.5rem 0;
+    }
+
+    .nav-item {
+      margin-bottom: 0.5rem;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      color: var(--muted);
+      text-decoration: none;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      transition: all 0.2s ease;
+      font-weight: 500;
+      margin-right: 1rem;
+    }
+
+    .nav-link:hover {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .nav-link.active {
+      background: var(--brand);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .nav-link.active i {
+      color: #fff;
+    }
+
+    .nav-project-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.3;
+    }
+
+    .nav-project-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .nav-project-location {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    /* Main Content */
+    .main-content {
+      margin-left: 280px;
+      margin-top: 80px;
+      padding: 1.5rem 2rem;
+      min-height: calc(100vh - 80px);
+    }
+
+    .page-header {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .page-title {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .page-subtitle {
+      color: var(--muted);
+      font-size: 1.125rem;
+    }
+
+    .account-info {
+      text-align: right;
+    }
+
+    .account-number {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .account-value {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--brand);
+    }
+
+    /* Dashboard sections */
+    .content-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      margin-bottom: 1.75rem;
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 1.25rem 1.75rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text);
+    }
+
+    .card-title i {
+      color: var(--brand);
+    }
+
+    .card-subtitle {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    .card-header-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .card-body {
+      padding: 1.5rem 1.75rem 1.75rem;
+    }
+
+    .section-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      background: #fffbeb;
+      color: #92400e;
+      font-weight: 600;
+    }
+
+    .projects-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.15rem;
+    }
+
+    .project-card {
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      padding: 1rem 1.1rem;
+      background: #ffffff;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .project-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 18px 30px rgba(15, 23, 42, 0.08);
+      border-color: var(--brand);
+    }
+
+    .project-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .project-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .project-location {
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      margin-top: 0.1rem;
+    }
+
+    .project-status-badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      white-space: nowrap;
+    }
+
+    .project-status-running {
+      background: #ecfdf5;
+      color: #15803d;
+    }
+
+    .project-status-closed {
+      background: #f3f4f6;
+      color: #4b5563;
+    }
+
+    .project-status-upcoming {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .project-dates {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.35rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .project-date-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      background: #f9fafb;
+      border: 1px solid var(--border);
+    }
+
+    .project-description {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-top: 0.4rem;
+    }
+
+    .project-actions {
+      margin-top: 0.75rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .project-cta {
+      border-radius: var(--radius-xs);
+      border: 1px solid var(--brand);
+      background: var(--brand);
+      color: #fff;
+      padding: 0.45rem 0.9rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      cursor: pointer;
+      transition: filter 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .project-cta:hover {
+      filter: brightness(0.96);
+      box-shadow: var(--shadow);
+    }
+
+    .project-cta.secondary {
+      background: #fff;
+      color: var(--brand);
+    }
+
+    .project-meta {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .empty-state {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .admin-note {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.35rem;
+    }
+
+    @media (max-width: 1024px) {
+      .mobile-menu-toggle {
+        display: block;
+      }
+
+      .sidebar {
+        left: -280px;
+        transition: left 0.3s ease;
+      }
+
+      .sidebar.open {
+        left: 0;
+      }
+
+      .main-content {
+        margin-left: 0;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        padding: 1rem;
+      }
+
+      .page-header {
+        padding: 1.5rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+
+      .account-info {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <button class="mobile-menu-toggle" id="mobileMenuToggle">
+        <i class="fas fa-bars"></i>
+      </button>
+
+      <a href="{% url 'landing' %}" class="logo">
+        <img src="{% static 'core/images/logo.png' %}" alt="MCS Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+        <span class="logo-text">MCS</span>
+      </a>
+
+      <div class="user-menu">
+        <button class="user-button" id="userButton">
+          <div class="user-avatar">
+            {% if user.profile.photo %}
+              <img src="{{ user.profile.photo.url }}" alt="Profile Photo">
+            {% else %}
+              {{ user.profile.initials|default:user.username|first|upper }}
+            {% endif %}
+          </div>
+          <span>{{ user.first_name|default:user.get_username }}</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+
+        <div class="dropdown" id="userDropdown">
+          <a href="{% url 'profile' %}" class="dropdown-item">
+            <i class="fas fa-user"></i>
+            Profile
+          </a>
+          <a href="#" class="dropdown-item">
+            <i class="fas fa-cog"></i>
+            Settings
+          </a>
+          <a href="{% url 'accounts:logout' %}" class="dropdown-item">
+            <i class="fas fa-sign-out-alt"></i>
+            Logout
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h3 class="sidebar-title">
+        <i class="fas fa-building"></i>
+        Real Estate Projects
+      </h3>
+    </div>
+
+    <nav>
+      <ul class="nav-list">
+        <li class="nav-item">
+          <a href="{% url 'realestate_projects:rep' %}" class="nav-link active">
+            <i class="fas fa-chart-line"></i>
+            Dashboard
+          </a>
+        </li>
+        {% if sidebar_projects %}
+          {% for project in sidebar_projects %}
+          <li class="nav-item">
+            <a href="{% url 'realestate_projects:detail' project.id %}" class="nav-link">
+              <i class="fas fa-city"></i>
+              <div class="nav-project-text">
+                <span class="nav-project-name">{{ project.name }}</span>
+                <span class="nav-project-location">{{ project.location }}</span>
+              </div>
+            </a>
+          </li>
+          {% endfor %}
+        {% else %}
+          <li class="nav-item">
+            <span class="nav-link" style="cursor: default; opacity: 0.7;">
+              <i class="fas fa-city"></i>
+              <span>No running projects yet</span>
+            </span>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">
+          {{ user.first_name|title|default:user.username|title }}'s
+          <span style="color: var(--brand);">Real Estate</span> Projects
+        </h1>
+        <p class="page-subtitle">Track your real estate investments and project performance</p>
+      </div>
+      <div class="account-info">
+        <div class="account-number">Account Number</div>
+        <div class="account-value">
+          {{ user_profile.account_number|default:"Not assigned" }}
+        </div>
+      </div>
+    </div>
+
+    <section class="content-card">
+      <div class="card-header">
+        <div>
+          <div class="section-pill">
+            <i class="fas fa-circle-play"></i> Running projects
+          </div>
+          <h2 class="card-title">
+            <i class="fas fa-building"></i>
+            Cooperative real estate portfolio
+          </h2>
+          <p class="card-subtitle">
+            Join an active cooperative project that fits your goals. You can see all running projects, but some details may be restricted.
+          </p>
+        </div>
+        <div class="card-header-meta">
+          <div>
+            Total running projects:
+            <strong>{{ running_projects|length|default:0 }}</strong>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if running_projects %}
+        <div class="projects-grid">
+          {% for project in running_projects %}
+          <article class="project-card">
+            <div class="project-header-row">
+              <div>
+                <h3 class="project-name">{{ project.name }}</h3>
+                <div class="project-location">
+                  <i class="fas fa-location-dot"></i>
+                  <span>{{ project.location }}</span>
+                </div>
+              </div>
+              <span class="project-status-badge project-status-running">
+                <i class="fas fa-play"></i>
+                Running
+              </span>
+            </div>
+
+            <div class="project-dates">
+              <span class="project-date-pill">
+                <i class="fas fa-calendar-day"></i>
+                <span>Started: {{ project.start_date }}</span>
+              </span>
+              <span class="project-date-pill">
+                <i class="fas fa-calendar-check"></i>
+                <span>Ends: {{ project.end_date }}</span>
+              </span>
+            </div>
+
+            {% if project.user_has_access %}
+              {% if project.description %}
+              <p class="project-description">
+                {{ project.description }}
+              </p>
+              {% endif %}
+            {% else %}
+              <p class="project-description" style="color:#b91c1c;font-size:0.8rem;">
+                <i class="fas fa-lock"></i>
+                You do not have access to full details for this project. Please contact the cooperative admin to be added.
+              </p>
+            {% endif %}
+
+            <div class="project-actions">
+              {% if project.user_has_joined %}
+                <button class="project-cta secondary" type="button" disabled>
+                  <i class="fas fa-user-check"></i>
+                  You are in this project
+                </button>
+              {% elif project.user_has_pending_request %}
+                <button class="project-cta secondary" type="button" disabled>
+                  <i class="fas fa-clock"></i>
+                  Join request pending
+                </button>
+              {% else %}
+                <form method="post" action="{% url 'realestate_projects:request_join' project.id %}">
+                  {% csrf_token %}
+                  <button class="project-cta" type="submit">
+                    <i class="fas fa-user-plus"></i>
+                    Request to join
+                  </button>
+                </form>
+              {% endif %}
+              {% if project.user_has_access %}
+                <div class="project-meta">
+                  <i class="fas fa-users"></i>
+                  {{ project.members_count|default_if_none:"0" }} members ·
+                  Min investment: {{ project.minimum_investment|default_if_none:"—" }}
+                </div>
+              {% endif %}
+              <a href="{% url 'realestate_projects:detail' project.id %}" class="project-cta secondary" style="margin-top:0.5rem;">
+                <i class="fas fa-arrow-right"></i>
+                View project
+              </a>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">
+          There are currently no running cooperative real estate projects available for you. Check back soon or review upcoming projects below.
+        </p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="content-card">
+      <div class="card-header">
+        <div>
+          <div class="section-pill" style="background:#f3f4f6;color:#4b5563;">
+            <i class="fas fa-flag-checkered"></i> Closed projects
+          </div>
+          <h2 class="card-title">
+            <i class="fas fa-archive"></i>
+            Completed and closed projects
+          </h2>
+          <p class="card-subtitle">
+            View projects that have reached completion or been closed by the cooperative.
+          </p>
+        </div>
+        <div class="card-header-meta">
+          <div>
+            Closed projects:
+            <strong>{{ closed_projects|length|default:0 }}</strong>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if closed_projects %}
+        <div class="projects-grid">
+          {% for project in closed_projects %}
+          <article class="project-card">
+            <div class="project-header-row">
+              <div>
+                <h3 class="project-name">{{ project.name }}</h3>
+                <div class="project-location">
+                  <i class="fas fa-location-dot"></i>
+                  <span>{{ project.location }}</span>
+                </div>
+              </div>
+              <span class="project-status-badge project-status-closed">
+                <i class="fas fa-circle-check"></i>
+                Closed
+              </span>
+            </div>
+
+            <div class="project-dates">
+              <span class="project-date-pill">
+                <i class="fas fa-calendar-day"></i>
+                <span>Started: {{ project.start_date }}</span>
+              </span>
+              <span class="project-date-pill">
+                <i class="fas fa-calendar-xmark"></i>
+                <span>Closed: {{ project.end_date }}</span>
+              </span>
+            </div>
+
+            {% if project.user_has_access %}
+              {% if project.description %}
+              <p class="project-description">
+                {{ project.description }}
+              </p>
+              {% endif %}
+              <div class="project-meta">
+                <i class="fas fa-users"></i>
+                {{ project.members_count|default_if_none:"0" }} members participated
+              </div>
+            {% else %}
+              <p class="project-description" style="color:#b91c1c;font-size:0.8rem;">
+                <i class="fas fa-lock"></i>
+                You do not have access to detailed information for this project.
+              </p>
+            {% endif %}
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">
+          No closed projects to display yet.
+        </p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="content-card">
+      <div class="card-header">
+        <div>
+          <div class="section-pill" style="background:#eff6ff;color:#1d4ed8;">
+            <i class="fas fa-hourglass-half"></i> Upcoming projects
+          </div>
+          <h2 class="card-title">
+            <i class="fas fa-calendar-alt"></i>
+            Upcoming real estate opportunities
+          </h2>
+          <p class="card-subtitle">
+            See projects that are planned but not yet open. Submit your interest so the team can plan allocations.
+          </p>
+        </div>
+        <div class="card-header-meta">
+          <div>
+            Upcoming projects:
+            <strong>{{ upcoming_projects|length|default:0 }}</strong>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        {% if upcoming_projects %}
+        <div class="projects-grid">
+          {% for project in upcoming_projects %}
+          <article class="project-card">
+            <div class="project-header-row">
+              <div>
+                <h3 class="project-name">{{ project.name }}</h3>
+                <div class="project-location">
+                  <i class="fas fa-location-dot"></i>
+                  <span>{{ project.location }}</span>
+                </div>
+              </div>
+              <span class="project-status-badge project-status-upcoming">
+                <i class="fas fa-clock"></i>
+                Upcoming
+              </span>
+            </div>
+
+            <div class="project-dates">
+              {% if project.planned_start_date %}
+              <span class="project-date-pill">
+                <i class="fas fa-calendar-day"></i>
+                <span>Planned start: {{ project.planned_start_date }}</span>
+              </span>
+              {% endif %}
+              {% if project.planned_end_date %}
+              <span class="project-date-pill">
+                <i class="fas fa-calendar-check"></i>
+                <span>Planned end: {{ project.planned_end_date }}</span>
+              </span>
+              {% endif %}
+            </div>
+
+            {% if project.description %}
+            <p class="project-description">
+              {{ project.description }}
+            </p>
+            {% endif %}
+
+            <div class="project-actions">
+              <form method="post" action="{% url 'realestate_projects:submit_interest' project.id %}">
+                {% csrf_token %}
+                <button class="project-cta" type="submit">
+                  <i class="fas fa-envelope-open-text"></i>
+                  Submit interest
+                </button>
+              </form>
+              <div class="project-meta">
+                <i class="fas fa-info-circle"></i>
+                You will be contacted when allocations open.
+              </div>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">
+          There are no upcoming projects published yet.
+        </p>
+        {% endif %}
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    (function () {
+      const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+      const sidebar = document.getElementById('sidebar');
+      const userButton = document.getElementById('userButton');
+      const userDropdown = document.getElementById('userDropdown');
+
+      if (mobileMenuToggle && sidebar) {
+        mobileMenuToggle.addEventListener('click', function (e) {
+          e.stopPropagation();
+          sidebar.classList.toggle('open');
+        });
+      }
+
+      if (userButton && userDropdown) {
+        userButton.addEventListener('click', function (e) {
+          e.stopPropagation();
+          userDropdown.classList.toggle('show');
+        });
+
+        document.addEventListener('click', function () {
+          userDropdown.classList.remove('show');
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
+

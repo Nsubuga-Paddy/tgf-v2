@@ -292,6 +292,14 @@ class CGFActionRequest(models.Model):
         on_delete=models.CASCADE,
         related_name='cgf_action_requests'
     )
+    farm = models.ForeignKey(
+        Farm,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cgf_action_requests',
+        help_text="Farm this action refers to (optional; if blank, totals are across all farms)."
+    )
     request_type = models.CharField(
         max_length=30,
         choices=REQUEST_TYPE_CHOICES,

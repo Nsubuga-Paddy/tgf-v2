@@ -10,7 +10,8 @@ from accounts.decorators import verified_required, project_required
 
 @project_required("Generational Wealth Creation")
 def gwc_dashboard(request):
-    return render(request, 'gwc/gwc-dashboard.html')
+    user_profile = getattr(request.user, 'profile', None)
+    return render(request, 'gwc/gwc-dashboard.html', {'user_profile': user_profile})
 
 
 
