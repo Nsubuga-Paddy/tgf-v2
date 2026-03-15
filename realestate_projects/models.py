@@ -75,36 +75,6 @@ class RealEstateProject(models.Model):
         return self.name
 
 
-class RealEstateProjectMembership(models.Model):
-    project = models.ForeignKey(
-        RealEstateProject,
-        related_name="memberships",
-        on_delete=models.CASCADE,
-    )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        related_name="realestate_memberships",
-        on_delete=models.CASCADE,
-    )
-    match_contribution = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        help_text="Agreed match contribution expected from this member.",
-    )
-    is_completed = models.BooleanField(
-        default=False,
-        help_text="Whether this member has completed their required payments.",
-    )
-    joined_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ("project", "user")
-        ordering = ["project", "user"]
-
-    def __str__(self) -> str:
-        return f"{self.user} in {self.project}"
-
-
 class RealEstateProjectTransaction(models.Model):
     TYPE_PAYMENT = "payment"
     TYPE_REFUND = "refund"
@@ -125,13 +95,6 @@ class RealEstateProjectTransaction(models.Model):
         settings.AUTH_USER_MODEL,
         related_name="realestate_transactions",
         on_delete=models.CASCADE,
-    )
-    membership = models.ForeignKey(
-        RealEstateProjectMembership,
-        related_name="transactions",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
     )
     amount = models.DecimalField(
         max_digits=14,
@@ -249,3 +212,73 @@ class RealEstateProjectInterest(models.Model):
 
     def __str__(self) -> str:
         return f"Interest: {self.user} → {self.project}"
+
+
+class RealEstateProjectActionRequest(models.Model):
+    ACTION_WITHDRAW = "withdraw"
+    ACTION_TRANSFER_GWC = "transfer_gwc"
+    ACTION_TRANSFER_NAMAYUMBA = "transfer_namayumba"
+
+    ACTION_CHOICES = [
+        (ACTION_WITHDRAW, "Withdraw cash"),
+        (ACTION_TRANSFER_GWC, "Transfer to GWC"),
+        (ACTION_TRANSFER_NAMAYUMBA, "Transfer to Namayumba estate"),
+    ]
+
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected"
+    STATUS_PROCESSED = "processed"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_REJECTED, "Rejected"),
+        (STATUS_PROCESSED, "Processed"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="realestate_action_requests",
+        on_delete=models.CASCADE,
+    )
+    project = models.ForeignKey(
+        RealEstateProject,
+        related_name="action_requests",
+        on_delete=models.CASCADE,
+    )
+    action_type = models.CharField(
+        max_length=32,
+        choices=ACTION_CHOICES,
+    )
+    amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        help_text="Amount the user is requesting to withdraw or transfer.",
+    )
+    available_at_request = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        help_text="Available amount at the time of request (for audit).",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+    reason = models.TextField(
+        blank=True,
+        help_text="Optional note from the user describing this action.",
+    )
+    admin_notes = models.TextField(
+        blank=True,
+        help_text="Internal admin notes about how the request was handled.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.user} → {self.project} ({self.get_action_type_display()})"

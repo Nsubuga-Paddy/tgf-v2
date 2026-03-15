@@ -763,14 +763,6 @@
                   {{ completed_members_count }}
                 </div>
                 <div class="stat-meta">
-                  Total match contributions:
-                  {% if completed_total_match %}
-                    UGX {{ completed_total_match|floatformat:0|intcomma }}
-                  {% else %}
-                    UGX 0
-                  {% endif %}
-                </div>
-                <div class="stat-meta">
                   Total payments made:
                   UGX {{ completed_payments_total|floatformat:0|intcomma }}
                 </div>
@@ -781,14 +773,6 @@
                 </div>
                 <div class="stat-value">
                   {{ incomplete_members_count }}
-                </div>
-                <div class="stat-meta">
-                  Total match contributions:
-                  {% if incomplete_total_match %}
-                    UGX {{ incomplete_total_match|floatformat:0|intcomma }}
-                  {% else %}
-                    UGX 0
-                  {% endif %}
                 </div>
                 <div class="stat-meta">
                   Total payments made:
@@ -820,16 +804,7 @@
         </div>
       </div>
       <div class="card-body">
-        {% if user_match_contribution %}
         <div class="stats-grid" style="margin-bottom: 1rem;">
-          <div class="stat-card">
-            <div class="stat-label">
-              <i class="fas fa-sack-dollar"></i> Match contribution
-            </div>
-            <div class="stat-value">
-              UGX {{ user_match_contribution|floatformat:0|intcomma }}
-            </div>
-          </div>
           <div class="stat-card">
             <div class="stat-label">
               <i class="fas fa-coins"></i> Total paid
@@ -840,7 +815,7 @@
           </div>
           <div class="stat-card">
             <div class="stat-label">
-              <i class="fas fa-scale-balanced"></i> Pending balance
+              <i class="fas fa-scale-balanced"></i> Current balance
             </div>
             <div class="stat-value">
               {% if user_pending_balance is not None %}
@@ -849,17 +824,20 @@
                 -
               {% endif %}
             </div>
-            <div class="stat-meta">
-              Status:
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              <i class="fas fa-circle-check"></i> Payment status
+            </div>
+            <div class="stat-value">
               {% if user_payment_completed %}
-                <span style="color:#15803d;font-weight:600;">Completed</span>
+                Completed
               {% else %}
-                <span style="color:#b91c1c;font-weight:600;">In progress</span>
+                In progress
               {% endif %}
             </div>
           </div>
         </div>
-        {% endif %}
 
         {% if user_transactions %}
         <table class="transactions-table">

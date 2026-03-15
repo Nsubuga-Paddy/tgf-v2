@@ -7,8 +7,14 @@ from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.db.models import Sum
 from accounts.models import UserProfile, WithdrawalRequest, GWCContribution, MESUInterest
 from goat_farming.models import CGFActionRequest
+from realestate_projects.models import (
+    RealEstateProject,
+    RealEstateProjectTransaction,
+    RealEstateProjectActionRequest,
+)
 from accounts.decorators import verified_required
 from decimal import Decimal
 
@@ -41,6 +47,71 @@ class SignUpPage(TemplateView):
 @method_decorator(login_required, name='dispatch')
 class ProfileView(TemplateView):
     template_name = "core/profile.html"
+
+    @staticmethod
+    def _has_complete_bank_details(profile):
+        return bool(
+            profile.bank_name
+            and profile.bank_account_number
+            and profile.bank_account_name
+        )
+
+    def _require_bank_details_for_request(self, request):
+        if self._has_complete_bank_details(request.user.profile):
+            return None
+        messages.error(
+            request,
+            "Please update your bank account details in your profile before submitting any action request.",
+        )
+        return redirect("profile")
+
+    @staticmethod
+    def _get_realestate_project_balances(user, project):
+        txns = RealEstateProjectTransaction.objects.filter(
+            project=project,
+            user=user,
+        )
+
+        gross_amount = Decimal("0")
+        for txn in txns:
+            if txn.type in (
+                RealEstateProjectTransaction.TYPE_PAYMENT,
+                RealEstateProjectTransaction.TYPE_ADJUSTMENT,
+            ):
+                gross_amount += txn.amount
+            elif txn.type == RealEstateProjectTransaction.TYPE_REFUND:
+                gross_amount -= txn.amount
+
+        pending_withheld = (
+            RealEstateProjectActionRequest.objects.filter(
+                user=user,
+                project=project,
+                status=RealEstateProjectActionRequest.STATUS_PENDING,
+            ).aggregate(total=Sum("amount"))["total"]
+            or Decimal("0")
+        )
+        approved_deducted = (
+            RealEstateProjectActionRequest.objects.filter(
+                user=user,
+                project=project,
+                status__in=[
+                    RealEstateProjectActionRequest.STATUS_APPROVED,
+                    RealEstateProjectActionRequest.STATUS_PROCESSED,
+                ],
+            ).aggregate(total=Sum("amount"))["total"]
+            or Decimal("0")
+        )
+
+        available_amount = gross_amount - pending_withheld - approved_deducted
+        if available_amount < 0:
+            available_amount = Decimal("0")
+
+        return {
+            "gross_amount": gross_amount if gross_amount > 0 else Decimal("0"),
+            "withheld_amount": pending_withheld,
+            "deducted_amount": approved_deducted,
+            "available_amount": available_amount,
+        }
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -158,6 +229,22 @@ class ProfileView(TemplateView):
             mesu_agg = approved_mesu.aggregate(total=Sum('investment_amount'))
             context['mesu_total_invested'] = mesu_agg['total'] or Decimal('0')
 
+            # Real estate projects visible to user by admin access (allowed_members)
+            # No manual membership creation required for profile actions.
+            realestate_projects = RealEstateProject.objects.filter(
+                allowed_members=user
+            ).distinct().order_by("name")
+            realestate_projects_data = []
+            for project in realestate_projects:
+                balances = self._get_realestate_project_balances(user, project)
+                realestate_projects_data.append(
+                    {
+                        "project": project,
+                        **balances,
+                    }
+                )
+            context["realestate_projects_data"] = realestate_projects_data
+
             # Unified action requests from all projects (for Action Requests panel)
             all_requests = []
             for r in profile.withdrawal_requests.all().order_by('-created_at'):
@@ -205,6 +292,27 @@ class ProfileView(TemplateView):
                     'status_display': r.get_status_display(),
                     'created_at': r.created_at,
                 })
+            # Real estate project action requests
+            for r in profile.user.realestate_action_requests.all().order_by('-created_at'):
+                type_map = {
+                    RealEstateProjectActionRequest.ACTION_WITHDRAW: 'Withdraw from Real Estate',
+                    RealEstateProjectActionRequest.ACTION_TRANSFER_GWC: 'Transfer to GWC',
+                    RealEstateProjectActionRequest.ACTION_TRANSFER_NAMAYUMBA: 'Transfer to Namayumba estate',
+                }
+                icon_map = {
+                    RealEstateProjectActionRequest.ACTION_WITHDRAW: 'fa-money-bill-wave',
+                    RealEstateProjectActionRequest.ACTION_TRANSFER_GWC: 'fa-users',
+                    RealEstateProjectActionRequest.ACTION_TRANSFER_NAMAYUMBA: 'fa-building',
+                }
+                all_requests.append({
+                    'project': 'Real Estate',
+                    'type_label': type_map.get(r.action_type, r.action_type),
+                    'icon': icon_map.get(r.action_type, 'fa-tasks'),
+                    'detail': f"{r.project.name} · UGX {r.amount:,.0f}",
+                    'status': r.status,
+                    'status_display': r.get_status_display(),
+                    'created_at': r.created_at,
+                })
             def _sort_key(item):
                 dt = item['created_at']
                 return dt if timezone.is_aware(dt) else timezone.make_aware(dt)
@@ -246,6 +354,7 @@ class ProfileView(TemplateView):
             context['mesu_interests'] = []
             context['mesu_total_shares'] = 0
             context['mesu_total_invested'] = Decimal('0')
+            context['realestate_projects_data'] = []
             context['missing_fields'] = []
             context['has_missing_fields'] = False
             
@@ -269,6 +378,12 @@ class ProfileView(TemplateView):
             return self.handle_cgf_action(request, 'take_goats')
         elif action == 'cgf_transfer':
             return self.handle_cgf_action(request, 'transfer')
+        elif action == 'rep_withdraw':
+            return self.handle_realestate_action(request, RealEstateProjectActionRequest.ACTION_WITHDRAW)
+        elif action == 'rep_transfer_gwc':
+            return self.handle_realestate_action(request, RealEstateProjectActionRequest.ACTION_TRANSFER_GWC)
+        elif action == 'rep_transfer_namayumba':
+            return self.handle_realestate_action(request, RealEstateProjectActionRequest.ACTION_TRANSFER_NAMAYUMBA)
         
         # Default: Update profile information
         # Update User model fields
@@ -316,11 +431,10 @@ class ProfileView(TemplateView):
         """Handle withdrawal request"""
         user = request.user
         profile = user.profile
-        
-        # Check if bank details are provided
-        if not profile.bank_name or not profile.bank_account_number or not profile.bank_account_name:
-            messages.error(request, 'Please update your bank account details in your profile before requesting a withdrawal.')
-            return redirect('profile')
+
+        bank_guard = self._require_bank_details_for_request(request)
+        if bank_guard:
+            return bank_guard
         
         try:
             withdraw_amount = Decimal(request.POST.get('withdraw_amount', '0'))
@@ -355,6 +469,10 @@ class ProfileView(TemplateView):
         """Handle GWC group join request"""
         user = request.user
         profile = user.profile
+
+        bank_guard = self._require_bank_details_for_request(request)
+        if bank_guard:
+            return bank_guard
         
         try:
             gwc_amount = Decimal(request.POST.get('gwc_amount', '0'))
@@ -394,6 +512,10 @@ class ProfileView(TemplateView):
         """Handle MESU shares purchase request"""
         user = request.user
         profile = user.profile
+
+        bank_guard = self._require_bank_details_for_request(request)
+        if bank_guard:
+            return bank_guard
         
         try:
             mesu_amount = Decimal(request.POST.get('mesu_amount', '0'))
@@ -432,6 +554,10 @@ class ProfileView(TemplateView):
         """Handle CGF action request (Sell & Cash Out, Take Goats, Transfer)"""
         user = request.user
         profile = user.profile
+
+        bank_guard = self._require_bank_details_for_request(request)
+        if bank_guard:
+            return bank_guard
 
         # Verify user has CGF project
         from accounts.models import Project
@@ -491,6 +617,63 @@ class ProfileView(TemplateView):
         )
 
         return redirect(f"{reverse('profile')}?action=cgf_request_success&type={request_type}")
+
+    def handle_realestate_action(self, request, action_type):
+        """Handle real estate project action requests (withdraw, transfer to GWC/Namayumba)."""
+        user = request.user
+
+        bank_guard = self._require_bank_details_for_request(request)
+        if bank_guard:
+            return bank_guard
+
+        try:
+            project_id = int(request.POST.get("rep_project_id", "0") or 0)
+        except (ValueError, TypeError):
+            project_id = 0
+
+        if project_id <= 0:
+            messages.error(request, "Invalid project selection.")
+            return redirect("profile")
+
+        project = RealEstateProject.objects.filter(
+            id=project_id,
+            allowed_members=user,
+        ).first()
+        if not project:
+            messages.error(request, "You do not have access to the selected real estate project.")
+            return redirect("profile")
+
+        # Amount to act on
+        try:
+            amount = Decimal(request.POST.get("rep_amount", "0") or "0")
+        except (ValueError, TypeError):
+            messages.error(request, "Invalid amount.")
+            return redirect("profile")
+
+        if amount <= 0:
+            messages.error(request, "Please enter a positive amount.")
+            return redirect("profile")
+
+        balances = self._get_realestate_project_balances(user, project)
+        available = balances["available_amount"]
+        if amount > available:
+            messages.error(
+                request,
+                f"Requested amount exceeds your available amount for this project (max UGX {available:,.0f}).",
+            )
+            return redirect("profile")
+
+        RealEstateProjectActionRequest.objects.create(
+            user=user,
+            project=project,
+            action_type=action_type,
+            amount=amount,
+            available_at_request=available,
+            reason=request.POST.get("rep_notes", ""),
+            status=RealEstateProjectActionRequest.STATUS_PENDING,
+        )
+
+        return redirect(f"{reverse('profile')}?action=rep_request_success&type={action_type}")
 
 
 class VerificationPendingView(TemplateView):

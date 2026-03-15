@@ -10,7 +10,6 @@ from .models import (
     RealEstateProject,
     RealEstateProjectInterest,
     RealEstateProjectJoinRequest,
-    RealEstateProjectMembership,
     RealEstateProjectTransaction,
 )
 
@@ -123,7 +122,6 @@ def project_detail(request, pk):
 
     user_has_access = project.allowed_members.filter(pk=request.user.pk).exists()
 
-    memberships = RealEstateProjectMembership.objects.filter(project=project)
     transactions = RealEstateProjectTransaction.objects.filter(project=project)
 
     # Derive completed vs partial from transaction payment_status (full vs partial)
@@ -140,13 +138,6 @@ def project_detail(request, pk):
     completed_members_count = len(completed_user_ids)
     incomplete_members_count = len(partial_user_ids)
 
-    completed_total_match = memberships.filter(
-        user_id__in=completed_user_ids,
-    ).aggregate(total=Sum("match_contribution"))["total"] or 0
-    incomplete_total_match = memberships.filter(
-        user_id__in=partial_user_ids,
-    ).aggregate(total=Sum("match_contribution"))["total"] or 0
-
     completed_payments_total = transactions.filter(
         payment_status=RealEstateProjectTransaction.PAYMENT_STATUS_FULL,
     ).aggregate(total=Sum("amount"))["total"] or 0
@@ -159,11 +150,6 @@ def project_detail(request, pk):
         user=request.user,
     ).order_by("-created_at")
 
-    user_membership = memberships.filter(user=request.user).first()
-    user_match_contribution = (
-        user_membership.match_contribution if user_membership else None
-    )
-
     user_total_paid = 0
     for txn in user_transactions:
         if txn.type in (
@@ -174,27 +160,23 @@ def project_detail(request, pk):
         elif txn.type == RealEstateProjectTransaction.TYPE_REFUND:
             user_total_paid -= txn.amount
 
-    user_pending_balance = None
-    user_payment_completed = False
-    if user_match_contribution is not None:
-        user_pending_balance = user_match_contribution - user_total_paid
-        if user_pending_balance < 0:
-            user_pending_balance = 0
-        user_payment_completed = user_pending_balance == 0
+    latest_user_txn = user_transactions.first()
+    user_pending_balance = (
+        latest_user_txn.balance_after if latest_user_txn and latest_user_txn.balance_after is not None else None
+    )
+    user_payment_completed = user_transactions.filter(
+        payment_status=RealEstateProjectTransaction.PAYMENT_STATUS_FULL
+    ).exists()
 
     context = {
         "user_profile": user_profile,
         "project": project,
         "user_has_access": user_has_access,
-        "memberships": memberships,
         "completed_members_count": completed_members_count,
-        "completed_total_match": completed_total_match,
         "completed_payments_total": completed_payments_total,
         "incomplete_members_count": incomplete_members_count,
-        "incomplete_total_match": incomplete_total_match,
         "partial_payments_total": partial_payments_total,
         "user_transactions": user_transactions,
-        "user_match_contribution": user_match_contribution,
         "user_total_paid": user_total_paid,
         "user_pending_balance": user_pending_balance,
         "user_payment_completed": user_payment_completed,
