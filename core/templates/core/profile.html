@@ -845,6 +845,29 @@
       opacity: 0.5;
     }
 
+    /* GWC profile card — maturity messaging */
+    .project-gwc-maturity-note {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.45;
+      padding: 0.75rem 0.875rem;
+      background: rgba(14, 165, 233, 0.08);
+      border: 1px solid rgba(14, 165, 233, 0.2);
+      border-radius: var(--radius-xs);
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-start;
+      margin-top: 0.25rem;
+    }
+    .project-gwc-maturity-note i {
+      color: var(--info);
+      margin-top: 0.15rem;
+      flex-shrink: 0;
+    }
+    a.project-action-btn {
+      text-decoration: none;
+    }
+
     .project-farms-list {
       font-size: 0.8rem;
       color: var(--muted);
@@ -2369,9 +2392,40 @@
             </div>
             {% endif %}
 
+            <!-- Generational Wealth Creation (GWC fixed deposits) -->
+            {% if has_gwc %}
+            <div class="project-card">
+              <div class="project-card-header">
+                <div class="project-card-header-inner">
+                  <div class="project-card-icon"><i class="fas fa-chart-line"></i></div>
+                  <h4 class="project-card-title">Generational Wealth Creation</h4>
+                </div>
+                <a href="{% url 'gwc:gwc' %}" class="project-card-link">Open <i class="fas fa-external-link-alt"></i></a>
+              </div>
+              <div class="project-card-body">
+                <div class="project-stats-list project-stats-list-orange">
+                  <div class="project-stat-row"><span class="project-stat-label">Total deposited:</span><span class="project-stat-value">UGX {{ gwc_portfolio.total_principal|default:0|floatformat:0|intcomma }}</span></div>
+                  <div class="project-stat-row"><span class="project-stat-label">Interest accrued to date:</span><span class="project-stat-value project-stat-value-interest">UGX {{ gwc_portfolio.total_accrued_interest|default:0|floatformat:0|intcomma }}</span></div>
+                  <div class="project-stat-row"><span class="project-stat-label">Projected value at maturity:</span><span class="project-stat-value">UGX {{ gwc_portfolio.total_maturity_value|default:0|floatformat:0|intcomma }}</span></div>
+                  <div class="project-stat-row"><span class="project-stat-label">Your deposits:</span><span class="project-stat-value">{{ gwc_deposits_count }} fixed deposit{{ gwc_deposits_count|pluralize }}{% if gwc_active_count %} · {{ gwc_active_count }} active{% endif %}</span></div>
+                  {% if gwc_nearest_maturity_date %}
+                  <div class="project-stat-row"><span class="project-stat-label">Next maturity (active):</span><span class="project-stat-value">{{ gwc_nearest_maturity_date|date:"M j, Y" }}</span></div>
+                  {% endif %}
+                </div>
+                <div class="project-gwc-maturity-note">
+                  <i class="fas fa-clock"></i>
+                  <span><strong>Toward maturity:</strong> Withdrawal, renewal, and other investment options for your GWC fixed deposits will be shown on your GWC dashboard as each deposit gets closer to its maturity date.</span>
+                </div>
+                <div class="project-actions-compact">
+                  <a href="{% url 'gwc:gwc' %}" class="project-action-btn"><i class="fas fa-th-large"></i> Open GWC dashboard</a>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+
             <!-- Other projects -->
             {% for project in user_projects %}
-              {% if project.name != '52 Weeks Saving Challenge' and project.name != 'Commercial Goat Farming' and project.name != 'Real Estate Projects' %}
+              {% if project.name != '52 Weeks Saving Challenge' and project.name != 'Commercial Goat Farming' and project.name != 'Real Estate Projects' and project.name != 'Generational Wealth Creation' %}
             <div class="project-card">
               <div class="project-card-header">
                 <div class="project-card-header-inner">

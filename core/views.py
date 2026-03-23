@@ -112,7 +112,7 @@ class ProfileView(TemplateView):
             "deducted_amount": approved_deducted,
             "available_amount": available_amount,
         }
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.request.user
@@ -123,6 +123,9 @@ class ProfileView(TemplateView):
             context['user_projects'] = profile.projects.all()
             context['has_52wsc'] = profile.projects.filter(name='52 Weeks Saving Challenge').exists()
             context['has_cgf'] = profile.projects.filter(name='Commercial Goat Farming').exists()
+            context['has_gwc'] = profile.projects.filter(
+                name='Generational Wealth Creation'
+            ).exists()
 
             # 52WSC card data: current year saved, interest (unfixed YTD + fixed), available balance (from last year)
             if context['has_52wsc']:
@@ -221,13 +224,20 @@ class ProfileView(TemplateView):
                 context['cgf_has_completed_cycles'] = False
                 context['cgf_action_requests'] = []
 
-            # Share holding summary (MESU interests) (MESU interests)
+            # Share holding summary (MESU interests)
             from django.db.models import Sum
-            approved_mesu = profile.mesu_interests.filter(status__in=['approved', 'processed'])
-            context['mesu_interests'] = profile.mesu_interests.all().order_by('-created_at')
-            context['mesu_total_shares'] = sum(m.number_of_shares or 0 for m in approved_mesu)
-            mesu_agg = approved_mesu.aggregate(total=Sum('investment_amount'))
-            context['mesu_total_invested'] = mesu_agg['total'] or Decimal('0')
+
+            approved_mesu = profile.mesu_interests.filter(
+                status__in=["approved", "processed"]
+            )
+            context["mesu_interests"] = profile.mesu_interests.all().order_by(
+                "-created_at"
+            )
+            context["mesu_total_shares"] = sum(
+                m.number_of_shares or 0 for m in approved_mesu
+            )
+            mesu_agg = approved_mesu.aggregate(total=Sum("investment_amount"))
+            context["mesu_total_invested"] = mesu_agg["total"] or Decimal("0")
 
             # Real estate projects visible to user by admin access (allowed_members)
             # No manual membership creation required for profile actions.
@@ -244,6 +254,48 @@ class ProfileView(TemplateView):
                     }
                 )
             context["realestate_projects_data"] = realestate_projects_data
+
+            # GWC fixed deposits (Generational Wealth Creation project)
+            if context["has_gwc"]:
+                try:
+                    from gwc.models import GWCFixedDeposit
+                    from gwc.services import portfolio_summary_for_user
+
+                    context["gwc_portfolio"] = portfolio_summary_for_user(user)
+                    context["gwc_deposits_count"] = GWCFixedDeposit.objects.filter(
+                        user=user
+                    ).count()
+                    context["gwc_active_count"] = GWCFixedDeposit.objects.filter(
+                        user=user, status=GWCFixedDeposit.Status.ACTIVE
+                    ).count()
+                    next_mat = (
+                        GWCFixedDeposit.objects.filter(
+                            user=user,
+                            status=GWCFixedDeposit.Status.ACTIVE,
+                        )
+                        .order_by("maturity_date")
+                        .values_list("maturity_date", flat=True)
+                        .first()
+                    )
+                    context["gwc_nearest_maturity_date"] = next_mat
+                except Exception:
+                    context["gwc_portfolio"] = {
+                        "total_principal": Decimal("0"),
+                        "total_accrued_interest": Decimal("0"),
+                        "total_maturity_value": Decimal("0"),
+                    }
+                    context["gwc_deposits_count"] = 0
+                    context["gwc_active_count"] = 0
+                    context["gwc_nearest_maturity_date"] = None
+            else:
+                context["gwc_portfolio"] = {
+                    "total_principal": Decimal("0"),
+                    "total_accrued_interest": Decimal("0"),
+                    "total_maturity_value": Decimal("0"),
+                }
+                context["gwc_deposits_count"] = 0
+                context["gwc_active_count"] = 0
+                context["gwc_nearest_maturity_date"] = None
 
             # Unified action requests from all projects (for Action Requests panel)
             all_requests = []
@@ -334,6 +386,7 @@ class ProfileView(TemplateView):
             context['user_projects'] = []
             context['has_52wsc'] = False
             context['has_cgf'] = False
+            context['has_gwc'] = False
             context['w52_current_year_saved'] = Decimal('0')
             context['w52_interest_ytd'] = Decimal('0')
             context['w52_available_balance'] = Decimal('0')
@@ -355,6 +408,14 @@ class ProfileView(TemplateView):
             context['mesu_total_shares'] = 0
             context['mesu_total_invested'] = Decimal('0')
             context['realestate_projects_data'] = []
+            context['gwc_portfolio'] = {
+                "total_principal": Decimal("0"),
+                "total_accrued_interest": Decimal("0"),
+                "total_maturity_value": Decimal("0"),
+            }
+            context["gwc_deposits_count"] = 0
+            context["gwc_active_count"] = 0
+            context["gwc_nearest_maturity_date"] = None
             context['missing_fields'] = []
             context['has_missing_fields'] = False
             

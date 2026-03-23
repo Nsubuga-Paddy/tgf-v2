@@ -26,6 +26,15 @@
       --radius-sm: 10px;
       --radius-xs: 8px;
       --primary-light: #fef3e7;
+      /* Spacing scale (8px base) */
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-5: 1.25rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-10: 2.5rem;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -186,43 +195,71 @@
     .main-content {
       margin-left: 280px;
       margin-top: 80px;
-      padding: 1.5rem 2rem;
+      padding: var(--space-6) var(--space-8);
       min-height: calc(100vh - 80px);
     }
     .page-header {
       background: var(--card);
       border-radius: var(--radius);
-      padding: 2rem;
+      padding: var(--space-8) var(--space-8);
       box-shadow: var(--shadow);
-      margin-bottom: 2rem;
+      margin-bottom: var(--space-8);
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
-      gap: 1rem;
+      gap: var(--space-4);
     }
     .page-title {
       font-size: 2rem;
       font-weight: 800;
       color: var(--text);
-      margin-bottom: 0.5rem;
+      margin-bottom: var(--space-2);
+      letter-spacing: -0.02em;
     }
-    .page-subtitle { color: var(--muted); font-size: 1.125rem; }
+    .page-subtitle {
+      color: var(--muted);
+      font-size: 1.0625rem;
+      line-height: 1.55;
+      max-width: 42rem;
+    }
+    .page-header__account {
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .page-header__account-label {
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+    .page-header__account-value {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--brand);
+      margin-top: var(--space-1);
+    }
     .content-card {
       background: var(--card);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       border: 1px solid var(--border);
-      margin-bottom: 2rem;
+      margin-bottom: var(--space-8);
       overflow: hidden;
     }
     .card-header {
       background: var(--bg);
-      padding: 1.5rem;
+      padding: var(--space-6) var(--space-8);
       border-bottom: 1px solid var(--border);
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
+      gap: var(--space-4);
+    }
+    .gwc-card-header-sub {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-top: var(--space-2);
+      max-width: 44rem;
+      line-height: 1.55;
     }
     .card-title {
       font-size: 1.25rem;
@@ -233,7 +270,10 @@
       gap: 0.5rem;
     }
     .card-title i { color: var(--brand); }
-    .card-body { padding: 1.5rem 2rem; }
+    .card-body { padding: var(--space-8); }
+    .card-body.gwc-card-body {
+      padding-top: var(--space-6);
+    }
     .stat-card {
       background: var(--card);
       border-radius: var(--radius);
@@ -427,14 +467,23 @@
     .fd-progress-labels {
       display: flex;
       justify-content: space-between;
+      align-items: baseline;
+      gap: var(--space-2);
       font-size: 0.75rem;
       color: var(--muted);
+      margin-top: var(--space-1);
     }
     .fd-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-top: 0.75rem;
+      gap: var(--space-2);
+      margin-top: var(--space-3);
+    }
+    .gwc-fd-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-top: var(--space-1);
     }
     .fd-btn {
       border-radius: var(--radius-xs);
@@ -460,17 +509,17 @@
     }
     .fd-activity-list {
       list-style: none;
-      max-height: 280px;
+      max-height: min(420px, 55vh);
       overflow-y: auto;
-      padding-right: 0.5rem;
+      padding-right: var(--space-2);
     }
     .fd-activity-item {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 0.75rem;
+      gap: var(--space-3);
       font-size: 0.8rem;
-      padding: 0.6rem 0;
+      padding: var(--space-3) 0;
       border-bottom: 1px solid var(--border);
     }
     .fd-activity-item:last-child {
@@ -478,6 +527,27 @@
     }
     .fd-activity-main {
       flex: 1;
+      min-width: 0;
+    }
+    .fd-activity-title {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .fd-activity-detail {
+      color: var(--muted);
+      margin-top: var(--space-1);
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+    .fd-activity-unit {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .fd-activity-empty {
+      font-size: 0.85rem;
+      color: var(--muted);
+      padding: var(--space-2) 0;
+      list-style: none;
     }
     .fd-activity-meta {
       text-align: right;
@@ -493,6 +563,568 @@
     .fd-activity-type-info {
       color: var(--muted);
     }
+    /* Fixed deposit card — user-facing layout */
+    .fd-deposit-card {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      background: #fff;
+      box-shadow: var(--shadow);
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    /* Combined with legacy .fd-item — avoid double padding */
+    .fd-deposit-card.fd-item {
+      padding: 0;
+    }
+    .fd-deposit-card:hover {
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+      border-color: rgba(255, 107, 0, 0.35);
+    }
+    .fd-deposit-card.fd-demo-sample {
+      position: relative;
+    }
+    .fd-demo-ribbon {
+      position: absolute;
+      top: 0.65rem;
+      right: -2.25rem;
+      transform: rotate(38deg);
+      background: rgba(255, 255, 255, 0.25);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 0.35rem 2.5rem;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .fd-deposit-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1.25rem 1.5rem;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-d) 55%, #c2410c 100%);
+      color: #fff;
+    }
+    .fd-deposit-head-left { min-width: 0; flex: 1; }
+    .fd-deposit-id-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      opacity: 0.92;
+      margin-bottom: 0.5rem;
+    }
+    .fd-deposit-principal-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      opacity: 0.88;
+      margin-bottom: 0.2rem;
+    }
+    .fd-deposit-principal-value {
+      font-size: clamp(1.35rem, 3.5vw, 1.85rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+    .fd-deposit-rate-line {
+      margin-top: 0.65rem;
+      font-size: 0.88rem;
+      opacity: 0.92;
+      line-height: 1.45;
+    }
+    .fd-deposit-head-badges {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.4rem;
+    }
+    .fd-deposit-head-badges .status-badge {
+      background: rgba(255, 255, 255, 0.22);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+    }
+    .fd-deposit-head-badges .status-active {
+      background: rgba(220, 252, 231, 0.95);
+      color: #15803d;
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+    .fd-deposit-head-badges .status-matured {
+      background: rgba(219, 234, 254, 0.95);
+      color: #1d4ed8;
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+    .fd-deposit-head-badges .status-withdrawn,
+    .fd-deposit-head-badges .status-cancelled {
+      background: rgba(254, 226, 226, 0.95);
+      color: #b91c1c;
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+    .fd-deposit-head-badges .status-upcoming {
+      background: rgba(254, 252, 232, 0.98);
+      color: #92400e;
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+    .fd-deposit-body {
+      padding: 1.25rem 1.5rem 1.5rem;
+    }
+    .fd-section {
+      margin-bottom: 1.35rem;
+    }
+    .fd-section:last-of-type {
+      margin-bottom: 0;
+    }
+    .fd-section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.65rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .fd-section-title i {
+      color: var(--brand);
+      font-size: 0.85rem;
+    }
+    .fd-section-muted {
+      background: var(--bg);
+      margin-left: -1.5rem;
+      margin-right: -1.5rem;
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.25rem;
+    }
+    .fd-kv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 0.75rem 1rem;
+    }
+    .fd-kv {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .fd-kv-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    .fd-kv-value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .fd-metric-tiles {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.65rem;
+    }
+    .fd-tile {
+      background: var(--primary-light);
+      border: 1px solid rgba(255, 107, 0, 0.18);
+      border-radius: var(--radius-xs);
+      padding: 0.65rem 0.75rem;
+    }
+    .fd-tile-label {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    .fd-tile-value {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .fd-tile-value.fd-tile-accent {
+      color: var(--success);
+    }
+    .fd-payout-pill {
+      margin-top: 0.75rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      padding: 0.4rem 0.85rem;
+    }
+    .fd-payout-pill i {
+      color: var(--success);
+    }
+    .fd-aside-panel {
+      position: sticky;
+      top: 5.5rem;
+      align-self: start;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card);
+      padding: var(--space-5) var(--space-6);
+      box-shadow: var(--shadow);
+    }
+    .fd-aside-panel h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: var(--space-2);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .fd-aside-panel h4 i {
+      color: var(--brand);
+    }
+    .fd-aside-intro {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.55;
+      margin-bottom: var(--space-4);
+    }
+
+    /* GWC portfolio + fixed deposits — modern responsive layout */
+    .gwc-fd-page {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-8);
+    }
+    .gwc-portfolio-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+      gap: var(--space-6);
+      align-items: center;
+      padding: var(--space-6) var(--space-8);
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #c2410c 160%);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.25);
+    }
+    .gwc-portfolio-hero-copy h2 {
+      font-size: clamp(1.2rem, 2.5vw, 1.45rem);
+      font-weight: 800;
+      margin-bottom: var(--space-3);
+      letter-spacing: -0.02em;
+    }
+    .gwc-portfolio-hero-copy p {
+      font-size: 0.875rem;
+      opacity: 0.88;
+      line-height: 1.6;
+      max-width: 40ch;
+    }
+    .gwc-portfolio-hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--space-3);
+      min-width: 0;
+    }
+    .gwc-ph-stat {
+      background: rgba(255, 255, 255, 0.09);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: var(--radius-sm);
+      padding: var(--space-4) var(--space-5);
+      text-align: right;
+    }
+    .gwc-ph-stat-label {
+      display: block;
+      font-size: 0.63rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      opacity: 0.78;
+      margin-bottom: var(--space-2);
+    }
+    .gwc-ph-stat-value {
+      font-size: clamp(0.9rem, 2vw, 1.08rem);
+      font-weight: 800;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .gwc-pm-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: var(--space-4);
+    }
+    .gwc-pm-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--space-5) var(--space-6);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .gwc-pm-card:hover {
+      border-color: rgba(255, 107, 0, 0.35);
+      transform: translateY(-3px);
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.08);
+    }
+    .gwc-pm-card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      margin-bottom: var(--space-1);
+    }
+    .gwc-pm-card-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .gwc-pm-card-value {
+      font-size: clamp(1.2rem, 2.8vw, 1.45rem);
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .gwc-pm-card-hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .gwc-divider-fade {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: var(--space-2) 0;
+    }
+    .gwc-fd-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+      gap: var(--space-6);
+      align-items: start;
+    }
+    .gwc-fd-deposits-section {
+      margin-top: 0;
+    }
+    .gwc-fd-shell--empty {
+      margin-top: var(--space-2);
+    }
+    .gwc-fd-metrics-foot--compact {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+    .gwc-fd-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+      gap: var(--space-5);
+    }
+    .gwc-fd-block-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      margin-bottom: var(--space-5);
+    }
+    .gwc-fd-block-title h3 {
+      font-size: 1.12rem;
+      font-weight: 800;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin: 0;
+    }
+    .gwc-fd-block-title h3 i {
+      color: var(--brand);
+    }
+    .gwc-fd-count-pill {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--bg);
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+    .gwc-fd-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      transition: box-shadow 0.25s ease, border-color 0.2s ease;
+    }
+    .gwc-fd-card:hover {
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.09);
+      border-color: rgba(255, 107, 0, 0.28);
+    }
+    .gwc-fd-card-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      background: linear-gradient(180deg, var(--primary-light) 0%, #fff 55%);
+      border-bottom: 1px solid var(--border);
+    }
+    .gwc-fd-id {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .gwc-fd-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      justify-content: flex-end;
+    }
+    .gwc-fd-badges .status-badge {
+      font-size: 0.66rem;
+      padding: 0.22rem 0.55rem;
+    }
+    .gwc-fd-highlight {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 540px) {
+      .gwc-fd-highlight {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+    .gwc-fd-highlight-cell {
+      padding: var(--space-5) var(--space-5);
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    @media (min-width: 540px) {
+      .gwc-fd-highlight-cell {
+        border-bottom: none;
+        border-right: 1px solid var(--border);
+      }
+      .gwc-fd-highlight-cell:last-child {
+        border-right: none;
+      }
+    }
+    .gwc-fd-highlight-cell--daily {
+      background: linear-gradient(180deg, rgba(22, 163, 74, 0.07) 0%, transparent 120%);
+    }
+    .gwc-fd-highlight-label {
+      display: block;
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: var(--space-2);
+    }
+    .gwc-fd-highlight-value {
+      font-size: clamp(0.95rem, 2.5vw, 1.15rem);
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .gwc-fd-highlight-value--accent {
+      color: var(--success);
+    }
+    .gwc-fd-highlight-sub {
+      display: block;
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: var(--space-2);
+      line-height: 1.45;
+    }
+    .gwc-fd-body {
+      padding: var(--space-5) var(--space-5) var(--space-6);
+    }
+    .gwc-fd-progress-wrap {
+      margin-bottom: var(--space-4);
+    }
+    .gwc-fd-progress-wrap .fd-progress-bar {
+      height: 8px;
+      margin-bottom: 0;
+    }
+    .gwc-fd-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+    }
+    .gwc-fd-chip {
+      font-size: 0.74rem;
+      padding: var(--space-2) var(--space-3);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      color: var(--text);
+    }
+    .gwc-fd-chip strong {
+      color: var(--brand);
+      font-weight: 700;
+    }
+    .gwc-fd-metrics-foot {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: var(--space-3);
+      font-size: 0.74rem;
+      color: var(--muted);
+      padding: var(--space-4);
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin-bottom: var(--space-4);
+    }
+    .gwc-fd-metrics-foot span {
+      display: block;
+    }
+    .gwc-fd-metrics-foot em {
+      font-style: normal;
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.8rem;
+      display: block;
+      margin-top: var(--space-1);
+    }
+    .gwc-fd-aside-wrap {
+      position: sticky;
+      top: 5.5rem;
+    }
+    .gwc-fd-sample-ribbon {
+      position: absolute;
+      top: 0.55rem;
+      right: -2.1rem;
+      transform: rotate(38deg);
+      background: rgba(255, 107, 0, 0.95);
+      color: #fff;
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      padding: 0.3rem 2.4rem;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .gwc-fd-card.gwc-fd-demo {
+      position: relative;
+    }
+
     .hero-text {
       font-size: 1.125rem;
       color: var(--text-secondary);
@@ -510,6 +1142,26 @@
       .fd-layout {
         grid-template-columns: minmax(0, 1fr);
       }
+      .gwc-fd-shell {
+        grid-template-columns: 1fr;
+      }
+      .gwc-fd-aside-wrap {
+        position: static;
+      }
+      .gwc-portfolio-hero {
+        grid-template-columns: 1fr;
+      }
+      .gwc-portfolio-hero-stats {
+        grid-template-columns: 1fr;
+      }
+      .gwc-ph-stat {
+        text-align: left;
+      }
+    }
+    @media (max-width: 640px) {
+      .gwc-portfolio-hero-stats {
+        grid-template-columns: 1fr;
+      }
     }
     @media (max-width: 768px) {
       .sidebar {
@@ -517,7 +1169,13 @@
         transition: transform 0.3s ease;
       }
       .sidebar.open { transform: translateX(0); }
-      .main-content { margin-left: 0; }
+      .main-content {
+        margin-left: 0;
+        padding: var(--space-5) var(--space-4);
+      }
+      .page-header {
+        padding: var(--space-6) var(--space-5);
+      }
       .mobile-menu-toggle { display: block; }
     }
   </style>
@@ -567,12 +1225,6 @@
             Dashboard
           </a>
         </li>
-        <li class="nav-item">
-          <a href="{% url 'profile' %}" class="nav-link">
-            <i class="fas fa-user"></i>
-            Profile
-          </a>
-        </li>
       </ul>
     </nav>
   </aside>
@@ -584,342 +1236,253 @@
         <p class="page-subtitle">25% annualized interest in one year · Individual or group investment</p>
       </div>
       {% if user_profile and user_profile.account_number %}
-      <div style="text-align: right;">
-        <div style="font-size: 0.875rem; color: var(--muted);">Account</div>
-        <div style="font-size: 1.125rem; font-weight: 700; color: var(--brand);">{{ user_profile.account_number }}</div>
+      <div class="page-header__account">
+        <div class="page-header__account-label">Account</div>
+        <div class="page-header__account-value">{{ user_profile.account_number }}</div>
       </div>
       {% endif %}
     </div>
 
     <div class="content-card">
       <div class="card-header">
-        <h3 class="card-title">
-          <i class="fas fa-chart-line"></i>
-          Fixed Deposit Portfolio
-        </h3>
+        <div>
+          <h3 class="card-title">
+            <i class="fas fa-vault"></i>
+            GWC fixed deposits
+          </h3>
+          <p class="gwc-card-header-sub">
+            Money you deposited, interest earned each day, and what you can expect at maturity — all in one place.
+          </p>
+        </div>
       </div>
-      <div class="card-body">
-        <p class="hero-text">
-          View a consolidated picture of your fixed deposit positions in GWC, including principal invested, interest earned,
-          maturity projections, and performance over time.
-        </p>
-
-        <div class="filter-chips" id="fdFilterChips">
-          <button class="filter-chip active" data-filter="all">
-            <i class="fas fa-layer-group"></i> All deposits
-          </button>
-          <button class="filter-chip" data-filter="active">
-            <i class="fas fa-play-circle"></i> Active
-          </button>
-          <button class="filter-chip" data-filter="matured">
-            <i class="fas fa-flag-checkered"></i> Matured
-          </button>
-          <button class="filter-chip" data-filter="withdrawn">
-            <i class="fas fa-arrow-up-right-from-square"></i> Withdrawn
-          </button>
-          <button class="filter-chip" data-filter="cancelled">
-            <i class="fas fa-ban"></i> Cancelled
-          </button>
-          <button class="filter-chip" data-filter="upcoming">
-            <i class="fas fa-clock"></i> Upcoming maturities (30 days)
-          </button>
-        </div>
-
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Total principal invested</span>
-              <div class="stat-icon" style="background: #fef3c7; color: var(--warning);">
-                <i class="fas fa-coins"></i>
+      <div class="card-body gwc-card-body">
+        <div class="gwc-fd-page">
+          <!-- Portfolio snapshot -->
+          <div class="gwc-portfolio-hero">
+            <div class="gwc-portfolio-hero-copy">
+              <h2>Portfolio snapshot</h2>
+              <p>Totals across all your fixed deposits — deposited principal, interest earned so far, and expected payout at maturity.</p>
+            </div>
+            <div class="gwc-portfolio-hero-stats">
+              <div class="gwc-ph-stat">
+                <span class="gwc-ph-stat-label">Total deposited</span>
+                <span class="gwc-ph-stat-value">UGX {{ portfolio.total_principal|default_if_none:0|floatformat:0|intcomma }}</span>
               </div>
-            </div>
-            <div class="stat-value">
-              {{ portfolio.total_principal|default_if_none:0|floatformat:0|intcomma }} UGX
-            </div>
-            <div class="stat-meta">Sum of all principal amounts in selected deposits</div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Accrued interest to date</span>
-              <div class="stat-icon" style="background: #dcfce7; color: var(--success);">
-                <i class="fas fa-piggy-bank"></i>
+              <div class="gwc-ph-stat">
+                <span class="gwc-ph-stat-label">Interest so far</span>
+                <span class="gwc-ph-stat-value">UGX {{ portfolio.total_accrued_interest|default_if_none:0|floatformat:0|intcomma }}</span>
               </div>
-            </div>
-            <div class="stat-value">
-              {{ portfolio.total_accrued_interest|default_if_none:0|floatformat:0|intcomma }} UGX
-            </div>
-            <div class="stat-meta">Interest earned so far on active deposits</div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Projected maturity value</span>
-              <div class="stat-icon" style="background: #e0f2fe; color: var(--info);">
-                <i class="fas fa-chart-pie"></i>
+              <div class="gwc-ph-stat">
+                <span class="gwc-ph-stat-label">Expected at maturity</span>
+                <span class="gwc-ph-stat-value">UGX {{ portfolio.total_maturity_value|default_if_none:0|floatformat:0|intcomma }}</span>
               </div>
-            </div>
-            <div class="stat-value">
-              {{ portfolio.total_maturity_value|default_if_none:0|floatformat:0|intcomma }} UGX
-            </div>
-            <div class="stat-meta">Total expected payout at maturity (principal + interest)</div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Portfolio insights</span>
-              <div class="stat-icon" style="background: #fee2e2; color: #b91c1c;">
-                <i class="fas fa-gauge-high"></i>
-              </div>
-            </div>
-            <div class="stat-meta">
-              <strong>{{ portfolio.active_count|default:0 }}</strong> active ·
-              <strong>{{ portfolio.matured_count|default:0 }}</strong> matured
-            </div>
-            <div class="stat-meta">
-              Weighted average rate:
-              <strong>{{ portfolio.weighted_avg_rate|default_if_none:0|floatformat:2 }}%</strong>
-            </div>
-            <div class="stat-meta-highlight">
-              Total interest earned (all time):
-              {{ portfolio.total_interest_earned|default_if_none:0|floatformat:0|intcomma }} UGX
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
-    <div class="content-card">
-      <div class="card-header">
-        <h3 class="card-title">
-          <i class="fas fa-vault"></i>
-          Your Fixed Deposits
-        </h3>
-      </div>
-      <div class="card-body">
-        {% if deposits %}
-        <div class="fd-layout">
-          <div>
-            <div class="fd-list" id="fdList">
-              {% for deposit in deposits %}
-              <article class="fd-item"
-                       data-status="{{ deposit.status|lower }}"
-                       data-upcoming="{{ deposit.is_upcoming|yesno:'true,false' }}">
-                <div class="fd-item-header">
-                  <div>
-                    <div class="fd-id">ID: {{ deposit.deposit_id }}</div>
-                    <div class="fd-amount-rate">
-                      <span class="fd-principal">
-                        {{ deposit.principal_amount|floatformat:0|intcomma }} UGX
-                      </span>
-                      <span class="fd-rate">
-                        at {{ deposit.interest_rate|floatformat:2 }}% p.a ·
-                        {{ deposit.interest_method|title }}
-                        {% if deposit.interest_method == 'compound' and deposit.compounding_frequency %}
-                          ({{ deposit.compounding_frequency }})
+          <div class="gwc-divider-fade"></div>
+
+          {% if deposits %}
+          <div class="gwc-fd-shell">
+            <div>
+              <div class="gwc-fd-block-title">
+                <h3><i class="fas fa-layer-group"></i> Your deposits</h3>
+                <span class="gwc-fd-count-pill">{{ deposits|length }} deposit{{ deposits|length|pluralize }}</span>
+          </div>
+              <div class="gwc-fd-grid" id="fdList">
+                {% for deposit in deposits %}
+                <article class="gwc-fd-card"
+                         data-status="{{ deposit.status|lower }}"
+                         data-upcoming="{{ deposit.is_upcoming|yesno:'true,false' }}">
+                  <div class="gwc-fd-card-top">
+                    <span class="gwc-fd-id"><i class="fas fa-fingerprint" style="opacity:0.7;margin-right:0.25rem;"></i>FD · {{ deposit.deposit_id }}</span>
+                    <div class="gwc-fd-badges">
+                      {% if deposit.status == 'Active' %}
+                        {% if deposit.is_upcoming %}
+                          <span class="status-badge status-upcoming"><i class="fas fa-clock"></i> Matures soon</span>
+                        {% else %}
+                          <span class="status-badge status-active"><i class="fas fa-circle"></i> Active</span>
                         {% endif %}
-                      </span>
+                      {% elif deposit.status == 'Matured' %}
+                        <span class="status-badge status-matured"><i class="fas fa-flag-checkered"></i> Matured</span>
+                      {% elif deposit.status == 'Withdrawn' %}
+                        <span class="status-badge status-withdrawn"><i class="fas fa-arrow-right-from-bracket"></i> Withdrawn</span>
+                      {% elif deposit.status == 'Cancelled' %}
+                        <span class="status-badge status-cancelled"><i class="fas fa-ban"></i> Cancelled</span>
+                      {% endif %}
+        </div>
+      </div>
+
+                  <div class="gwc-fd-highlight">
+                    <div class="gwc-fd-highlight-cell">
+                      <span class="gwc-fd-highlight-label">You deposited</span>
+                      <span class="gwc-fd-highlight-value">UGX {{ deposit.principal_amount|floatformat:0|intcomma }}</span>
+                      <span class="gwc-fd-highlight-sub">{{ deposit.interest_rate|floatformat:2 }}% p.a · {{ deposit.interest_method|title }}</span>
+          </div>
+                    <div class="gwc-fd-highlight-cell gwc-fd-highlight-cell--daily">
+                      <span class="gwc-fd-highlight-label">Earning daily</span>
+                      <span class="gwc-fd-highlight-value gwc-fd-highlight-value--accent">UGX {{ deposit.daily_interest|floatformat:0|intcomma }}</span>
+                      <span class="gwc-fd-highlight-sub">~UGX {{ deposit.monthly_interest|floatformat:0|intcomma }} / month</span>
+        </div>
+                    <div class="gwc-fd-highlight-cell">
+                      <span class="gwc-fd-highlight-label">Expected at maturity</span>
+                      <span class="gwc-fd-highlight-value">UGX {{ deposit.projected_maturity_amount|floatformat:0|intcomma }}</span>
+                      <span class="gwc-fd-highlight-sub">Accrued so far: UGX {{ deposit.accrued_interest|floatformat:0|intcomma }}</span>
+      </div>
+    </div>
+
+                  <div class="gwc-fd-body">
+                    <div class="gwc-fd-progress-wrap">
+                      <div class="fd-progress">
+                        <div class="fd-progress-bar">
+                          <div class="fd-progress-fill" style="width: {{ deposit.completion_percent|default_if_none:0 }}%;"></div>
+      </div>
+                        <div class="fd-progress-labels">
+                          <span>{{ deposit.elapsed_duration_display }}</span>
+                          <span><strong>{{ deposit.completion_percent|default_if_none:0|floatformat:0 }}%</strong></span>
+                          <span>{{ deposit.remaining_duration_display }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="gwc-fd-chip-row">
+                      <span class="gwc-fd-chip"><strong>Received</strong> {{ deposit.transaction_date }}</span>
+                      <span class="gwc-fd-chip"><strong>Start</strong> {{ deposit.start_date }}</span>
+                      <span class="gwc-fd-chip"><strong>Matures</strong> {{ deposit.maturity_date }}</span>
+                      <span class="gwc-fd-chip"><strong>Tenure</strong> {{ deposit.tenure_display }}</span>
+                      {% if deposit.interest_method == 'compound' and deposit.compounding_frequency %}
+                        <span class="gwc-fd-chip"><strong>Compound</strong> {{ deposit.compounding_frequency|title }}</span>
+                      {% endif %}
+                      <span class="gwc-fd-chip"><i class="fas fa-receipt" style="color:var(--success);"></i> {{ deposit.payout_structure_display }}</span>
+                    </div>
+
+                    <div class="gwc-fd-metrics-foot gwc-fd-metrics-foot--compact">
+                      <span>Interest at maturity (net) <em style="color:var(--success);">UGX {{ deposit.interest_at_maturity_after_tax|floatformat:0|intcomma }}</em></span>
                     </div>
                   </div>
-                  <div>
-                    {% if deposit.status == 'Active' %}
-                      <span class="status-badge status-active">
-                        <i class="fas fa-circle"></i> Active
-                      </span>
-                    {% elif deposit.status == 'Matured' %}
-                      <span class="status-badge status-matured">
-                        <i class="fas fa-flag-checkered"></i> Matured
-                      </span>
-                    {% elif deposit.status == 'Withdrawn' %}
-                      <span class="status-badge status-withdrawn">
-                        <i class="fas fa-arrow-right-from-bracket"></i> Withdrawn
-                      </span>
-                    {% elif deposit.status == 'Cancelled' %}
-                      <span class="status-badge status-cancelled">
-                        <i class="fas fa-ban"></i> Cancelled
-                      </span>
-                    {% endif %}
-                    {% if deposit.is_upcoming %}
-                      <div style="margin-top: 0.25rem;">
-                        <span class="status-badge status-upcoming">
-                          <i class="fas fa-clock"></i> Matures soon
-                        </span>
+                </article>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="gwc-fd-aside-wrap">
+              <aside class="fd-aside-panel gwc-fd-aside">
+                <h4><i class="fas fa-wave-square"></i> Activity</h4>
+                <p class="fd-aside-intro">Latest movements on your fixed deposits.</p>
+                <ul class="fd-activity-list">
+                  {% for activity in recent_activities %}
+                  <li class="fd-activity-item">
+                    <div class="fd-activity-main">
+                      <div class="fd-activity-title">{{ activity.description }}</div>
+                      <div class="fd-activity-detail">
+                        {{ activity.timestamp }} · FD {{ activity.deposit_id }} · {{ activity.type|title }}
                       </div>
-                    {% endif %}
-                  </div>
-                </div>
-
-                <div class="fd-meta-row">
-                  <span>
-                    <i class="fas fa-calendar-day"></i>
-                    Start: {{ deposit.start_date }}
-                  </span>
-                  <span>
-                    <i class="fas fa-calendar-check"></i>
-                    Maturity: {{ deposit.maturity_date }}
-                  </span>
-                  <span>
-                    <i class="fas fa-hourglass-half"></i>
-                    Tenure: {{ deposit.tenure_display }}
-                  </span>
-                  <span>
-                    <i class="fas fa-sack-dollar"></i>
-                    Projected maturity: {{ deposit.projected_maturity_amount|floatformat:0|intcomma }} UGX
-                  </span>
-                </div>
-
-                <div class="fd-progress">
-                  <div class="fd-progress-bar">
-                    <div class="fd-progress-fill" style="width: {{ deposit.completion_percent|default_if_none:0 }}%;"></div>
-                  </div>
-                  <div class="fd-progress-labels">
-                    <span>{{ deposit.elapsed_duration_display }}</span>
-                    <span>{{ deposit.completion_percent|default_if_none:0|floatformat:0 }}% complete</span>
-                    <span>{{ deposit.remaining_duration_display }}</span>
-                  </div>
-                </div>
-
-                <div class="fd-meta-row" style="margin-top: 0.75rem;">
-                  <span>
-                    <i class="fas fa-chart-area"></i>
-                    Accrued interest: {{ deposit.accrued_interest|floatformat:0|intcomma }} UGX
-                  </span>
-                  <span>
-                    <i class="fas fa-calendar-week"></i>
-                    Daily: {{ deposit.daily_interest|floatformat:0|intcomma }} UGX
-                  </span>
-                  <span>
-                    <i class="fas fa-calendar-alt"></i>
-                    Monthly equivalent: {{ deposit.monthly_interest|floatformat:0|intcomma }} UGX
-                  </span>
-                  <span>
-                    <i class="fas fa-receipt"></i>
-                    Payout: {{ deposit.payout_structure_display }}
-                  </span>
-                </div>
-
-                <div class="fd-meta-row">
-                  <span>
-                    <i class="fas fa-scale-balanced"></i>
-                    Gross interest: {{ deposit.gross_interest|floatformat:0|intcomma }} UGX
-                  </span>
-                  <span>
-                    <i class="fas fa-file-invoice-dollar"></i>
-                    Tax: {{ deposit.tax_amount|floatformat:0|intcomma }} UGX ({{ deposit.tax_rate|floatformat:2 }}%)
-                  </span>
-                  <span>
-                    <i class="fas fa-money-bill-wave"></i>
-                    Net interest: {{ deposit.net_interest|floatformat:0|intcomma }} UGX
-                  </span>
-                </div>
-
-                <div class="fd-meta-row">
-                  <span>
-                    <i class="fas fa-rotate"></i>
-                    Auto-renewal:
-                    {% if deposit.auto_renewal %}Enabled{% else %}Disabled{% endif %}
-                  </span>
-                  <span>
-                    <i class="fas fa-lock"></i>
-                    Lock period: {{ deposit.minimum_lock_period_display }}
-                  </span>
-                  <span>
-                    <i class="fas fa-triangle-exclamation"></i>
-                    Early withdrawal penalty: {{ deposit.early_withdrawal_penalty|floatformat:2 }}%
-                  </span>
-                </div>
-
-                <div class="fd-actions">
-                  {% if deposit.status == 'Active' %}
-                    <button class="fd-btn primary" type="button">
-                      <i class="fas fa-rotate"></i>
-                      Toggle auto-renewal
-                    </button>
-                    <button class="fd-btn" type="button">
-                      <i class="fas fa-arrow-right-from-bracket"></i>
-                      Request early withdrawal
-                    </button>
-                  {% elif deposit.status == 'Matured' %}
-                    <button class="fd-btn primary" type="button">
-                      <i class="fas fa-money-check-dollar"></i>
-                      Withdraw funds
-                    </button>
-                    <button class="fd-btn" type="button">
-                      <i class="fas fa-arrows-rotate"></i>
-                      Renew principal only
-                    </button>
-                    <button class="fd-btn" type="button">
-                      <i class="fas fa-circle-plus"></i>
-                      Renew principal + interest
-                    </button>
-                  {% else %}
-                    <button class="fd-btn" type="button">
-                      <i class="fas fa-eye"></i>
-                      View details
-                    </button>
-                  {% endif %}
-                </div>
-              </article>
-              {% endfor %}
+                    </div>
+                    <div class="fd-activity-meta">
+                      {% if activity.amount %}
+                        {% if activity.type == 'credit' %}
+                          <span class="fd-activity-type-credit">+{{ activity.amount|floatformat:0|intcomma }}</span>
+                        {% elif activity.type == 'debit' %}
+                          <span class="fd-activity-type-debit">-{{ activity.amount|floatformat:0|intcomma }}</span>
+                        {% else %}
+                          <span class="fd-activity-type-info">{{ activity.amount|floatformat:0|intcomma }}</span>
+                        {% endif %}
+                        <div class="fd-activity-unit">UGX</div>
+                      {% endif %}
+                    </div>
+                  </li>
+                  {% empty %}
+                  <li class="fd-activity-empty">No activity yet.</li>
+                  {% endfor %}
+                </ul>
+              </aside>
             </div>
           </div>
 
-          <aside>
-            <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem;">Recent activity</h4>
-            <p class="hero-text" style="font-size: 0.9rem; margin-bottom: 0.75rem;">
-              Track lifecycle events across your fixed deposits – from creation and funding to interest credits,
-              penalties, tax deductions, and maturity payouts.
-            </p>
-            <ul class="fd-activity-list">
-              {% for activity in recent_activities %}
-              <li class="fd-activity-item">
-                <div class="fd-activity-main">
-                  <div style="font-weight: 600;">
-                    {{ activity.description }}
+          {% else %}
+          <div class="gwc-fd-shell gwc-fd-shell--empty">
+            <div>
+              <div class="gwc-fd-block-title">
+                <h3><i class="fas fa-layer-group"></i> Your deposits</h3>
+              </div>
+              <div class="gwc-fd-grid">
+                <article class="gwc-fd-card gwc-fd-demo" aria-hidden="true">
+                  <div class="gwc-fd-card-top">
+                    <span class="gwc-fd-id"><i class="fas fa-fingerprint" style="opacity:0.7;margin-right:0.25rem;"></i>FD · GWC-2026-00142</span>
+                    <div class="gwc-fd-badges">
+                      <span class="status-badge status-active"><i class="fas fa-circle"></i> Active</span>
+                    </div>
                   </div>
-                  <div style="color: var(--muted); margin-top: 0.15rem;">
-                    {{ activity.timestamp }}
-                    · Deposit ID {{ activity.deposit_id }}
-                    · {{ activity.type|title }}
+                  <div class="gwc-fd-highlight">
+                    <div class="gwc-fd-highlight-cell">
+                      <span class="gwc-fd-highlight-label">You deposited</span>
+                      <span class="gwc-fd-highlight-value">UGX 12,000,000</span>
+                      <span class="gwc-fd-highlight-sub">25.00% p.a · Compound</span>
+                    </div>
+                    <div class="gwc-fd-highlight-cell gwc-fd-highlight-cell--daily">
+                      <span class="gwc-fd-highlight-label">Earning daily</span>
+                      <span class="gwc-fd-highlight-value gwc-fd-highlight-value--accent">UGX 8,219</span>
+                      <span class="gwc-fd-highlight-sub">~UGX 250,000 / month</span>
+                    </div>
+                    <div class="gwc-fd-highlight-cell">
+                      <span class="gwc-fd-highlight-label">Expected at maturity</span>
+                      <span class="gwc-fd-highlight-value">UGX 15,000,000</span>
+                      <span class="gwc-fd-highlight-sub">Accrued so far: UGX 1,260,000</span>
+                    </div>
                   </div>
-                </div>
-                <div class="fd-activity-meta">
-                  {% if activity.amount %}
-                    {% if activity.type == 'credit' %}
-                      <span class="fd-activity-type-credit">
-                        +{{ activity.amount|floatformat:0|intcomma }}
-                      </span>
-                    {% elif activity.type == 'debit' %}
-                      <span class="fd-activity-type-debit">
-                        -{{ activity.amount|floatformat:0|intcomma }}
-                      </span>
-                    {% else %}
-                      <span class="fd-activity-type-info">
-                        {{ activity.amount|floatformat:0|intcomma }}
-                      </span>
-                    {% endif %}
-                    <div style="font-size: 0.75rem; color: var(--muted);">UGX</div>
-                  {% endif %}
-                </div>
-              </li>
-              {% empty %}
-              <li style="font-size: 0.85rem; color: var(--muted); padding: 0.5rem 0;">
-                No recent activity recorded yet.
-              </li>
-              {% endfor %}
-            </ul>
-          </aside>
+                  <div class="gwc-fd-body">
+                    <div class="gwc-fd-progress-wrap">
+                      <div class="fd-progress">
+                        <div class="fd-progress-bar"><div class="fd-progress-fill" style="width: 42%;"></div></div>
+                        <div class="fd-progress-labels">
+                          <span>154 days in</span>
+                          <span><strong>42%</strong></span>
+                          <span>211 days left</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="gwc-fd-chip-row">
+                      <span class="gwc-fd-chip"><strong>Received</strong> 1 Mar 2026</span>
+                      <span class="gwc-fd-chip"><strong>Start</strong> 1 Mar 2026</span>
+                      <span class="gwc-fd-chip"><strong>Matures</strong> 1 Mar 2027</span>
+                    </div>
+                    <div class="gwc-fd-metrics-foot gwc-fd-metrics-foot--compact">
+                      <span>Interest at maturity (net) <em style="color:var(--success);">UGX 2,125,000</em></span>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </div>
+            <div class="gwc-fd-aside-wrap">
+              <aside class="fd-aside-panel gwc-fd-aside" aria-hidden="true">
+                <h4><i class="fas fa-wave-square"></i> Activity</h4>
+                <p class="fd-aside-intro">Sample entries.</p>
+                <ul class="fd-activity-list">
+                  <li class="fd-activity-item">
+                    <div class="fd-activity-main">
+                      <div class="fd-activity-title">Deposit funded</div>
+                      <div class="fd-activity-detail">1 Mar 2026 · FD GWC-2026-00142 · Credit</div>
+                    </div>
+                    <div class="fd-activity-meta">
+                      <span class="fd-activity-type-credit">+12,000,000</span>
+                      <div class="fd-activity-unit">UGX</div>
+                    </div>
+                  </li>
+                  <li class="fd-activity-item">
+                    <div class="fd-activity-main">
+                      <div class="fd-activity-title">Interest accrual</div>
+                      <div class="fd-activity-detail">28 Feb 2026 · FD GWC-2026-00142 · Credit</div>
+                    </div>
+                    <div class="fd-activity-meta">
+                      <span class="fd-activity-type-credit">+312,500</span>
+                      <div class="fd-activity-unit">UGX</div>
+                    </div>
+                  </li>
+                </ul>
+              </aside>
+            </div>
+          </div>
+          {% endif %}
         </div>
-        {% else %}
-        <p class="hero-text">
-          You don’t have any fixed deposits yet. Once you create a fixed deposit under GWC,
-          it will appear here with full performance tracking, maturity projections, and activity history.
-        </p>
-        <p class="hero-text">
-          Go to your <a href="{% url 'profile' %}" style="color: var(--brand); font-weight: 600;">Profile</a>
-          to initiate your first fixed deposit.
-        </p>
-        {% endif %}
       </div>
     </div>
   </main>
