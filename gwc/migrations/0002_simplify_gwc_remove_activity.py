@@ -26,6 +26,26 @@ def noop_reverse(apps, schema_editor):
     pass
 
 
+def drop_gwc_deposit_activity_table_if_exists(apps, schema_editor):
+    """
+    Remove GWCDepositActivity table if present. Uses IF EXISTS so deploys succeed when
+    0001 never created this table (e.g. 0001 was edited after being applied) or the table
+    was already removed.
+    """
+    table = "gwc_gwcdepositactivity"
+    vendor = schema_editor.connection.vendor
+    if vendor == "postgresql":
+        schema_editor.execute(f'DROP TABLE IF EXISTS "{table}" CASCADE;')
+    else:
+        # SQLite and other backends
+        schema_editor.execute(f"DROP TABLE IF EXISTS {table};")
+
+
+def noop_reverse_drop_activity(apps, schema_editor):
+    """Recreating the dropped table on migrate backwards is not supported."""
+    pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -33,7 +53,17 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.DeleteModel(name="GWCDepositActivity"),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.DeleteModel(name="GWCDepositActivity"),
+            ],
+            database_operations=[
+                migrations.RunPython(
+                    drop_gwc_deposit_activity_table_if_exists,
+                    noop_reverse_drop_activity,
+                ),
+            ],
+        ),
         migrations.AddField(
             model_name="gwcfixeddeposit",
             name="receipt_number",
