@@ -26,6 +26,33 @@ def noop_reverse(apps, schema_editor):
     pass
 
 
+def ensure_fixed_deposit_table_exists(apps, schema_editor):
+    """
+    Some environments have gwc.0001 recorded in django_migrations but are missing
+    physical tables (typically from historical/fake migration drift). Ensure the
+    base GWCFixedDeposit table exists before 0002 applies AddField/AlterField ops.
+    """
+    GWCFixedDeposit = apps.get_model("gwc", "GWCFixedDeposit")
+    table_name = GWCFixedDeposit._meta.db_table
+    conn = schema_editor.connection
+
+    exists = False
+    if conn.vendor == "postgresql":
+        # Use PostgreSQL catalog lookup; more reliable than introspection caches.
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT to_regclass(%s)", [f"public.{table_name}"])
+            exists = cursor.fetchone()[0] is not None
+    else:
+        exists = table_name in set(conn.introspection.table_names())
+
+    if not exists:
+        schema_editor.create_model(GWCFixedDeposit)
+
+
+def noop_reverse_ensure_fixed_deposit(apps, schema_editor):
+    pass
+
+
 def drop_gwc_deposit_activity_table_if_exists(apps, schema_editor):
     """
     Remove GWCDepositActivity table if present. Uses IF EXISTS so deploys succeed when
@@ -53,6 +80,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(
+            ensure_fixed_deposit_table_exists,
+            noop_reverse_ensure_fixed_deposit,
+        ),
         migrations.SeparateDatabaseAndState(
             state_operations=[
                 migrations.DeleteModel(name="GWCDepositActivity"),
