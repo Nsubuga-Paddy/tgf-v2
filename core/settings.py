@@ -190,20 +190,24 @@ LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'landing'
 LOGOUT_REDIRECT_URL = 'accounts:login'
 
-# Email: console in development, SMTP over SSL in production (see Railway variables)
-if DEBUG:
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-    DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@mcsug.org')
+# Email: canonical sender is mcsug.org (cPanel mailbox). Set EMAIL_* in .env / Railway.
+# SMTP hostname is provider-specific (cPanel often mail.mcsug.org; override EMAIL_HOST if needed).
+EMAIL_USE_CONSOLE = config("EMAIL_USE_CONSOLE", default=False, cast=bool)
+_MCSUG_NOREPLY = "noreply@mcsug.org"
+if EMAIL_USE_CONSOLE:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default=_MCSUG_NOREPLY)
 else:
-    EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
-    # SSL/TLS settings for mail.mcsug.org (SMTP port 465)
-    EMAIL_HOST = config('EMAIL_HOST', default='mail.privateemail.com')
-    EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
-    EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
-    EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
-    EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='noreply@mcs-tgfs.com')
-    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-    DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=config('EMAIL_HOST_USER', default='noreply@mcsug.org'))
+    EMAIL_BACKEND = config(
+        "EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend"
+    )
+    EMAIL_HOST = config("EMAIL_HOST", default="mail.mcsug.org")
+    EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
+    EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
+    EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
+    EMAIL_HOST_USER = config("EMAIL_HOST_USER", default=_MCSUG_NOREPLY)
+    EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+    DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default=_MCSUG_NOREPLY)
     EMAIL_TIMEOUT = 10  # seconds; avoids worker hanging if SMTP is unreachable
 
 # Session Settings

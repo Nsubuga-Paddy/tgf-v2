@@ -209,7 +209,7 @@ def password_reset_request(request):
                 send_mail(
                     subject,
                     message,
-                    getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@mcs.local"),
+                    getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@mcsug.org"),
                     [user.email],
                     fail_silently=False,
                 )
