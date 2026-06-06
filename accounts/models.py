@@ -1010,3 +1010,63 @@ class MESUInterest(models.Model):
         if self.investment_amount:
             self.number_of_shares = int(self.investment_amount / Decimal('1000000'))
         super().save(*args, **kwargs)
+
+
+# -------------------------------------------------------------------
+# Project access requests (member → admin approval)
+# -------------------------------------------------------------------
+class ProjectAccessRequest(models.Model):
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
+
+    user_profile = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name="project_access_requests",
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="access_requests",
+    )
+    member_notes = models.TextField(
+        blank=True,
+        help_text="Optional message from the member explaining their request.",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+    admin_notes = models.TextField(
+        blank=True,
+        help_text="Admin reason or notes (shown to the member when rejected).",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    processed_at = models.DateTimeField(blank=True, null=True)
+    processed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="processed_project_access_requests",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Project access request"
+        verbose_name_plural = "Project access requests"
+
+    def __str__(self) -> str:
+        return (
+            f"{self.user_profile.display_name} → {self.project.name} "
+            f"({self.get_status_display()})"
+        )

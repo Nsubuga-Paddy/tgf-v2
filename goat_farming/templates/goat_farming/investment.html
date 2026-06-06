@@ -181,11 +181,7 @@
           <span>{{ user.first_name|default:user.get_username }}</span>
           <i class="fas fa-chevron-down"></i>
         </button>
-        <div class="dropdown" id="userDropdown">
-          <a href="{% url 'profile' %}" class="dropdown-item"><i class="fas fa-user"></i>Profile</a>
-          <a href="{% url 'landing' %}" class="dropdown-item"><i class="fas fa-home"></i>Dashboard</a>
-          <a href="{% url 'accounts:logout' %}" class="dropdown-item"><i class="fas fa-sign-out-alt"></i>Logout</a>
-        </div>
+        {% include 'core/includes/user_dropdown.html' %}
       </div>
     </div>
   </header>

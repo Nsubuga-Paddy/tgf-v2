@@ -54,7 +54,7 @@ if not DEBUG:
     CSRF_COOKIE_SAMESITE = 'Lax'
 
     # Other hardening
-    SECURE_REFERRER_POLICY = 'same-origin'
+    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
 
@@ -89,6 +89,8 @@ INSTALLED_APPS = [
     'retirement_savings',
     'savings_52_weeks',
     'fixed_savings',
+    'cooperative_shareholding',
+    'help_center',
 ]
 
 MIDDLEWARE = [
@@ -189,6 +191,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'landing'
 LOGOUT_REDIRECT_URL = 'accounts:login'
+
+# Public base URL for links in outbound email (e.g. https://portal.mcsug.org or http://10.x.x.x:8000 for LAN testing)
+SITE_URL = config("SITE_URL", default="").strip().rstrip("/")
 
 # Email: canonical sender is mcsug.org (cPanel mailbox). Set EMAIL_* in .env / Railway.
 # SMTP hostname is provider-specific (cPanel often mail.mcsug.org; override EMAIL_HOST if needed).

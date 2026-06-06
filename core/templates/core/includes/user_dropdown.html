@@ -1,0 +1,18 @@
+<div class="dropdown" id="userDropdown">
+  <a href="{% url 'profile' %}" class="dropdown-item">
+    <i class="fas fa-user"></i>
+    Profile
+  </a>
+  <a href="{% url 'landing' %}" class="dropdown-item">
+    <i class="fas fa-home"></i>
+    Dashboard
+  </a>
+  <a href="{% url 'help_center:guides' %}" class="dropdown-item">
+    <i class="fas fa-circle-question"></i>
+    Help Center
+  </a>
+  <a href="{% url 'accounts:logout' %}" class="dropdown-item">
+    <i class="fas fa-sign-out-alt"></i>
+    Log Out
+  </a>
+</div>

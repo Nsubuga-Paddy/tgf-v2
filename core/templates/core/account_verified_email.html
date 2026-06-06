@@ -1,0 +1,15 @@
+Hello {{ user.first_name|default:user.get_username }},
+
+Great news — your MCS account has been verified. You can now sign in and use the member portal.
+
+Sign in here:
+{{ login_url }}
+
+{% if account_number %}Your MCS account number: {{ account_number }}
+{% endif %}
+If you requested access to specific MCS groups, an administrator will approve each project separately. You can check the status of those requests after you sign in.
+
+If you did not create this account, please contact MCS support.
+
+— Mushana Multipurpose Cooperative Society (MCS)
+{{ site_url }}

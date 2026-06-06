@@ -1,0 +1,683 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Help Center - MCS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --brand: #ff6b00;
+      --brand-d: #e05f00;
+      --bg: #f7f7f9;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --shadow: 0 8px 24px rgba(0,0,0,.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    .header {
+      background: var(--brand);
+      border-bottom: 1px solid var(--brand-d);
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      box-shadow: var(--shadow);
+      color: #fff;
+    }
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      max-width: 1280px;
+      margin: 0 auto;
+      gap: 1rem;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .logo img { height: 40px; width: auto; object-fit: contain; }
+    .user-menu { position: relative; flex-shrink: 0; }
+    .user-button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-weight: 500;
+      color: #fff;
+    }
+    .user-avatar {
+      width: 32px; height: 32px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      overflow: hidden;
+    }
+    .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .dropdown {
+      position: absolute;
+      top: 100%; right: 0;
+      margin-top: 0.5rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-width: 200px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-8px);
+      transition: all 0.2s ease;
+      z-index: 1001;
+    }
+    .dropdown.show { opacity: 1; visibility: visible; transform: translateY(0); }
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      color: var(--text);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:hover { background: var(--bg); color: var(--brand); }
+
+    .guest-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .guest-nav-btn {
+      color: #fff;
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      font-size: 0.9rem;
+      border: 1px solid rgba(255,255,255,0.35);
+      transition: background 0.2s ease;
+    }
+    .guest-nav-btn:hover {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+    .guest-nav-btn-primary {
+      background: rgba(255,255,255,0.22);
+    }
+    .guest-nav-btn-primary:hover {
+      background: rgba(255,255,255,0.32);
+    }
+
+    .page-wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 6.5rem 1.5rem 3rem;
+    }
+    .page-hero {
+      background: linear-gradient(135deg, #fff7ed 0%, #fff 60%);
+      border: 1px solid #fed7aa;
+      border-radius: var(--radius);
+      padding: 2rem 2.25rem;
+      margin-bottom: 1.75rem;
+      box-shadow: var(--shadow);
+    }
+    .page-hero h1 {
+      font-size: 1.85rem;
+      font-weight: 800;
+      margin-bottom: 0.35rem;
+      color: var(--text);
+    }
+    .page-hero p { color: var(--muted); max-width: 640px; }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(255,107,0,0.12);
+      color: var(--brand-d);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      margin-bottom: 0.75rem;
+    }
+
+    .toolbar {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+    .search-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: stretch;
+    }
+    .search-field {
+      flex: 1;
+      min-width: 220px;
+      position: relative;
+    }
+    .search-field i {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+    }
+    .search-field input {
+      width: 100%;
+      padding: 0.75rem 1rem 0.75rem 2.6rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-field input:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(255,107,0,0.15);
+    }
+    .btn-search {
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 0 1.25rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-search:hover { background: var(--brand-d); }
+    .btn-clear {
+      background: var(--bg);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 1rem;
+      font-weight: 500;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .btn-clear:hover { color: var(--text); border-color: #cbd5e1; }
+
+    .filter-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 1rem 0 0.6rem;
+    }
+    .category-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .category-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .category-pill:hover {
+      border-color: var(--brand);
+      color: var(--brand);
+      background: #fff7ed;
+    }
+    .category-pill.active {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+    .results-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .active-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .filter-chip {
+      background: #fff7ed;
+      color: var(--brand-d);
+      border: 1px solid #fed7aa;
+      border-radius: 999px;
+      padding: 0.2rem 0.65rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+    .video-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+    }
+    .video-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 28px rgba(0,0,0,.1);
+      border-color: #fed7aa;
+    }
+    .thumb-wrap {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: #111827;
+      overflow: hidden;
+    }
+    .thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .play-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.25);
+      transition: background 0.2s;
+    }
+    .video-card:hover .play-overlay { background: rgba(0,0,0,0.38); }
+    .play-btn {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: var(--brand);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+    .card-body {
+      padding: 1rem 1.1rem 1.15rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .card-category {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--brand);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 0.35rem;
+    }
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.45rem;
+      line-height: 1.35;
+    }
+    .card-desc {
+      font-size: 0.88rem;
+      color: var(--muted);
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      flex: 1;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3.5rem 1.5rem;
+      background: var(--card);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+    }
+    .empty-state i {
+      font-size: 2.5rem;
+      color: #d1d5db;
+      margin-bottom: 1rem;
+    }
+    .empty-state h3 { margin-bottom: 0.5rem; }
+    .empty-state p { color: var(--muted); margin-bottom: 1rem; }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+    .pagination a,
+    .pagination span {
+      padding: 0.5rem 0.85rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      text-decoration: none;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    .pagination a:hover { border-color: var(--brand); color: var(--brand); }
+    .pagination .current {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* Video modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.65);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-panel {
+      background: var(--card);
+      border-radius: var(--radius);
+      width: min(920px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      box-shadow: 0 24px 48px rgba(0,0,0,0.25);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      padding: 1.25rem 1.5rem 0.75rem;
+    }
+    .modal-header h2 { font-size: 1.2rem; font-weight: 700; }
+    .modal-close {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 36px; height: 36px;
+      cursor: pointer;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-video {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: #000;
+    }
+    .modal-video iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+    .modal-body { padding: 1rem 1.5rem 1.5rem; color: var(--muted); font-size: 0.95rem; }
+
+    @media (max-width: 768px) {
+      .page-hero { padding: 1.5rem; }
+      .page-hero h1 { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <a href="{% if user.is_authenticated %}{% url 'landing' %}{% else %}{% url 'login' %}{% endif %}" class="logo">
+        <img src="{% static 'core/images/logo.png' %}" alt="MCS Logo" onerror="this.style.display='none'">
+        <span class="logo-text">MCS</span>
+      </a>
+      {% if user.is_authenticated %}
+      <div class="user-menu">
+        <button class="user-button" type="button" id="userButton">
+          <div class="user-avatar">
+            {% if user.profile.photo %}
+              <img src="{{ user.profile.photo.url }}" alt="Profile Photo">
+            {% else %}
+              {{ user.profile.initials|default:user.username|first|upper }}
+            {% endif %}
+          </div>
+          <span>{{ user.first_name|default:user.get_username }}</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        {% include 'core/includes/user_dropdown.html' %}
+      </div>
+      {% else %}
+      <nav class="guest-nav" aria-label="Account navigation">
+        <a href="{% url 'login' %}" class="guest-nav-btn">Sign In</a>
+        <a href="{% url 'signup' %}" class="guest-nav-btn guest-nav-btn-primary">Sign Up</a>
+      </nav>
+      {% endif %}
+    </div>
+  </header>
+
+  <main class="page-wrap">
+    <section class="page-hero">
+      <div class="hero-badge"><i class="fas fa-play-circle"></i> Video tutorials</div>
+      <h1>Help Center</h1>
+      <p>Whether you're exploring MCS for the first time or want a quick refresher, this is your hub for learning more. Discover what each Target Group Funding project offers, and watch practical guides on signing up, navigating the platform, and using your member dashboard. Browse by project or search by topic to find the help you need.</p>
+    </section>
+
+    <section class="toolbar">
+      <form method="get" action="{% url 'help_center:guides' %}" class="search-row" role="search">
+        {% if active_category %}
+          <input type="hidden" name="category" value="{{ active_category }}">
+        {% endif %}
+        <div class="search-field">
+          <i class="fas fa-search"></i>
+          <input type="search" name="q" value="{{ search_query }}" placeholder="Search tutorials by title or description…" autocomplete="off">
+        </div>
+        <button type="submit" class="btn-search">Search</button>
+        {% if search_query or active_category %}
+          <a href="{% url 'help_center:guides' %}" class="btn-clear"><i class="fas fa-times"></i> Clear</a>
+        {% endif %}
+      </form>
+
+      <div class="filter-label">Filter by category</div>
+      <div class="category-pills">
+        <a href="{% url 'help_center:guides' %}{% if search_query %}?q={{ search_query|urlencode }}{% endif %}"
+           class="category-pill{% if not active_category %} active{% endif %}">
+          <i class="fas fa-layer-group"></i> All topics
+        </a>
+        {% for value, label in categories %}
+          <a href="{% url 'help_center:guides' %}?category={{ value }}{% if search_query %}&amp;q={{ search_query|urlencode }}{% endif %}"
+             class="category-pill{% if active_category == value %} active{% endif %}">
+            {{ label }}
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="results-meta">
+      <span>
+        {% if total_count == 1 %}
+          1 tutorial found
+        {% else %}
+          {{ total_count }} tutorials found
+        {% endif %}
+      </span>
+      {% if search_query or active_category %}
+        <div class="active-filters">
+          {% if search_query %}<span class="filter-chip"><i class="fas fa-search"></i> "{{ search_query }}"</span>{% endif %}
+          {% if active_category %}
+            {% for value, label in categories %}
+              {% if value == active_category %}<span class="filter-chip"><i class="fas fa-tag"></i> {{ label }}</span>{% endif %}
+            {% endfor %}
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+
+    {% if videos %}
+      <div class="video-grid">
+        {% for video in videos %}
+          <article class="video-card"
+                   role="button"
+                   tabindex="0"
+                   data-video-id="{{ video.youtube_video_id }}"
+                   data-title="{{ video.title|escape }}"
+                   data-description="{{ video.description|escape }}"
+                   data-embed="{{ video.embed_url }}">
+            <div class="thumb-wrap">
+              <img src="{{ video.thumbnail_url }}" alt="" loading="lazy">
+              <div class="play-overlay"><span class="play-btn"><i class="fas fa-play"></i></span></div>
+            </div>
+            <div class="card-body">
+              <div class="card-category">{{ video.get_category_display }}</div>
+              <h3 class="card-title">{{ video.title }}</h3>
+              <p class="card-desc">{{ video.description }}</p>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+
+      {% if page_obj.has_other_pages %}
+        <nav class="pagination" aria-label="Tutorial pages">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if active_category %}&amp;category={{ active_category }}{% endif %}{% if search_query %}&amp;q={{ search_query|urlencode }}{% endif %}">Previous</a>
+          {% endif %}
+          {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+              <span class="current">{{ num }}</span>
+            {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+              <a href="?page={{ num }}{% if active_category %}&amp;category={{ active_category }}{% endif %}{% if search_query %}&amp;q={{ search_query|urlencode }}{% endif %}">{{ num }}</a>
+            {% endif %}
+          {% endfor %}
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if active_category %}&amp;category={{ active_category }}{% endif %}{% if search_query %}&amp;q={{ search_query|urlencode }}{% endif %}">Next</a>
+          {% endif %}
+        </nav>
+      {% endif %}
+    {% else %}
+      <div class="empty-state">
+        <i class="fas fa-video-slash"></i>
+        <h3>No tutorials match your search</h3>
+        <p>Try a different keyword, choose another category, or check back later — new guides are added regularly.</p>
+        <a href="{% url 'help_center:guides' %}" class="btn-clear" style="display:inline-flex;">View all tutorials</a>
+      </div>
+    {% endif %}
+  </main>
+
+  <div class="modal-backdrop" id="videoModal" aria-hidden="true">
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <h2 id="modalTitle">Tutorial</h2>
+        <button type="button" class="modal-close" id="modalClose" aria-label="Close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-video">
+        <iframe id="modalIframe" title="YouTube tutorial player" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+      </div>
+      <div class="modal-body" id="modalDescription"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const userButton = document.getElementById('userButton');
+      const userDropdown = document.getElementById('userDropdown');
+      if (userButton && userDropdown) {
+        userButton.addEventListener('click', function (e) {
+          e.stopPropagation();
+          userDropdown.classList.toggle('show');
+        });
+        document.addEventListener('click', function () {
+          userDropdown.classList.remove('show');
+        });
+      }
+
+      const modal = document.getElementById('videoModal');
+      const iframe = document.getElementById('modalIframe');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalDescription = document.getElementById('modalDescription');
+
+      function openVideo(card) {
+        modalTitle.textContent = card.dataset.title;
+        modalDescription.textContent = card.dataset.description;
+        iframe.src = card.dataset.embed + '?autoplay=1&rel=0';
+        modal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeVideo() {
+        modal.classList.remove('open');
+        iframe.src = '';
+        document.body.style.overflow = '';
+      }
+
+      document.querySelectorAll('.video-card').forEach(function (card) {
+        card.addEventListener('click', function () { openVideo(card); });
+        card.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openVideo(card);
+          }
+        });
+      });
+
+      document.getElementById('modalClose').addEventListener('click', closeVideo);
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeVideo();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeVideo();
+      });
+    })();
+  </script>
+</body>
+</html>

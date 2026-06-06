@@ -1,4 +1,5 @@
 # core/views.py
+from django.views import View
 from django.views.generic import TemplateView
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
@@ -8,7 +9,19 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.db.models import Sum
-from accounts.models import UserProfile, WithdrawalRequest, GWCContribution, MESUInterest
+from accounts.models import (
+    UserProfile,
+    WithdrawalRequest,
+    GWCContribution,
+    MESUInterest,
+    ProjectAccessRequest,
+)
+from accounts.project_access import (
+    build_submission_messages,
+    get_member_project_access_requests,
+    get_requestable_projects,
+    submit_project_access_requests,
+)
 from goat_farming.models import CGFActionRequest
 from realestate_projects.models import (
     RealEstateProject,
@@ -55,6 +68,29 @@ class ProfileView(TemplateView):
             and profile.bank_account_number
             and profile.bank_account_name
         )
+
+    @staticmethod
+    def _get_missing_dividend_profile_fields(profile):
+        missing = []
+        if not profile.whatsapp_number:
+            missing.append("Phone Number")
+        if not profile.national_id:
+            missing.append("National ID")
+        if not ProfileView._has_complete_bank_details(profile):
+            missing.append("Bank Account Details")
+        return missing
+
+    def _require_complete_profile_for_coop_dividend(self, request):
+        missing = self._get_missing_dividend_profile_fields(request.user.profile)
+        if not missing:
+            return None
+        messages.error(
+            request,
+            "Please complete your profile before submitting a dividend choice: "
+            + ", ".join(missing)
+            + ".",
+        )
+        return redirect("profile")
 
     def _require_bank_details_for_request(self, request):
         if self._has_complete_bank_details(request.user.profile):
@@ -239,6 +275,110 @@ class ProfileView(TemplateView):
             mesu_agg = approved_mesu.aggregate(total=Sum("investment_amount"))
             context["mesu_total_invested"] = mesu_agg["total"] or Decimal("0")
 
+            # Cooperative shareholding (SACCO — separate from MESU Academy)
+            from cooperative_shareholding.models import (
+                CooperativeShareholding,
+                DividendChoiceRequest,
+            )
+            from cooperative_shareholding.services import (
+                build_dividend_account_summary,
+                build_pending_edit_payload,
+                build_shareholding_summary,
+                cooperative_display_state,
+                user_has_cooperative_access,
+            )
+
+            context["has_cooperative_access"] = user_has_cooperative_access(profile)
+            coop_holding = None
+            try:
+                coop_holding = user.cooperative_shareholding
+            except CooperativeShareholding.DoesNotExist:
+                pass
+            context["cooperative_shareholding"] = coop_holding
+            context["show_cooperative_section"] = True
+            context["coop_display_state"] = cooperative_display_state(
+                profile, coop_holding
+            )
+            if coop_holding and context["coop_display_state"] == "full":
+                context["coop_summary"] = build_shareholding_summary(coop_holding)
+                context["coop_dividend_account"] = build_dividend_account_summary(
+                    coop_holding
+                )
+                context["coop_acquisition_lines"] = coop_holding.acquisition_lines.filter(
+                    shares_held__gt=0
+                )
+                context["coop_pending_submission"] = (
+                    DividendChoiceRequest.objects.filter(
+                        shareholding=coop_holding,
+                        status=DividendChoiceRequest.Status.PENDING,
+                    )
+                    .prefetch_related("allocation_lines")
+                    .first()
+                )
+                context["coop_pending_dividend_choice"] = context[
+                    "coop_pending_submission"
+                ]
+                context["coop_submitted_dividend_choice"] = (
+                    DividendChoiceRequest.objects.filter(shareholding=coop_holding)
+                    .exclude(status=DividendChoiceRequest.Status.REJECTED)
+                    .prefetch_related("allocation_lines")
+                    .order_by("-created_at")
+                    .first()
+                )
+                context["coop_election_open"] = coop_holding.dividend_election_open
+                locked_statuses = (
+                    DividendChoiceRequest.Status.APPROVED,
+                    DividendChoiceRequest.Status.PROCESSED,
+                )
+                context["coop_dividend_locked"] = (
+                    DividendChoiceRequest.objects.filter(
+                        shareholding=coop_holding,
+                        status__in=locked_statuses,
+                    ).exists()
+                )
+                coop_missing_profile = self._get_missing_dividend_profile_fields(
+                    profile
+                )
+                coop_profile_complete = not coop_missing_profile
+                context["coop_missing_profile_fields"] = coop_missing_profile
+                context["coop_profile_blocks_dividend"] = not coop_profile_complete
+                context["coop_needs_personal_info"] = (
+                    "Phone Number" in coop_missing_profile
+                    or "National ID" in coop_missing_profile
+                )
+                context["coop_needs_bank_details"] = (
+                    "Bank Account Details" in coop_missing_profile
+                )
+                context["coop_can_edit_dividend"] = bool(
+                    context["coop_pending_submission"]
+                ) and coop_profile_complete
+                context["coop_show_dividend_choices"] = (
+                    context["coop_election_open"]
+                    and not context["coop_dividend_locked"]
+                    and not context["coop_pending_submission"]
+                    and coop_profile_complete
+                )
+                pending = context["coop_pending_submission"]
+                context["coop_edit_payload"] = (
+                    build_pending_edit_payload(pending) if pending else None
+                )
+            else:
+                context["coop_summary"] = None
+                context["coop_dividend_account"] = None
+                context["coop_acquisition_lines"] = []
+                context["coop_pending_submission"] = None
+                context["coop_pending_dividend_choice"] = None
+                context["coop_submitted_dividend_choice"] = None
+                context["coop_dividend_locked"] = False
+                context["coop_can_edit_dividend"] = False
+                context["coop_show_dividend_choices"] = False
+                context["coop_edit_payload"] = None
+                context["coop_election_open"] = False
+                context["coop_missing_profile_fields"] = []
+                context["coop_profile_blocks_dividend"] = False
+                context["coop_needs_personal_info"] = False
+                context["coop_needs_bank_details"] = False
+
             # Real estate projects visible to user by admin access (allowed_members)
             # No manual membership creation required for profile actions.
             realestate_projects = RealEstateProject.objects.filter(
@@ -329,6 +469,23 @@ class ProfileView(TemplateView):
                     'status_display': r.get_status_display(),
                     'created_at': r.created_at,
                 })
+            for r in profile.project_access_requests.select_related("project").order_by(
+                "-created_at"
+            ):
+                detail = r.project.name
+                if r.member_notes:
+                    detail += f" · {r.member_notes[:80]}"
+                if r.status == ProjectAccessRequest.STATUS_REJECTED and r.admin_notes:
+                    detail += f" · Reason: {r.admin_notes}"
+                all_requests.append({
+                    "project": "Platform",
+                    "type_label": "Project access",
+                    "icon": "fa-door-open",
+                    "detail": detail,
+                    "status": r.status,
+                    "status_display": r.get_status_display(),
+                    "created_at": r.created_at,
+                })
             for r in profile.cgf_action_requests.all().order_by('-created_at'):
                 detail = f"{r.goats_count or 0} goats"
                 if r.request_type == 'sell_cash_out':
@@ -365,23 +522,46 @@ class ProfileView(TemplateView):
                     'status_display': r.get_status_display(),
                     'created_at': r.created_at,
                 })
+            if coop_holding:
+                from cooperative_shareholding.models import DividendAllocationLine
+
+                coop_icons = {
+                    DividendAllocationLine.ActionType.CASH: "fa-money-bill-wave",
+                    DividendAllocationLine.ActionType.MCS_SHARES: "fa-chart-line",
+                    DividendAllocationLine.ActionType.MESU_SHARES: "fa-graduation-cap",
+                    DividendAllocationLine.ActionType.SAVINGS: "fa-piggy-bank",
+                }
+                for sub in coop_holding.dividend_choices.prefetch_related(
+                    "allocation_lines"
+                ).order_by("-created_at"):
+                    for line in sub.allocation_lines.all():
+                        all_requests.append({
+                            "project": "Cooperative",
+                            "type_label": (
+                                f"Dividend — {line.get_action_type_display()}"
+                            ),
+                            "icon": coop_icons.get(line.action_type, "fa-landmark"),
+                            "detail": f"UGX {line.amount:,.0f}",
+                            "status": sub.status,
+                            "status_display": sub.get_status_display(),
+                            "created_at": sub.created_at,
+                        })
             def _sort_key(item):
                 dt = item['created_at']
                 return dt if timezone.is_aware(dt) else timezone.make_aware(dt)
             all_requests.sort(key=_sort_key, reverse=True)
             context['all_action_requests'] = all_requests
 
-            # Check for missing required information
-            missing_fields = []
-            if not profile.whatsapp_number:
-                missing_fields.append('Phone Number')
-            if not profile.national_id:
-                missing_fields.append('National ID')
-            if not profile.bank_name or not profile.bank_account_number or not profile.bank_account_name:
-                missing_fields.append('Bank Account Details')
-
+            missing_fields = self._get_missing_dividend_profile_fields(profile)
             context['missing_fields'] = missing_fields
             context['has_missing_fields'] = len(missing_fields) > 0
+            context['requestable_projects'] = (
+                get_requestable_projects(profile) if profile.is_verified else []
+            )
+            context['project_access_requests'] = get_member_project_access_requests(profile)
+            context['granted_project_names'] = list(
+                profile.projects.values_list("name", flat=True)
+            )
         else:
             context['user_projects'] = []
             context['has_52wsc'] = False
@@ -407,6 +587,21 @@ class ProfileView(TemplateView):
             context['mesu_interests'] = []
             context['mesu_total_shares'] = 0
             context['mesu_total_invested'] = Decimal('0')
+            context['has_cooperative_access'] = False
+            context['show_cooperative_section'] = True
+            context['coop_display_state'] = 'no_access'
+            context['cooperative_shareholding'] = None
+            context['coop_summary'] = None
+            context['coop_dividend_account'] = None
+            context['coop_acquisition_lines'] = []
+            context['coop_election_open'] = False
+            context['coop_pending_submission'] = None
+            context['coop_pending_dividend_choice'] = None
+            context['coop_submitted_dividend_choice'] = None
+            context['coop_dividend_locked'] = False
+            context['coop_can_edit_dividend'] = False
+            context['coop_show_dividend_choices'] = False
+            context['coop_edit_payload'] = None
             context['realestate_projects_data'] = []
             context['gwc_portfolio'] = {
                 "total_principal": Decimal("0"),
@@ -418,6 +613,9 @@ class ProfileView(TemplateView):
             context["gwc_nearest_maturity_date"] = None
             context['missing_fields'] = []
             context['has_missing_fields'] = False
+            context['requestable_projects'] = []
+            context['project_access_requests'] = []
+            context['granted_project_names'] = []
             
         context['user'] = user
         return context
@@ -445,7 +643,11 @@ class ProfileView(TemplateView):
             return self.handle_realestate_action(request, RealEstateProjectActionRequest.ACTION_TRANSFER_GWC)
         elif action == 'rep_transfer_namayumba':
             return self.handle_realestate_action(request, RealEstateProjectActionRequest.ACTION_TRANSFER_NAMAYUMBA)
-        
+        elif action == 'cooperative_dividend_choice':
+            return self.handle_cooperative_dividend_choice(request)
+        elif action == 'request_project_access':
+            return self.handle_request_project_access(request)
+
         # Default: Update profile information
         # Update User model fields
         user.first_name = request.POST.get('first_name', '')
@@ -488,6 +690,26 @@ class ProfileView(TemplateView):
         messages.success(request, 'Profile updated successfully!')
         return redirect('profile')
     
+    def handle_request_project_access(self, request):
+        profile = request.user.profile
+        if not profile.is_verified:
+            messages.error(
+                request,
+                "Complete account verification first, or submit group requests on the verification pending page.",
+            )
+            return redirect("verification_pending")
+
+        project_ids = request.POST.getlist("project_ids")
+        member_notes = request.POST.get("member_notes", "")
+        if not project_ids:
+            messages.warning(request, "Select at least one project to request access.")
+            return redirect("profile")
+
+        result = submit_project_access_requests(profile, project_ids, member_notes)
+        for level, msg in build_submission_messages(result):
+            getattr(messages, level)(request, msg)
+        return redirect("profile")
+
     def handle_withdraw(self, request):
         """Handle withdrawal request"""
         user = request.user
@@ -736,17 +958,190 @@ class ProfileView(TemplateView):
 
         return redirect(f"{reverse('profile')}?action=rep_request_success&type={action_type}")
 
+    def handle_cooperative_dividend_choice(self, request):
+        """Create or update cooperative dividend allocation (pending only)."""
+        from cooperative_shareholding.models import (
+            CooperativeShareholding,
+            DividendAllocationLine,
+            DividendChoiceRequest,
+        )
+        from cooperative_shareholding.services import (
+            build_shareholding_summary,
+            create_dividend_submission,
+            parse_dividend_allocations_from_post,
+            submission_is_editable_by_member,
+            update_dividend_submission,
+            user_has_cooperative_access,
+            validate_dividend_allocations,
+        )
 
-class VerificationPendingView(TemplateView):
-    """
-    Page shown to users whose accounts are awaiting verification.
-    """
+        user = request.user
+        profile = user.profile
+        if not user_has_cooperative_access(profile):
+            messages.error(request, "You do not have access to Cooperative Shareholding.")
+            return redirect("profile")
+
+        profile_guard = self._require_complete_profile_for_coop_dividend(request)
+        if profile_guard:
+            return profile_guard
+
+        try:
+            shareholding = user.cooperative_shareholding
+        except CooperativeShareholding.DoesNotExist:
+            messages.error(
+                request,
+                "Your cooperative shareholding record has not been set up yet. Contact the office.",
+            )
+            return redirect("profile")
+
+        locked_statuses = (
+            DividendChoiceRequest.Status.APPROVED,
+            DividendChoiceRequest.Status.PROCESSED,
+        )
+        submission_id = request.POST.get("coop_submission_id", "").strip()
+        existing_submission = None
+        is_update = False
+        if submission_id:
+            is_update = True
+            try:
+                existing_submission = DividendChoiceRequest.objects.prefetch_related(
+                    "allocation_lines"
+                ).get(
+                    pk=int(submission_id),
+                    shareholding=shareholding,
+                )
+            except (DividendChoiceRequest.DoesNotExist, ValueError, TypeError):
+                messages.error(request, "Invalid dividend request.")
+                return redirect("profile")
+            if not submission_is_editable_by_member(existing_submission):
+                messages.error(
+                    request,
+                    "This dividend request has been approved and can no longer be edited.",
+                )
+                return redirect("profile")
+        elif not is_update and not shareholding.dividend_election_open:
+            messages.error(request, "Dividend election is not open for your account.")
+            return redirect("profile")
+        elif not is_update and DividendChoiceRequest.objects.filter(
+            shareholding=shareholding,
+            status__in=locked_statuses,
+        ).exists():
+            messages.error(
+                request,
+                "Your dividend request has been approved and can no longer be changed.",
+            )
+            return redirect("profile")
+        elif DividendChoiceRequest.objects.filter(
+            shareholding=shareholding,
+            status=DividendChoiceRequest.Status.PENDING,
+        ).exists():
+            messages.error(
+                request,
+                "You already have a pending dividend request. Use Edit to update it.",
+            )
+            return redirect("profile")
+        elif not is_update and (
+            DividendChoiceRequest.objects.filter(shareholding=shareholding)
+            .exclude(status=DividendChoiceRequest.Status.REJECTED)
+            .exists()
+        ):
+            messages.error(request, "You have already submitted a dividend choice.")
+            return redirect("profile")
+
+        summary = build_shareholding_summary(shareholding)
+        expected_total = summary["expected_dividend"]
+        valid_types = {c[0] for c in DividendAllocationLine.ActionType.choices}
+        single_type = request.POST.get("coop_action_type", "").strip()
+        if single_type == "more_shares":
+            single_type = DividendAllocationLine.ActionType.MCS_SHARES
+
+        if single_type:
+            if single_type not in valid_types:
+                messages.error(request, "Invalid dividend choice.")
+                return redirect("profile")
+            allocations = [(single_type, expected_total)]
+            success_type = single_type
+        else:
+            allocations = parse_dividend_allocations_from_post(request.POST)
+            error = validate_dividend_allocations(allocations, expected_total)
+            if error:
+                messages.error(request, error)
+                return redirect("profile")
+            success_type = "split"
+
+        member_notes = request.POST.get("coop_notes", "")
+        if existing_submission:
+            update_dividend_submission(
+                existing_submission,
+                expected_total,
+                allocations,
+                member_notes=member_notes,
+            )
+            messages.success(
+                request,
+                "Your pending dividend allocation has been updated.",
+            )
+            success_type = "updated"
+        else:
+            create_dividend_submission(
+                shareholding,
+                expected_total,
+                allocations,
+                member_notes=member_notes,
+            )
+            messages.success(
+                request,
+                "Your dividend allocation has been submitted. Track status under Action Requests.",
+            )
+        return redirect(
+            f"{reverse('profile')}?action=coop_dividend_success&type={success_type}"
+        )
+
+
+@method_decorator(login_required, name="dispatch")
+class VerificationPendingView(View):
+    """Page for unverified members — includes TGF group access requests."""
+
     template_name = "core/verification_pending.html"
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['user'] = self.request.user
-        return context
+
+    def dispatch(self, request, *args, **kwargs):
+        if (
+            request.user.is_authenticated
+            and hasattr(request.user, "profile")
+            and request.user.profile.is_verified
+        ):
+            return redirect("landing")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request):
+        return self._render(request)
+
+    def post(self, request):
+        if request.POST.get("action") != "submit_project_access":
+            return self._render(request)
+
+        profile = request.user.profile
+        project_ids = request.POST.getlist("project_ids")
+        member_notes = request.POST.get("member_notes", "")
+
+        if not project_ids:
+            messages.warning(request, "Select at least one MCS group you belong to.")
+            return redirect("verification_pending")
+
+        result = submit_project_access_requests(profile, project_ids, member_notes)
+        for level, msg in build_submission_messages(result):
+            getattr(messages, level)(request, msg)
+        return redirect("verification_pending")
+
+    def _render(self, request):
+        profile = request.user.profile
+        context = {
+            "user": request.user,
+            "requestable_projects": get_requestable_projects(profile),
+            "project_access_requests": get_member_project_access_requests(profile),
+            "granted_project_names": list(profile.projects.values_list("name", flat=True)),
+        }
+        return render(request, self.template_name, context)
 
 
 

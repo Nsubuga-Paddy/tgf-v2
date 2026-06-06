@@ -22,6 +22,7 @@ from django.conf import settings
 from .views import LandingPage, LoginPage, SignUpPage, ProfileView, VerificationPendingView
 
 urlpatterns = [
+    path("api/", include("accounts.api_urls")),
     path("admin/", admin.site.urls),
     path("", LandingPage.as_view(), name="landing"),
     path("login/", LoginPage.as_view(), name="login"),
@@ -38,6 +39,7 @@ urlpatterns = [
     path("clubs-account/", include("clubs_account.urls")),
     path("rss/", include("retirement_savings.urls")),
     path("rep/", include("realestate_projects.urls")),
+    path("help/", include("help_center.urls")),
 ]
 
 if settings.DEBUG:

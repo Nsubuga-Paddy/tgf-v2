@@ -49,6 +49,7 @@ class ManagementFeeTierAdmin(ExportableAdminMixin, admin.ModelAdmin):
 class InvestmentPackageAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ['name', 'goat_count', 'kids_per_goat', 'goat_cost_display', 'management_fee_display', 'total_cost_display', 'is_active']
     list_filter = ['is_active', 'management_fee_tier']
+    search_fields = ['name']
     
     def goat_cost_display(self, obj):
         return f"UGX {float(obj.goat_cost):,.0f}"
@@ -77,6 +78,7 @@ class PackagePurchaseAdmin(ExportableAdminMixin, admin.ModelAdmin):
     ]
     list_editable = ['purchase_date']
     list_filter = ['status', 'farm', 'package']
+    autocomplete_fields = ('user', 'farm', 'package')
     search_fields = ['user__user__username', 'user__user__first_name', 'user__user__last_name']
     inlines = [PaymentInline]
     actions = ['allocate_goats_action']
@@ -154,6 +156,7 @@ class PackagePurchaseAdmin(ExportableAdminMixin, admin.ModelAdmin):
 class UserFarmAccountAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ['user_display', 'farm', 'current_goats', 'expected_kids', 'is_active', 'created_at']
     list_filter = ['farm', 'is_active', 'created_at']
+    autocomplete_fields = ('user', 'farm')
     search_fields = ['user__user__username', 'user__user__first_name', 'user__user__last_name', 'user__account_number']
     ordering = ['farm', 'user']
     list_editable = ['current_goats', 'expected_kids', 'is_active', 'created_at']
@@ -226,6 +229,7 @@ class CGFActionRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
     ]
     list_filter = ['request_type', 'status', 'farm', 'created_at']
     list_editable = ['status']
+    autocomplete_fields = ('user_profile', 'farm')
     search_fields = [
         'user_profile__user__username',
         'user_profile__user__first_name',

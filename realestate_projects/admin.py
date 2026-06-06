@@ -21,7 +21,7 @@ class RealEstateProjectAdmin(admin.ModelAdmin):
     )
     list_filter = ("status", "show_in_sidebar", "start_date")
     search_fields = ("name", "location")
-    filter_horizontal = ("allowed_members",)
+    autocomplete_fields = ("allowed_members",)
 
 
 @admin.register(RealEstateProjectJoinRequest)
@@ -35,6 +35,7 @@ class RealEstateProjectJoinRequestAdmin(admin.ModelAdmin):
         "decided_by",
     )
     list_filter = ("status", "created_at")
+    autocomplete_fields = ("project", "user", "decided_by")
     search_fields = ("project__name", "user__username", "user__first_name", "user__last_name")
 
 
@@ -42,6 +43,7 @@ class RealEstateProjectJoinRequestAdmin(admin.ModelAdmin):
 class RealEstateProjectInterestAdmin(admin.ModelAdmin):
     list_display = ("project", "user", "created_at")
     list_filter = ("created_at",)
+    autocomplete_fields = ("project", "user")
     search_fields = ("project__name", "user__username", "user__first_name", "user__last_name")
 
 
@@ -58,6 +60,7 @@ class RealEstateProjectTransactionAdmin(admin.ModelAdmin):
         "transaction_date",
     )
     list_filter = ("payment_status", "transaction_date")
+    autocomplete_fields = ("project", "user")
     search_fields = ("project__name", "user__username", "user__first_name", "user__last_name")
 
 
@@ -76,6 +79,7 @@ class RealEstateProjectActionRequestAdmin(admin.ModelAdmin):
         "processed_at",
     )
     list_filter = ("action_type", "status", "created_at")
+    autocomplete_fields = ("project", "user")
     search_fields = (
         "project__name",
         "user__username",

@@ -1,9 +1,20 @@
-from django.contrib import admin
+from django import forms
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.db.models import Count
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from .models import UserProfile, Project, AccountNumberCounter, WithdrawalRequest, GWCContribution, MESUInterest
+from .models import (
+    UserProfile,
+    Project,
+    AccountNumberCounter,
+    WithdrawalRequest,
+    GWCContribution,
+    MESUInterest,
+    ProjectAccessRequest,
+)
 from core.admin_base import ExportableAdminMixin
 
 
@@ -69,12 +80,41 @@ class UserProfileInline(admin.StackedInline):
         return form
 
 
+def format_user_autocomplete_label(user) -> str:
+    """Display name for admin autocomplete and FK dropdowns."""
+    name = user.get_full_name().strip()
+    username = user.get_username()
+    acct = ""
+    if hasattr(user, "profile") and user.profile and user.profile.account_number:
+        acct = f" · {user.profile.account_number}"
+    if name:
+        return f"{name} ({username}){acct}"
+    return f"{username}{acct}"
+
+
+def format_userprofile_autocomplete_label(profile) -> str:
+    """Display name for UserProfile FK autocomplete (member picker)."""
+    return format_user_autocomplete_label(profile.user)
+
+
 class UserAdmin(BaseUserAdmin):
     inlines = (UserProfileInline,)
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'get_account_number', 'get_verification_status')
+    list_display = (
+        'username',
+        'email',
+        'first_name',
+        'last_name',
+        'is_staff',
+        'get_account_number',
+        'get_verification_status',
+        'get_pending_project_requests',
+    )
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'profile__is_verified', 'profile__is_admin', ProjectAccessListFilter)
-    search_fields = ('username', 'first_name', 'last_name', 'email', 'profile__account_number')
-    ordering = ('username',)
+    search_fields = ('username', 'first_name', 'last_name', 'email', 'profile__account_number', 'profile__whatsapp_number')
+    ordering = ('last_name', 'first_name', 'username')
+
+    def get_autocomplete_label(self, obj):
+        return format_user_autocomplete_label(obj)
     
     def get_account_number(self, obj):
         if hasattr(obj, 'profile'):
@@ -90,14 +130,158 @@ class UserAdmin(BaseUserAdmin):
         return '❌ No Profile'
     get_verification_status.short_description = 'Status'
 
+    def get_pending_project_requests(self, obj):
+        if not hasattr(obj, "profile"):
+            return "—"
+        pending = obj.profile.project_access_requests.filter(
+            status=ProjectAccessRequest.STATUS_PENDING,
+        ).count()
+        return pending if pending else "—"
+
+    get_pending_project_requests.short_description = "Pending group requests"
+
+
+class ProjectAccessRequestAdminForm(forms.ModelForm):
+    class Meta:
+        model = ProjectAccessRequest
+        fields = "__all__"
+
+    def clean(self):
+        cleaned = super().clean()
+        status = cleaned.get("status")
+        admin_notes = (cleaned.get("admin_notes") or "").strip()
+        if status == ProjectAccessRequest.STATUS_REJECTED and not admin_notes:
+            raise ValidationError(
+                {"admin_notes": "Provide a reason when rejecting a request."}
+            )
+        return cleaned
+
+
+@admin.register(ProjectAccessRequest)
+class ProjectAccessRequestAdmin(admin.ModelAdmin):
+    form = ProjectAccessRequestAdminForm
+    list_display = (
+        "user_profile",
+        "project",
+        "status",
+        "member_notes_preview",
+        "created_at",
+        "processed_at",
+    )
+    list_filter = ("status", "project", "created_at")
+    list_editable = ("status",)
+    search_fields = (
+        "user_profile__user__username",
+        "user_profile__user__first_name",
+        "user_profile__user__last_name",
+        "user_profile__account_number",
+        "project__name",
+        "member_notes",
+        "admin_notes",
+    )
+    readonly_fields = ("created_at", "updated_at", "processed_at", "processed_by")
+    autocomplete_fields = ("user_profile",)
+    date_hierarchy = "created_at"
+    fieldsets = (
+        (
+            "Request",
+            {
+                "fields": (
+                    "user_profile",
+                    "project",
+                    "member_notes",
+                    "status",
+                ),
+            },
+        ),
+        (
+            "Admin decision",
+            {
+                "fields": ("admin_notes", "processed_at", "processed_by"),
+                "description": (
+                    "Approving grants project access on the member profile. "
+                    "Rejecting requires a reason in Admin notes (shown to the member)."
+                ),
+            },
+        ),
+        (
+            "Timestamps",
+            {
+                "fields": ("created_at", "updated_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    def member_notes_preview(self, obj):
+        if not obj.member_notes:
+            return "—"
+        text = obj.member_notes.strip()
+        return text[:60] + "…" if len(text) > 60 else text
+
+    member_notes_preview.short_description = "Member notes"
+
+    def save_model(self, request, obj, form, change):
+        old_status = None
+        if change and obj.pk:
+            try:
+                old_status = ProjectAccessRequest.objects.get(pk=obj.pk).status
+            except ProjectAccessRequest.DoesNotExist:
+                pass
+
+        if (
+            obj.status == ProjectAccessRequest.STATUS_REJECTED
+            and old_status != ProjectAccessRequest.STATUS_REJECTED
+            and not (obj.admin_notes or "").strip()
+        ):
+            self.message_user(
+                request,
+                "Provide a reason in Admin notes when rejecting a project access request.",
+                messages.ERROR,
+            )
+            obj.status = old_status or ProjectAccessRequest.STATUS_PENDING
+            super().save_model(request, obj, form, change)
+            return
+
+        if obj.status == ProjectAccessRequest.STATUS_APPROVED and old_status != ProjectAccessRequest.STATUS_APPROVED:
+            obj.user_profile.projects.add(obj.project)
+            obj.processed_at = timezone.now()
+            obj.processed_by = request.user
+
+        if obj.status == ProjectAccessRequest.STATUS_REJECTED and old_status != ProjectAccessRequest.STATUS_REJECTED:
+            obj.processed_at = timezone.now()
+            obj.processed_by = request.user
+
+        super().save_model(request, obj, form, change)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            "user_profile__user",
+            "project",
+        )
+
 
 @admin.register(UserProfile)
 class UserProfileAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ('user', 'account_number', 'whatsapp_number', 'get_bank_info', 'is_verified', 'is_admin', 'get_projects', 'created_at')
+    list_display = (
+        'user',
+        'account_number',
+        'whatsapp_number',
+        'get_bank_info',
+        'is_verified',
+        'is_admin',
+        'get_projects',
+        'get_pending_project_requests_count',
+        'created_at',
+    )
     list_filter = ('is_verified', 'is_admin', UserProfileProjectAccessListFilter, 'created_at', 'bank_name')
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'account_number', 'whatsapp_number', 'bank_name', 'bank_account_number', 'bank_account_name')
     readonly_fields = ('account_number', 'created_at', 'updated_at')
+    autocomplete_fields = ('user',)
     filter_horizontal = ('projects',)
+
+    def get_autocomplete_label(self, obj):
+        return format_userprofile_autocomplete_label(obj)
     fieldsets = (
         ('User Information', {
             'fields': ('user', 'photo', 'account_number')
@@ -128,6 +312,14 @@ class UserProfileAdmin(ExportableAdminMixin, admin.ModelAdmin):
             return ', '.join([project.name for project in projects])
         return 'No projects'
     get_projects.short_description = 'Projects'
+
+    def get_pending_project_requests_count(self, obj):
+        pending = obj.project_access_requests.filter(
+            status=ProjectAccessRequest.STATUS_PENDING,
+        ).count()
+        return pending if pending else "—"
+
+    get_pending_project_requests_count.short_description = "Pending group requests"
     
     def get_bank_info(self, obj):
         """Display bank account information"""
@@ -438,6 +630,7 @@ class WithdrawalRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ('user_profile', 'amount_display', 'reason_preview', 'status', 'created_at', 'get_bank_info', 'link_to_profile')
     list_filter = ('status', 'created_at')
     list_editable = ('status',)
+    autocomplete_fields = ('user_profile',)
     search_fields = ('user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name', 'user_profile__account_number')
     readonly_fields = ('created_at', 'updated_at', 'get_bank_info')
     date_hierarchy = 'created_at'
@@ -755,6 +948,7 @@ class GWCContributionAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ('user_profile', 'amount_display', 'group_type', 'status', 'created_at', 'link_to_profile')
     list_filter = ('status', 'group_type', 'created_at')
     list_editable = ('status',)
+    autocomplete_fields = ('user_profile',)
     search_fields = ('user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name', 'user_profile__account_number')
     readonly_fields = ('created_at', 'updated_at')
     date_hierarchy = 'created_at'
@@ -793,6 +987,7 @@ class MESUInterestAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = ('user_profile', 'investment_amount_display', 'number_of_shares', 'status', 'created_at', 'link_to_profile')
     list_filter = ('status', 'created_at')
     list_editable = ('status',)
+    autocomplete_fields = ('user_profile',)
     search_fields = ('user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name', 'user_profile__account_number')
     readonly_fields = ('number_of_shares', 'created_at', 'updated_at')
     date_hierarchy = 'created_at'

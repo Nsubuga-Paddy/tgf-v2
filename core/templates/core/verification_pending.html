@@ -41,9 +41,7 @@
             color: var(--text);
             line-height: 1.6;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            padding: 2rem 1rem;
         }
 
         .verification-container {
@@ -51,9 +49,10 @@
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             border: 1px solid var(--border);
-            padding: 3rem;
-            max-width: 500px;
-            width: 90%;
+            padding: 2.5rem;
+            max-width: 720px;
+            width: 100%;
+            margin: 0 auto;
             text-align: center;
         }
 
@@ -181,6 +180,114 @@
             font-weight: 600;
         }
 
+        .section-block {
+            text-align: left;
+            margin-bottom: 1.75rem;
+            padding: 1.25rem;
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+        .section-block h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+        .section-block p {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        .project-checklist {
+            display: grid;
+            gap: 0.5rem;
+        }
+        .project-check {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.65rem;
+            padding: 0.65rem 0.75rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xs);
+            cursor: pointer;
+        }
+        .project-check input { margin-top: 0.2rem; accent-color: var(--brand); }
+        .project-check span { font-size: 0.92rem; font-weight: 500; }
+        .notes-field {
+            width: 100%;
+            min-height: 72px;
+            padding: 0.65rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xs);
+            font-family: inherit;
+            font-size: 0.9rem;
+            resize: vertical;
+        }
+        .notes-field:focus {
+            outline: none;
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.12);
+        }
+        .request-list { display: grid; gap: 0.65rem; }
+        .request-item {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xs);
+            padding: 0.75rem 0.85rem;
+        }
+        .request-item-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.25rem;
+        }
+        .request-item-title { font-weight: 600; font-size: 0.9rem; }
+        .status-pill {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.15rem 0.5rem;
+            border-radius: 999px;
+        }
+        .status-pill.pending { background: rgba(245, 158, 11, 0.18); color: #b45309; }
+        .status-pill.approved { background: rgba(34, 197, 94, 0.18); color: #15803d; }
+        .status-pill.rejected { background: rgba(239, 68, 68, 0.18); color: #b91c1c; }
+        .request-meta { font-size: 0.8rem; color: var(--muted); }
+        .reject-reason {
+            margin-top: 0.35rem;
+            font-size: 0.82rem;
+            color: #b91c1c;
+            background: rgba(239, 68, 68, 0.08);
+            padding: 0.45rem 0.55rem;
+            border-radius: 6px;
+        }
+        .granted-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+        .granted-tag {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.55rem;
+            border-radius: 999px;
+            background: rgba(22, 163, 74, 0.12);
+            color: #15803d;
+            font-weight: 600;
+        }
+        .flash-messages { text-align: left; margin-bottom: 1rem; }
+        .flash {
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-xs);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .flash.success { background: #dcfce7; color: #166534; }
+        .flash.warning { background: #fef3c7; color: #92400e; }
+        .flash.info { background: #dbeafe; color: #1e40af; }
+        .flash.error { background: #fee2e2; color: #991b1b; }
+
         @media (max-width: 768px) {
             .verification-container {
                 padding: 2rem;
@@ -208,8 +315,16 @@
         
         <div class="verification-message">
             <h3><i class="fas fa-info-circle"></i> What happens next?</h3>
-            <p>An administrator will review your account information and verify your details. This process typically takes 24-48 hours during business days.</p>
+            <p>An administrator will review your account and the MCS groups you belong to. Access to each project is approved separately — not every request is granted automatically.</p>
         </div>
+
+        {% if messages %}
+        <div class="flash-messages">
+          {% for message in messages %}
+            <div class="flash {{ message.tags|default:'info' }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
         
         {% if user.is_authenticated %}
         <div class="user-info">
@@ -233,6 +348,61 @@
             </div>
             {% endif %}
         </div>
+
+        {% if granted_project_names %}
+        <div class="section-block">
+          <h3><i class="fas fa-check-circle"></i> Approved group access</h3>
+          <div class="granted-tags">
+            {% for name in granted_project_names %}
+              <span class="granted-tag">{{ name }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if requestable_projects %}
+        <div class="section-block">
+          <h3><i class="fas fa-layer-group"></i> Which MCS groups do you belong to?</h3>
+          <p>Select every Target Group Funding project you are part of. You can submit more groups later — duplicate pending requests are not created.</p>
+          <form method="post" action="{% url 'verification_pending' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="submit_project_access">
+            <div class="project-checklist">
+              {% for project in requestable_projects %}
+              <label class="project-check">
+                <input type="checkbox" name="project_ids" value="{{ project.id }}">
+                <span>{{ project.name }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            <p style="margin: 0.85rem 0 0.45rem; font-size: 0.85rem; color: var(--muted);">Optional note for the administrator</p>
+            <textarea class="notes-field" name="member_notes" placeholder="e.g. club name, member ID, or which savings group you joined"></textarea>
+            <button type="submit" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">
+              <i class="fas fa-paper-plane"></i> Submit group requests
+            </button>
+          </form>
+        </div>
+        {% endif %}
+
+        {% if project_access_requests %}
+        <div class="section-block">
+          <h3><i class="fas fa-list-check"></i> Your group access requests</h3>
+          <div class="request-list">
+            {% for req in project_access_requests %}
+            <div class="request-item">
+              <div class="request-item-header">
+                <span class="request-item-title">{{ req.project.name }}</span>
+                <span class="status-pill {{ req.status }}">{{ req.get_status_display }}</span>
+              </div>
+              <div class="request-meta">Submitted {{ req.created_at|date:"M d, Y" }}</div>
+              {% if req.status == 'rejected' and req.admin_notes %}
+                <div class="reject-reason"><strong>Admin reason:</strong> {{ req.admin_notes }}</div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
         {% endif %}
         
         <div class="verification-actions">

@@ -61,6 +61,7 @@
       align-items: center;
       justify-content: space-between;
       padding: 1rem 1.5rem;
+      gap: 1rem;
     }
 
     .logo {
@@ -223,6 +224,127 @@
       align-items: start;
     }
 
+    .help-quick-card {
+      background: linear-gradient(135deg, #fff7ed 0%, #fff 60%);
+      border: 1px solid #fed7aa;
+      border-radius: var(--radius);
+      padding: 1rem 1.15rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: var(--shadow);
+    }
+
+    .help-quick-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(255, 107, 0, 0.12);
+      color: inherit;
+    }
+
+    .help-quick-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: rgba(255, 107, 0, 0.12);
+      color: var(--brand);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      flex-shrink: 0;
+    }
+
+    .help-quick-text strong {
+      display: block;
+      font-size: 0.95rem;
+      margin-bottom: 0.15rem;
+    }
+
+    .help-quick-text span {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .project-access-note {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 0.85rem;
+    }
+    .project-checklist {
+      display: grid;
+      gap: 0.45rem;
+      margin-bottom: 0.85rem;
+    }
+    .project-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      padding: 0.55rem 0.65rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      font-size: 0.88rem;
+    }
+    .project-check input { margin-top: 0.15rem; accent-color: var(--brand); }
+    .project-access-textarea {
+      width: 100%;
+      min-height: 64px;
+      padding: 0.6rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      font-family: inherit;
+      font-size: 0.88rem;
+      resize: vertical;
+    }
+    .granted-project-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-bottom: 0.75rem;
+    }
+    .granted-project-tag {
+      font-size: 0.78rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(22, 163, 74, 0.12);
+      color: #15803d;
+      font-weight: 600;
+    }
+    .access-request-row {
+      padding: 0.65rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+    .access-request-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .access-request-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .access-status {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+    }
+    .access-status.pending { background: rgba(245, 158, 11, 0.18); color: #b45309; }
+    .access-status.approved { background: rgba(34, 197, 94, 0.18); color: #15803d; }
+    .access-status.rejected { background: rgba(239, 68, 68, 0.18); color: #b91c1c; }
+    .access-reject-reason {
+      margin-top: 0.35rem;
+      font-size: 0.8rem;
+      color: #b91c1c;
+      background: rgba(239, 68, 68, 0.08);
+      padding: 0.4rem 0.5rem;
+      border-radius: 6px;
+    }
+
     /* Profile Information Accordions */
     .profile-info-card {
       background: var(--card);
@@ -383,6 +505,49 @@
     }
     .action-request-card.project-52wsc { border-left-color: #f59e0b; }
     .action-request-card.project-cgf { border-left-color: #16a34a; }
+    .action-request-card.project-cooperative { border-left-color: #2563eb; }
+    .coop-tier-badge {
+      display: inline-block;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: rgba(37, 99, 235, 0.12);
+      color: #1d4ed8;
+      margin-left: 0.35rem;
+      vertical-align: middle;
+    }
+    .coop-info-btn-inline {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.2rem;
+      height: 1.2rem;
+      padding: 0;
+      margin-left: 0.3rem;
+      font-size: 0.82rem;
+      line-height: 1;
+      color: #2563eb;
+      background: transparent;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .coop-info-btn-inline:hover {
+      color: #1d4ed8;
+      background: rgba(37, 99, 235, 0.12);
+    }
+    .info-label-with-icon {
+      display: inline-flex;
+      align-items: center;
+    }
+    .project-stat-label-with-icon {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.1rem;
+    }
     .action-request-card:hover {
       box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
@@ -497,6 +662,7 @@
       background: linear-gradient(135deg, var(--brand), var(--brand-d));
       color: #fff;
       gap: 0.75rem;
+      flex-wrap: wrap;
     }
 
     .project-card-header-inner {
@@ -2052,7 +2218,7 @@
         <img src="{% static 'core/images/logo.png' %}" alt="MCS Logo" onerror="this.style.display='none'">
         <span class="logo-text">MCS</span>
       </a>
-      
+
       <div class="user-menu">
         <button class="user-button" onclick="toggleDropdown()">
           <div class="user-avatar">
@@ -2066,20 +2232,7 @@
           <i class="fas fa-chevron-down"></i>
         </button>
         
-        <div class="dropdown" id="userDropdown">
-          <a href="{% url 'landing' %}" class="dropdown-item">
-            <i class="fas fa-home"></i>
-            Dashboard
-          </a>
-          <a href="{% url 'profile' %}" class="dropdown-item">
-            <i class="fas fa-user"></i>
-            Profile
-          </a>
-          <a href="{% url 'accounts:logout' %}" class="dropdown-item">
-            <i class="fas fa-sign-out-alt"></i>
-            Logout
-          </a>
-        </div>
+        {% include 'core/includes/user_dropdown.html' %}
       </div>
     </div>
   </header>
@@ -2123,6 +2276,15 @@
     <!-- Profile Grid -->
     <div class="profile-grid">
       <!-- LEFT: Profile Information -->
+      <div>
+      <a href="{% url 'help_center:guides' %}" class="help-quick-card">
+        <div class="help-quick-icon"><i class="fas fa-play-circle"></i></div>
+        <div class="help-quick-text">
+          <strong>Help Center</strong>
+          <span>Video tutorials for every MCS project</span>
+        </div>
+        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--muted);font-size:0.85rem;"></i>
+      </a>
       <div class="profile-info-card">
         <h3 class="profile-info-title">Profile Information</h3>
 
@@ -2179,14 +2341,114 @@
           </div>
         </div>
 
-        <!-- Share Holding Summary -->
+        {% if user.profile.is_verified %}
         <div class="accordion-section">
           <div class="accordion-header" onclick="toggleAccordion(this)">
-            <span class="accordion-header-title"><i class="fas fa-chart-pie"></i> Share Holding Summary</span>
+            <span class="accordion-header-title"><i class="fas fa-door-open"></i> Project Access</span>
             <i class="fas fa-chevron-down accordion-chevron"></i>
           </div>
           <div class="accordion-content">
             <div class="accordion-body">
+              {% if granted_project_names %}
+              <div class="info-row" style="flex-direction: column; align-items: flex-start; gap: 0.45rem;">
+                <span class="info-label">Your approved groups</span>
+                <div class="granted-project-tags">
+                  {% for name in granted_project_names %}
+                    <span class="granted-project-tag">{{ name }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              {% else %}
+              <p class="project-access-note">You do not have access to any MCS projects yet.</p>
+              {% endif %}
+
+              {% if requestable_projects %}
+              <p class="project-access-note">Request access to another MCS group you belong to or want to join. Each request is reviewed by an administrator.</p>
+              <form method="post" action="{% url 'profile' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="request_project_access">
+                <div class="project-checklist">
+                  {% for project in requestable_projects %}
+                  <label class="project-check">
+                    <input type="checkbox" name="project_ids" value="{{ project.id }}">
+                    <span>{{ project.name }}</span>
+                  </label>
+                  {% endfor %}
+                </div>
+                <textarea class="project-access-textarea" name="member_notes" placeholder="Optional note for the administrator"></textarea>
+                <div class="section-actions" style="margin-top: 0.75rem;">
+                  <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-paper-plane"></i> Request access
+                  </button>
+                </div>
+              </form>
+              {% endif %}
+
+              {% if project_access_requests %}
+              <div style="margin-top: 1rem;">
+                <span class="info-label" style="display:block; margin-bottom: 0.5rem;">Your requests</span>
+                {% for req in project_access_requests %}
+                <div class="access-request-row">
+                  <div class="access-request-top">
+                    <strong>{{ req.project.name }}</strong>
+                    <span class="access-status {{ req.status }}">{{ req.get_status_display }}</span>
+                  </div>
+                  <div style="font-size: 0.78rem; color: var(--muted);">{{ req.created_at|date:"M d, Y" }}</div>
+                  {% if req.status == 'rejected' and req.admin_notes %}
+                    <div class="access-reject-reason"><strong>Reason:</strong> {{ req.admin_notes }}</div>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Cooperative Shareholding (brief — SACCO; not MESU; visible to all users) -->
+        <div class="accordion-section">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span class="accordion-header-title"><i class="fas fa-landmark"></i> Cooperative Shareholding</span>
+            <i class="fas fa-chevron-down accordion-chevron"></i>
+          </div>
+          <div class="accordion-content">
+            <div class="accordion-body">
+              {% if coop_display_state == 'full' and coop_summary %}
+              <div class="info-row">
+                <span class="info-label">Tier</span>
+                <span class="info-value">{% if coop_summary.tier_emoji %}<span aria-hidden="true">{{ coop_summary.tier_emoji }}</span> {% endif %}{{ coop_summary.tier }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label info-label-with-icon">Shares held<button type="button" class="coop-info-btn-inline" onclick="openCoopTierInfoModal()" title="Cooperative share categories" aria-label="Cooperative share categories"><i class="fas fa-circle-info"></i></button></span>
+                <span class="info-value">{{ coop_summary.total_shares|intcomma }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Current value</span>
+                <span class="info-value">UGX {{ coop_summary.current_share_value|floatformat:0|intcomma }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label info-label-with-icon">Earned dividend<button type="button" class="coop-info-btn-inline" onclick="openCoopDividendInfoModal()" title="How dividends work" aria-label="How dividends work"><i class="fas fa-circle-info"></i></button></span>
+                <span class="info-value">UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}</span>
+              </div>
+              {% elif coop_display_state == 'pending_setup' %}
+              <p style="color: var(--muted); margin: 0; font-size: 0.9rem;">You have access, but your cooperative share records are not on the system yet. Please contact the office.</p>
+              {% else %}
+              <p style="color: var(--muted); margin: 0; font-size: 0.9rem;">You have no cooperative shares on record. If you are a shareholder, contact the office to request access and registration.</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- MESU Academy Shares (separate product) -->
+        <div class="accordion-section">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span class="accordion-header-title"><i class="fas fa-graduation-cap"></i> MESU Academy Shares</span>
+            <i class="fas fa-chevron-down accordion-chevron"></i>
+          </div>
+          <div class="accordion-content">
+            <div class="accordion-body">
+              <p style="font-size: 0.84rem; color: var(--muted); margin: 0 0 0.75rem;">MESU Academy shares (UGX 1,000,000 per share) are separate from cooperative (SACCO) shares.</p>
               {% if mesu_interests %}
                 <div class="info-row">
                   <span class="info-label">Total Shares (Approved)</span>
@@ -2220,7 +2482,7 @@
                   </table>
                 </div>
               {% else %}
-                <p style="color: var(--muted); margin: 0;">This feature of the app is under development.</p>
+                <p style="color: var(--muted); margin: 0;">No MESU Academy share requests yet.</p>
               {% endif %}
             </div>
           </div>
@@ -2255,9 +2517,177 @@
           </div>
         </div>
       </div>
+      </div>
 
-      <!-- CENTER: My Projects -->
+      <!-- CENTER: Cooperative + My Projects -->
       <div class="projects-section">
+        <div class="project-card" style="margin-bottom: 1.25rem;">
+          <div class="project-card-header">
+            <div class="project-card-header-inner">
+              <div class="project-card-icon"><i class="fas fa-landmark"></i></div>
+              <h4 class="project-card-title">Cooperative Shareholding{% if coop_summary %}<span class="coop-tier-badge">{% if coop_summary.tier_emoji %}<span aria-hidden="true">{{ coop_summary.tier_emoji }}</span> {% endif %}{{ coop_summary.tier }}</span>{% endif %}</h4>
+            </div>
+          </div>
+          <div class="project-card-body">
+            {% if coop_display_state == 'full' and coop_summary %}
+            <div class="project-stats-list project-stats-list-orange">
+              <div class="project-stat-row"><span class="project-stat-label project-stat-label-with-icon">Shares held:<button type="button" class="coop-info-btn-inline" onclick="openCoopTierInfoModal()" title="Cooperative share categories" aria-label="Cooperative share categories"><i class="fas fa-circle-info"></i></button></span><span class="project-stat-value">{{ coop_summary.total_shares|intcomma }}</span></div>
+              <div class="project-stat-row"><span class="project-stat-label">Current share price:</span><span class="project-stat-value">UGX {{ coop_summary.current_share_price|floatformat:0|intcomma }}</span></div>
+              <div class="project-stat-row"><span class="project-stat-label">Current share value:</span><span class="project-stat-value">UGX {{ coop_summary.current_share_value|floatformat:0|intcomma }}</span></div>
+              <div class="project-stat-row"><span class="project-stat-label">Dividend rate:</span><span class="project-stat-value">{{ coop_summary.dividend_rate_percent }}%</span></div>
+              <div class="project-stat-row"><span class="project-stat-label project-stat-label-with-icon">Your earned dividend:<button type="button" class="coop-info-btn-inline" onclick="openCoopDividendInfoModal()" title="How dividends work" aria-label="How dividends work"><i class="fas fa-circle-info"></i></button></span><span class="project-stat-value project-stat-value-interest">UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}</span></div>
+              {% if coop_dividend_account.has_disbursements %}
+              <div class="project-stat-row"><span class="project-stat-label">Dividend disbursed:</span><span class="project-stat-value">UGX {{ coop_dividend_account.total_disbursed|floatformat:0|intcomma }}</span></div>
+              <div class="project-stat-row"><span class="project-stat-label">Outstanding balance:</span><span class="project-stat-value">UGX {{ coop_dividend_account.outstanding_balance|floatformat:0|intcomma }}</span></div>
+              {% endif %}
+              {% if coop_summary.year_joined %}
+              <div class="project-stat-row"><span class="project-stat-label">Year joined:</span><span class="project-stat-value">{{ coop_summary.year_joined }}</span></div>
+              {% endif %}
+              {% if coop_summary.certificate_status %}
+              <div class="project-stat-row"><span class="project-stat-label">Certificate:</span><span class="project-stat-value">{{ coop_summary.certificate_status }}</span></div>
+              {% endif %}
+            </div>
+            {% if coop_acquisition_lines %}
+            <div style="margin-top: 1rem; font-size: 0.875rem; font-weight: 600;">Your share acquisitions</div>
+            <div style="margin-top: 0.5rem; overflow-x: auto;">
+              <table style="width: 100%; font-size: 0.85rem; border-collapse: collapse; min-width: 520px;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--border);">
+                    <th style="text-align: left; padding: 0.5rem;">Receipt no.</th>
+                    <th style="text-align: left; padding: 0.5rem;">Acquisition date</th>
+                    <th style="text-align: right; padding: 0.5rem;">Shares</th>
+                    <th style="text-align: right; padding: 0.5rem;">Share amount</th>
+                    <th style="text-align: right; padding: 0.5rem;">Price/share</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for line in coop_acquisition_lines %}
+                  <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: 0.5rem;">{{ line.receipt_number|default:"—" }}</td>
+                    <td style="padding: 0.5rem;">{{ line.acquisition_date|date:"M d, Y"|default:"—" }}</td>
+                    <td style="text-align: right; padding: 0.5rem;">{{ line.shares_held|intcomma }}</td>
+                    <td style="text-align: right; padding: 0.5rem;">UGX {{ line.share_amount|floatformat:0|intcomma }}</td>
+                    <td style="text-align: right; padding: 0.5rem;">{% if line.price_per_share %}UGX {{ line.price_per_share|floatformat:0|intcomma }}{% else %}—{% endif %}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endif %}
+            {% if coop_dividend_account.has_disbursements %}
+            <div style="margin-top: 1rem;">
+              <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">Dividend statement</div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.65rem; margin-bottom: 0.75rem; font-size: 0.84rem;">
+                <div style="padding: 0.65rem 0.75rem; border-radius: 8px; background: var(--bg); border: 1px solid var(--border);">
+                  <div style="color: var(--muted); font-size: 0.75rem;">Entitlement</div>
+                  <div style="font-weight: 600;">UGX {{ coop_dividend_account.cycle_entitlement|floatformat:0|intcomma }}</div>
+                </div>
+                <div style="padding: 0.65rem 0.75rem; border-radius: 8px; background: rgba(22, 163, 74, 0.08); border: 1px solid rgba(22, 163, 74, 0.25);">
+                  <div style="color: var(--muted); font-size: 0.75rem;">Disbursed (deducted)</div>
+                  <div style="font-weight: 600; color: #16a34a;">UGX {{ coop_dividend_account.cycle_disbursed|floatformat:0|intcomma }}</div>
+                </div>
+                <div style="padding: 0.65rem 0.75rem; border-radius: 8px; background: var(--bg); border: 1px solid var(--border);">
+                  <div style="color: var(--muted); font-size: 0.75rem;">Balance</div>
+                  <div style="font-weight: 600;">UGX {{ coop_dividend_account.outstanding_balance|floatformat:0|intcomma }}</div>
+                </div>
+              </div>
+              <p style="font-size: 0.8rem; color: var(--muted); margin: 0 0 0.5rem; line-height: 1.45;">
+                After AGM approval, each payout below is deducted from your dividend entitlement. Cash lines reflect manual payment to your MoMo or bank account.
+              </p>
+              <div style="overflow-x: auto;">
+                <table style="width: 100%; font-size: 0.85rem; border-collapse: collapse; min-width: 480px;">
+                  <thead>
+                    <tr style="border-bottom: 2px solid var(--border);">
+                      <th style="text-align: left; padding: 0.5rem;">Date</th>
+                      <th style="text-align: left; padding: 0.5rem;">How applied</th>
+                      <th style="text-align: right; padding: 0.5rem;">Amount</th>
+                      <th style="text-align: left; padding: 0.5rem;">Reference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for d in coop_dividend_account.disbursements %}
+                    <tr style="border-bottom: 1px solid var(--border);">
+                      <td style="padding: 0.5rem;">{{ d.disbursed_at|date:"M d, Y" }}</td>
+                      <td style="padding: 0.5rem;">{{ d.get_fulfillment_type_display }}{% if d.shares_count %} <span style="color: var(--muted);">({{ d.shares_count }} share{{ d.shares_count|pluralize }})</span>{% endif %}</td>
+                      <td style="text-align: right; padding: 0.5rem; font-weight: 600;">UGX {{ d.amount|floatformat:0|intcomma }}</td>
+                      <td style="padding: 0.5rem; font-size: 0.8rem; color: var(--muted);">{{ d.payment_reference|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {% endif %}
+            {% if coop_submitted_dividend_choice and not coop_dividend_account.has_disbursements %}
+            <div style="font-size: 0.875rem; color: var(--muted); margin: 1rem 0 0;">
+              <div style="font-weight: 600; color: var(--text); margin-bottom: 0.35rem;">Dividend allocation ({{ coop_submitted_dividend_choice.get_status_display }})</div>
+              <ul style="margin: 0; padding-left: 1.15rem; line-height: 1.55;">
+                {% for line in coop_submitted_dividend_choice.allocation_lines.all %}
+                <li>
+                  <strong>{{ line.get_action_type_display }}</strong>:
+                  UGX {{ line.amount|floatformat:0|intcomma }}
+                  {% if line.shares_count %}<span style="color: var(--muted);">({{ line.shares_count }} share{{ line.shares_count|pluralize }})</span>{% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+              {% if coop_can_edit_dividend %}
+              <p style="margin: 0.65rem 0 0.5rem; font-size: 0.84rem;"><i class="fas fa-hourglass-half"></i> Pending review — you can edit until this is approved.</p>
+              <button type="button" class="project-action-btn" style="margin-top: 0.25rem;" onclick="openCoopDividendEditModal()"><i class="fas fa-pen"></i> Edit allocation</button>
+              {% elif coop_pending_submission and coop_profile_blocks_dividend %}
+              <p style="margin: 0.65rem 0 0.5rem; font-size: 0.84rem; color: #b45309;"><i class="fas fa-exclamation-triangle"></i> Complete your profile before editing: <strong>{{ coop_missing_profile_fields|join:", " }}</strong></p>
+              <div class="project-actions-compact" style="margin-top: 0.35rem;">
+                {% if coop_needs_personal_info %}
+                <button type="button" class="project-action-btn" onclick="openEditPersonalModal()"><i class="fas fa-user-edit"></i> Edit personal info</button>
+                {% endif %}
+                {% if coop_needs_bank_details %}
+                <button type="button" class="project-action-btn" onclick="openEditBankModal()"><i class="fas fa-university"></i> Edit bank details</button>
+                {% endif %}
+              </div>
+              {% elif coop_dividend_locked %}
+              <p style="margin: 0.5rem 0 0;">Your request is approved. Amounts will appear in your dividend statement once processed.</p>
+              {% else %}
+              <p style="margin: 0.5rem 0 0;">Track status under Action Requests.</p>
+              {% endif %}
+            </div>
+            {% endif %}
+            {% if coop_show_dividend_choices %}
+            <div style="margin-top: 1rem; padding: 0.85rem; border-radius: 10px; border: 1px solid rgba(37, 99, 235, 0.25); background: rgba(37, 99, 235, 0.06);">
+              <div style="font-weight: 600; margin-bottom: 0.5rem;">Choose how to receive your dividend</div>
+              <div class="project-actions-compact">
+                <button type="button" class="project-action-btn" onclick="openCoopDividendChoiceModal('cash')"><i class="fas fa-money-bill-wave"></i> Cash</button>
+                <button type="button" class="project-action-btn" onclick="openCoopDividendChoiceModal('mcs_shares')"><i class="fas fa-chart-line"></i> More shares</button>
+                <button type="button" class="project-action-btn" onclick="openCoopDividendChoiceModal('savings')"><i class="fas fa-piggy-bank"></i> MCS Savings</button>
+                <button type="button" class="project-action-btn" onclick="openCoopDividendSplitModal()"><i class="fas fa-sliders-h"></i> Split</button>
+              </div>
+            </div>
+            {% elif coop_profile_blocks_dividend and coop_election_open and not coop_dividend_locked and not coop_pending_submission %}
+            <div style="margin-top: 1rem; padding: 0.85rem; border-radius: 10px; border: 1px solid rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.08);">
+              <div style="font-weight: 600; margin-bottom: 0.35rem; color: #b45309;"><i class="fas fa-exclamation-triangle"></i> Complete your profile to choose a dividend</div>
+              <p style="margin: 0 0 0.65rem; font-size: 0.875rem; color: var(--muted); line-height: 1.5;">
+                Please add the following before submitting: <strong>{{ coop_missing_profile_fields|join:", " }}</strong>
+              </p>
+              <div class="project-actions-compact">
+                {% if coop_needs_personal_info %}
+                <button type="button" class="project-action-btn" onclick="openEditPersonalModal()"><i class="fas fa-user-edit"></i> Edit personal info</button>
+                {% endif %}
+                {% if coop_needs_bank_details %}
+                <button type="button" class="project-action-btn" onclick="openEditBankModal()"><i class="fas fa-university"></i> Edit bank details</button>
+                {% endif %}
+              </div>
+            </div>
+            {% endif %}
+            {% elif coop_display_state == 'pending_setup' %}
+            <p style="color: var(--muted); margin: 0; font-size: 0.95rem; line-height: 1.5;">
+              <i class="fas fa-hourglass-half"></i> You have been given access to cooperative shareholding, but your share records have not been entered yet. Please contact the MCS office.
+            </p>
+            {% else %}
+            <p style="color: var(--muted); margin: 0; font-size: 0.95rem; line-height: 1.5;">
+              <i class="fas fa-info-circle"></i> You have <strong>no cooperative shares</strong> on record. Cooperative shareholding is separate from MESU Academy shares. If you are a shareholder, contact the office to request access and registration.
+            </p>
+            {% endif %}
+          </div>
+        </div>
+
         <h3 class="projects-section-title">My Projects</h3>
         <div class="project-cards-container">
           {% if user_projects %}
@@ -2425,7 +2855,7 @@
 
             <!-- Other projects -->
             {% for project in user_projects %}
-              {% if project.name != '52 Weeks Saving Challenge' and project.name != 'Commercial Goat Farming' and project.name != 'Real Estate Projects' and project.name != 'Generational Wealth Creation' %}
+              {% if project.name != '52 Weeks Saving Challenge' and project.name != 'Commercial Goat Farming' and project.name != 'Real Estate Projects' and project.name != 'Generational Wealth Creation' and project.name != 'Cooperative Shareholding' %}
             <div class="project-card">
               <div class="project-card-header">
                 <div class="project-card-header-inner">
@@ -2694,6 +3124,163 @@
       </div>
     </div>
   </div>
+
+  <!-- Cooperative: Share categories info -->
+  <div id="coopTierInfoModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fas fa-layer-group"></i> Cooperative share categories</h3>
+        <button type="button" class="modal-close" onclick="closeCoopTierInfoModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.9rem; color: var(--muted); margin-bottom: 1rem;">Your category is based on the total cooperative shares you hold (not MESU Academy shares).</p>
+        <ul style="margin: 0; padding-left: 1.2rem; line-height: 1.6; font-size: 0.9rem;">
+          <li><span aria-hidden="true">🌱</span> <strong>Standard:</strong> 1 – 99 shares</li>
+          <li><span aria-hidden="true">⭐</span> <strong>Elite:</strong> 100 – 499 shares</li>
+          <li><span aria-hidden="true">🥇</span> <strong>Gold:</strong> 500 – 999 shares</li>
+          <li><span aria-hidden="true">🏆</span> <strong>Platinum:</strong> 1,000 – 1,999 shares</li>
+          <li><span aria-hidden="true">💎</span> <strong>Diamond:</strong> 2,000 or more shares</li>
+          <li><span aria-hidden="true">💙💎</span> <strong>Blue Diamond:</strong> Total share value equivalent to USD 1,000,000 or more</li>
+        </ul>
+        {% if coop_summary %}
+        <p style="margin-top: 1rem; font-size: 0.9rem;"><strong>Your tier:</strong> {% if coop_summary.tier_emoji %}<span aria-hidden="true">{{ coop_summary.tier_emoji }}</span> {% endif %}{{ coop_summary.tier }} ({{ coop_summary.total_shares|intcomma }} shares)</p>
+        {% endif %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeCoopTierInfoModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cooperative: Dividends info -->
+  <div id="coopDividendInfoModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fas fa-coins"></i> Cooperative dividends</h3>
+        <button type="button" class="modal-close" onclick="closeCoopDividendInfoModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 1rem;">
+          <strong>Your dividend</strong> = <strong>current share value</strong> × <strong>dividend rate</strong>
+        </p>
+        <div style="padding: 1rem; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); font-size: 0.9rem; line-height: 1.55;">
+          {% if coop_summary %}
+          <div>Current share value: <strong>UGX {{ coop_summary.current_share_value|floatformat:0|intcomma }}</strong></div>
+          <div>× Dividend rate: <strong>{{ coop_summary.dividend_rate_percent }}%</strong> ({{ coop_summary.dividend_rate }})</div>
+          <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);">
+            = Expected dividend: <strong style="color: var(--brand);">UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}</strong>
+          </div>
+          {% else %}
+          <div>Current share value = shares held × current cooperative share price</div>
+          <div>Expected dividend = current share value × dividend rate (e.g. 26% = 0.26)</div>
+          {% endif %}
+        </div>
+        <p style="font-size: 0.85rem; color: var(--muted); margin-top: 1rem;">
+          When the election is open, split your dividend across: <strong>cash</strong> (MoMo/bank), <strong>MCS cooperative shares</strong> (UGX 1,000,000 per share — separate from book shares), <strong>MESU Academy shares</strong> (UGX 1,000,000 per share), and/or <strong>MCS Fixed Savings</strong> (7.5% p.a.). You can combine options (e.g. reinvest part in shares and take the rest as cash).
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeCoopDividendInfoModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cooperative: Single dividend choice (cash / shares / savings) -->
+  {% if coop_display_state == 'full' and coop_summary %}
+  <div id="coopDividendChoiceModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fas fa-landmark"></i> Confirm dividend choice</h3>
+        <button type="button" class="modal-close" onclick="closeCoopDividendChoiceModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="coopDividendForm" method="post" action="{% url 'profile' %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="cooperative_dividend_choice">
+          <input type="hidden" name="coop_submission_id" class="coopSubmissionIdField" value="">
+          <input type="hidden" name="coop_action_type" id="coopActionType" value="">
+          <div class="form-group">
+            <label class="form-label">Expected dividend</label>
+            <input type="text" class="form-control" readonly value="UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}">
+          </div>
+          <div id="coopChoiceDescription" class="info-card" style="margin-top: 1rem;">
+            <p style="margin: 0; font-size: 0.9rem; color: var(--muted);">Select an option on the card, then confirm.</p>
+          </div>
+          <div class="form-group" style="margin-top: 1rem;">
+            <label class="form-label">Notes (optional)</label>
+            <textarea class="form-control" name="coop_notes" rows="2"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeCoopDividendChoiceModal()">Cancel</button>
+        <button type="submit" form="coopDividendForm" class="btn btn-primary" id="coopDividendSubmitBtn" disabled>Save choice</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cooperative: Split dividend across options -->
+  <div id="coopDividendSplitModal" class="modal">
+    <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fas fa-sliders-h"></i> Split your dividend</h3>
+        <button type="button" class="modal-close" onclick="closeCoopDividendSplitModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="coopDividendSplitForm" method="post" action="{% url 'profile' %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="cooperative_dividend_choice">
+          <input type="hidden" name="coop_submission_id" class="coopSubmissionIdField" value="">
+          <div class="form-group">
+            <label class="form-label">Total expected dividend</label>
+            <input type="text" class="form-control" readonly value="UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}">
+          </div>
+          <p style="font-size: 0.9rem; color: var(--text); margin: 0.75rem 0 0.5rem; line-height: 1.5;">
+            Split your dividend across any combination of the above options e.g. 50% cash, 25% shares, 25% savings.
+          </p>
+          <p style="font-size: 0.84rem; color: var(--muted); margin: 0 0 1rem; line-height: 1.45;">
+            Enter amounts in UGX below. Leave blank for 0. All amounts must add up to your full dividend.
+          </p>
+          <div class="coop-split-rows">
+            <div class="form-group coop-split-row">
+              <label class="form-label"><i class="fas fa-money-bill-wave"></i> Cash (MoMo / bank)</label>
+              <input type="number" class="form-control coop-alloc-input" name="alloc_cash" id="allocCash" min="0" step="1" placeholder="0" data-coop-alloc>
+              <small class="form-text text-muted">Paid to your registered MoMo or bank account.</small>
+            </div>
+            <div class="form-group coop-split-row">
+              <label class="form-label"><i class="fas fa-chart-line"></i> MCS cooperative shares</label>
+              <input type="number" class="form-control coop-alloc-input" name="alloc_mcs_shares" id="allocMcsShares" min="0" step="1" placeholder="0" data-coop-alloc>
+              <small class="form-text text-muted" id="allocMcsSharesHint">UGX {{ coop_summary.reinvest_share_price|floatformat:0|intcomma }} per share · <span class="coop-shares-est">0</span> whole shares</small>
+            </div>
+            <div class="form-group coop-split-row">
+              <label class="form-label"><i class="fas fa-graduation-cap"></i> MESU Academy shares</label>
+              <input type="number" class="form-control coop-alloc-input" name="alloc_mesu_shares" id="allocMesuShares" min="0" step="1" placeholder="0" data-coop-alloc>
+              <small class="form-text text-muted" id="allocMesuSharesHint">UGX 1,000,000 per share · <span class="coop-shares-est">0</span> whole shares</small>
+            </div>
+            <div class="form-group coop-split-row">
+              <label class="form-label"><i class="fas fa-piggy-bank"></i> MCS fixed / compulsory deposit (15% p.a.)</label>
+              <input type="number" class="form-control coop-alloc-input" name="alloc_savings" id="allocSavings" min="0" step="1" placeholder="0" data-coop-alloc>
+            </div>
+          </div>
+          <div id="coopSplitSummary" class="info-card" style="margin-top: 1rem; padding: 0.85rem 1rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.9rem;"><span>Allocated</span><strong id="coopAllocatedDisplay">UGX 0</strong></div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-top: 0.35rem;"><span>Remaining</span><strong id="coopRemainingDisplay" style="color: var(--brand);">UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}</strong></div>
+          </div>
+          <div id="coopSplitError" style="display: none; margin-top: 0.75rem; font-size: 0.85rem; color: #dc2626;"></div>
+          <div class="form-group" style="margin-top: 1rem;">
+            <label class="form-label">Notes (optional)</label>
+            <textarea class="form-control" name="coop_notes" rows="2"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeCoopDividendSplitModal()">Cancel</button>
+        <button type="submit" form="coopDividendSplitForm" class="btn btn-primary" id="coopDividendSplitSubmitBtn" disabled>Save allocation</button>
+      </div>
+    </div>
+  </div>
+  {% if coop_edit_payload %}{{ coop_edit_payload|json_script:"coop-pending-edit-data" }}{% endif %}
+  {% endif %}
 
   <!-- Buy MESU Shares Modal -->
   <div id="mesuModal" class="modal">
@@ -3088,6 +3675,180 @@
       document.getElementById('gwcModal').classList.remove('show');
     }
 
+    function openCoopTierInfoModal() {
+      document.getElementById('coopTierInfoModal').classList.add('show');
+    }
+    function closeCoopTierInfoModal() {
+      document.getElementById('coopTierInfoModal').classList.remove('show');
+    }
+    function openCoopDividendInfoModal() {
+      document.getElementById('coopDividendInfoModal').classList.add('show');
+    }
+    function closeCoopDividendInfoModal() {
+      document.getElementById('coopDividendInfoModal').classList.remove('show');
+    }
+    const COOP_DIVIDEND_TOTAL = {{ coop_summary.expected_dividend|default:0 }};
+    const COOP_MCS_SHARE_PRICE = {{ coop_summary.reinvest_share_price|default:1000000 }};
+    const COOP_MESU_SHARE_PRICE = 1000000;
+
+    function coopFormatUgx(n) {
+      const v = Math.max(0, Math.round(Number(n) || 0));
+      return 'UGX ' + v.toLocaleString('en-US');
+    }
+
+    function coopReadAllocInputs() {
+      let sum = 0;
+      document.querySelectorAll('[data-coop-alloc]').forEach(function(el) {
+        sum += Math.max(0, parseInt(el.value, 10) || 0);
+      });
+      return sum;
+    }
+
+    const coopChoiceCopy = {
+      cash: 'Receive your full dividend in cash, credited directly to your registered mobile money number or bank account within 30 days of AGM approval.',
+      mcs_shares: 'Convert dividend into additional MCS Shares at the current price of UGX 1,000,000 per share. Grow your shareholding without any cash outlay.',
+      savings: 'Roll your dividend into a compulsory or fixed deposit account with MCS, earning 15% p.a. interest on top of the reinvested amount.'
+    };
+    const coopChoiceLabels = { cash: 'Cash', mcs_shares: 'More shares', savings: 'MCS Savings' };
+
+    function coopGetPendingEditData() {
+      const el = document.getElementById('coop-pending-edit-data');
+      if (!el || !el.textContent) return null;
+      try {
+        return JSON.parse(el.textContent);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function coopSetSubmissionId(id) {
+      const value = id ? String(id) : '';
+      document.querySelectorAll('.coopSubmissionIdField').forEach(function(field) {
+        field.value = value;
+      });
+    }
+
+    function coopPrefillNotes(notes) {
+      document.querySelectorAll('#coopDividendForm textarea[name="coop_notes"], #coopDividendSplitForm textarea[name="coop_notes"]').forEach(function(ta) {
+        ta.value = notes || '';
+      });
+    }
+
+    function coopApplyEditContext() {
+      const data = coopGetPendingEditData();
+      if (data && data.submission_id) {
+        coopSetSubmissionId(data.submission_id);
+        return data;
+      }
+      coopSetSubmissionId(null);
+      return null;
+    }
+
+    function coopPrefillSplitForm(data) {
+      if (!data) return;
+      const map = {
+        allocCash: data.alloc_cash,
+        allocMcsShares: data.alloc_mcs_shares,
+        allocMesuShares: data.alloc_mesu_shares,
+        allocSavings: data.alloc_savings
+      };
+      Object.keys(map).forEach(function(id) {
+        const input = document.getElementById(id);
+        if (input) input.value = map[id] ? String(map[id]) : '';
+      });
+      coopPrefillNotes(data.notes);
+      coopUpdateSplitTotals();
+    }
+
+    function openCoopDividendChoiceModal(choiceType) {
+      const modal = document.getElementById('coopDividendChoiceModal');
+      if (!modal) return;
+      const editData = coopApplyEditContext();
+      const typeInput = document.getElementById('coopActionType');
+      const desc = document.getElementById('coopChoiceDescription');
+      const submitBtn = document.getElementById('coopDividendSubmitBtn');
+      const title = document.querySelector('#coopDividendChoiceModal .modal-title');
+      if (typeInput) typeInput.value = choiceType;
+      if (desc) desc.innerHTML = '<p style="margin:0;font-size:0.9rem;">' + (coopChoiceCopy[choiceType] || '') + '</p>';
+      if (submitBtn) submitBtn.disabled = !choiceType;
+      if (title) {
+        title.innerHTML = editData
+          ? '<i class="fas fa-landmark"></i> Update dividend choice'
+          : '<i class="fas fa-landmark"></i> Confirm dividend choice';
+      }
+      if (editData) coopPrefillNotes(editData.notes);
+      else coopPrefillNotes('');
+      modal.classList.add('show');
+    }
+    function closeCoopDividendChoiceModal() {
+      const modal = document.getElementById('coopDividendChoiceModal');
+      if (modal) modal.classList.remove('show');
+    }
+
+    function coopUpdateSplitTotals() {
+      const allocated = coopReadAllocInputs();
+      const remaining = COOP_DIVIDEND_TOTAL - allocated;
+      const allocEl = document.getElementById('coopAllocatedDisplay');
+      const remEl = document.getElementById('coopRemainingDisplay');
+      const errEl = document.getElementById('coopSplitError');
+      const submitBtn = document.getElementById('coopDividendSplitSubmitBtn');
+      if (allocEl) allocEl.textContent = coopFormatUgx(allocated);
+      if (remEl) {
+        remEl.textContent = coopFormatUgx(remaining);
+        remEl.style.color = remaining === 0 ? '#16a34a' : (remaining < 0 ? '#dc2626' : 'var(--brand)');
+      }
+      const mcsVal = parseInt(document.getElementById('allocMcsShares')?.value, 10) || 0;
+      const mesuVal = parseInt(document.getElementById('allocMesuShares')?.value, 10) || 0;
+      const mcsHint = document.getElementById('allocMcsSharesHint');
+      const mesuHint = document.getElementById('allocMesuSharesHint');
+      if (mcsHint) {
+        const est = COOP_MCS_SHARE_PRICE > 0 ? Math.floor(mcsVal / COOP_MCS_SHARE_PRICE) : 0;
+        mcsHint.querySelector('.coop-shares-est').textContent = String(est);
+      }
+      if (mesuHint) {
+        const est = Math.floor(mesuVal / COOP_MESU_SHARE_PRICE);
+        mesuHint.querySelector('.coop-shares-est').textContent = String(est);
+      }
+      let errMsg = '';
+      if (allocated === 0) errMsg = 'Enter at least one allocation amount.';
+      else if (remaining < 0) errMsg = 'Total exceeds your dividend by ' + coopFormatUgx(-remaining) + '.';
+      else if (remaining > 0) errMsg = coopFormatUgx(remaining) + ' still unallocated.';
+      if (errEl) {
+        errEl.style.display = errMsg ? 'block' : 'none';
+        errEl.textContent = errMsg;
+      }
+      if (submitBtn) submitBtn.disabled = !(allocated > 0 && remaining === 0);
+    }
+
+    function openCoopDividendEditModal() {
+      coopApplyEditContext();
+      openCoopDividendSplitModal();
+    }
+
+    function openCoopDividendSplitModal() {
+      const modal = document.getElementById('coopDividendSplitModal');
+      if (!modal) return;
+      const editData = coopApplyEditContext();
+      const title = document.querySelector('#coopDividendSplitModal .modal-title');
+      if (editData) {
+        coopPrefillSplitForm(editData);
+        if (title) title.innerHTML = '<i class="fas fa-sliders-h"></i> Update split allocation';
+      } else {
+        document.querySelectorAll('[data-coop-alloc]').forEach(function(el) { el.value = ''; });
+        coopPrefillNotes('');
+        coopUpdateSplitTotals();
+        if (title) title.innerHTML = '<i class="fas fa-sliders-h"></i> Split your dividend';
+      }
+      modal.classList.add('show');
+    }
+    function closeCoopDividendSplitModal() {
+      const modal = document.getElementById('coopDividendSplitModal');
+      if (modal) modal.classList.remove('show');
+    }
+    document.querySelectorAll('[data-coop-alloc]').forEach(function(el) {
+      el.addEventListener('input', coopUpdateSplitTotals);
+    });
+
     function openMESUModal() {
       document.getElementById('mesuModal').classList.add('show');
     }
@@ -3138,6 +3899,10 @@
     window.onclick = function(event) {
       const withdrawModal = document.getElementById('withdrawModal');
       const gwcModal = document.getElementById('gwcModal');
+      const coopTierInfoModal = document.getElementById('coopTierInfoModal');
+      const coopDividendInfoModal = document.getElementById('coopDividendInfoModal');
+      const coopDividendChoiceModal = document.getElementById('coopDividendChoiceModal');
+      const coopDividendSplitModal = document.getElementById('coopDividendSplitModal');
       const mesuModal = document.getElementById('mesuModal');
       const repWithdrawModal = document.getElementById('repWithdrawModal');
       const repTransferGWCModal = document.getElementById('repTransferGWCModal');
@@ -3150,6 +3915,10 @@
       
       if (event.target == withdrawModal) closeWithdrawModal();
       if (event.target == gwcModal) closeGWCModal();
+      if (event.target == coopTierInfoModal) closeCoopTierInfoModal();
+      if (event.target == coopDividendInfoModal) closeCoopDividendInfoModal();
+      if (event.target == coopDividendChoiceModal) closeCoopDividendChoiceModal();
+      if (event.target == coopDividendSplitModal) closeCoopDividendSplitModal();
       if (event.target == mesuModal) closeMESUModal();
       if (event.target == repWithdrawModal) closeRepWithdrawModal();
       if (event.target == repTransferGWCModal) closeRepTransferGWCModal();
@@ -3309,6 +4078,19 @@
           `Your ${label} request has been submitted successfully! Admin will review and process it.`,
           'CGF Action Request Submitted'
         );
+      } else if (action === 'coop_dividend_success') {
+        const type = urlParams.get('type') || '';
+        const labels = { cash: 'Cash', mcs_shares: 'More shares', savings: 'MCS Savings', split: 'Split allocation', updated: 'your allocation' };
+        const label = labels[type] || type;
+        let msg;
+        if (type === 'updated') {
+          msg = 'Your pending dividend allocation has been updated.';
+        } else if (type === 'split') {
+          msg = 'Your dividend split allocation has been submitted. Track each portion under Action Requests.';
+        } else {
+          msg = 'Your cooperative dividend choice (' + label + ') has been submitted.';
+        }
+        showNotification('success', msg, 'Cooperative Dividend Submitted');
       } else if (action === 'rep_request_success') {
         const type = urlParams.get('type') || '';
         const labels = {

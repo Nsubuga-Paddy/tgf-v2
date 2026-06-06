@@ -901,20 +901,7 @@
           <i class="fas fa-chevron-down"></i>
         </button>
         
-        <div class="dropdown" id="userDropdown">
-          <a href="{% url 'profile' %}" class="dropdown-item">
-            <i class="fas fa-user"></i>
-            Profile
-          </a>
-          <a href="#" class="dropdown-item">
-            <i class="fas fa-cog"></i>
-            Settings
-          </a>
-          <a href="{% url 'accounts:logout' %}" class="dropdown-item">
-            <i class="fas fa-sign-out-alt"></i>
-            Logout
-          </a>
-        </div>
+        {% include 'core/includes/user_dropdown.html' %}
       </div>
     </div>
   </header>

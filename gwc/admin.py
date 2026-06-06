@@ -6,12 +6,9 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.contrib import admin, messages
-from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from .models import GWCDepositActivity, GWCFixedDeposit
-
-User = get_user_model()
 
 
 class GWCDepositActivityInline(admin.TabularInline):
@@ -38,6 +35,7 @@ class GWCFixedDepositAdmin(admin.ModelAdmin):
         "status",
     )
     list_filter = ("status", "start_date", "interest_method")
+    autocomplete_fields = ("user",)
     search_fields = (
         "deposit_id",
         "receipt_number",
@@ -56,7 +54,7 @@ class GWCFixedDepositAdmin(admin.ModelAdmin):
             "Member",
             {
                 "fields": ("user",),
-                "description": "Choose the member (full name shown in the dropdown).",
+                "description": "Search by name, username, or account number.",
             },
         ),
         (
@@ -124,21 +122,6 @@ class GWCFixedDepositAdmin(admin.ModelAdmin):
 
     member_display.short_description = "Member"
     member_display.admin_order_field = "user__first_name"
-
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == "user":
-            kwargs["queryset"] = User.objects.order_by(
-                "first_name", "last_name", "username"
-            )
-        formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
-        if db_field.name == "user":
-
-            def label(u):
-                name = u.get_full_name().strip()
-                return f"{name} ({u.get_username()})" if name else u.get_username()
-
-            formfield.label_from_instance = label
-        return formfield
 
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)

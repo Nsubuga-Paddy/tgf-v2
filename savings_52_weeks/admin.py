@@ -26,6 +26,7 @@ class SavingsTransactionAdmin(ExportableAdminMixin, admin.ModelAdmin):
         'transaction_type', 'transaction_date',
         'created_at', 'user_profile__is_verified'
     )
+    autocomplete_fields = ('user_profile',)
     search_fields = (
         'user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name',
         'user_profile__account_number', 'receipt_number'
@@ -175,6 +176,7 @@ class InvestmentAdmin(ExportableAdminMixin, admin.ModelAdmin):
         'investment_type', 'status', 'start_date',
         'created_at', 'user_profile__is_verified'
     )
+    autocomplete_fields = ('user_profile',)
     search_fields = (
         'user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name',
         'user_profile__account_number', 'notes'

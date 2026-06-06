@@ -84,9 +84,16 @@ def signup(request):
             # Set the phone number and save
             profile.whatsapp_number = whatsapp_number
             profile.save()
-            
-            messages.success(request, f"Account created for {user.username}! Your account is now pending verification by an administrator. You will be able to access the dashboard once verified.")
-            return redirect("accounts:login")
+
+            login(request, user)
+            messages.success(
+                request,
+                (
+                    f"Account created for {user.username}! Please tell us which MCS groups "
+                    "you belong to while your account is reviewed by an administrator."
+                ),
+            )
+            return redirect("verification_pending")
     else:
         form = CustomUserCreationForm()
 
