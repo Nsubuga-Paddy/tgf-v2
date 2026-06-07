@@ -13,7 +13,6 @@ from .models import (
     DividendAllocationLine,
     DividendChoiceRequest,
     DividendDisbursement,
-    MESU_SHARE_PRICE,
     ShareAcquisitionLine,
 )
 
@@ -100,7 +99,6 @@ def user_has_cooperative_access(profile) -> bool:
 ALLOCATION_POST_KEYS = {
     DividendAllocationLine.ActionType.CASH: "alloc_cash",
     DividendAllocationLine.ActionType.MCS_SHARES: "alloc_mcs_shares",
-    DividendAllocationLine.ActionType.MESU_SHARES: "alloc_mesu_shares",
     DividendAllocationLine.ActionType.SAVINGS: "alloc_savings",
 }
 
@@ -158,8 +156,6 @@ def _allocation_line_models(
         shares_count = 0
         if action_type == DividendAllocationLine.ActionType.MCS_SHARES:
             shares_count = shares_for_amount(amount, mcs_price)
-        elif action_type == DividendAllocationLine.ActionType.MESU_SHARES:
-            shares_count = shares_for_amount(amount, MESU_SHARE_PRICE)
         line_models.append(
             DividendAllocationLine(
                 submission=submission,
@@ -180,7 +176,6 @@ def build_pending_edit_payload(submission: DividendChoiceRequest) -> dict[str, A
     amounts = {
         DividendAllocationLine.ActionType.CASH: 0,
         DividendAllocationLine.ActionType.MCS_SHARES: 0,
-        DividendAllocationLine.ActionType.MESU_SHARES: 0,
         DividendAllocationLine.ActionType.SAVINGS: 0,
     }
     for line in submission.allocation_lines.all():
@@ -189,7 +184,6 @@ def build_pending_edit_payload(submission: DividendChoiceRequest) -> dict[str, A
         "submission_id": submission.pk,
         "alloc_cash": amounts[DividendAllocationLine.ActionType.CASH],
         "alloc_mcs_shares": amounts[DividendAllocationLine.ActionType.MCS_SHARES],
-        "alloc_mesu_shares": amounts[DividendAllocationLine.ActionType.MESU_SHARES],
         "alloc_savings": amounts[DividendAllocationLine.ActionType.SAVINGS],
         "notes": submission.member_notes or "",
     }
@@ -235,7 +229,6 @@ def _fulfillment_type_for_line(line: DividendAllocationLine) -> str:
     mapping = {
         DividendAllocationLine.ActionType.CASH: DividendDisbursement.FulfillmentType.CASH_PAID,
         DividendAllocationLine.ActionType.MCS_SHARES: DividendDisbursement.FulfillmentType.MCS_REINVEST,
-        DividendAllocationLine.ActionType.MESU_SHARES: DividendDisbursement.FulfillmentType.MESU_REINVEST,
         DividendAllocationLine.ActionType.SAVINGS: DividendDisbursement.FulfillmentType.SAVINGS_DEPOSIT,
     }
     return mapping[line.action_type]
@@ -293,8 +286,8 @@ def build_dividend_account_summary(shareholding: CooperativeShareholding) -> dic
 @transaction.atomic
 def apply_approved_dividend_ledger(submission: DividendChoiceRequest) -> None:
     """
-    Fulfill an approved dividend request: record disbursements for the member,
-    add MCS shares to acquisitions only, and route MESU to MESU records.
+    Fulfill an approved dividend request: record disbursements and add MCS
+    cooperative shares to acquisitions where applicable.
     """
     if submission.ledger_applied_at:
         return
@@ -333,21 +326,6 @@ def apply_approved_dividend_ledger(submission: DividendChoiceRequest) -> None:
                 price_per_share=mcs_price,
                 source_description="Dividend reinvestment — MCS shares",
             )
-        elif line.action_type == DividendAllocationLine.ActionType.MESU_SHARES:
-            from accounts.models import MESUInterest, UserProfile
-
-            profile = UserProfile.objects.filter(user=shareholding.user).first()
-            if profile:
-                MESUInterest.objects.create(
-                    user_profile=profile,
-                    investment_amount=line.amount,
-                    number_of_shares=line.shares_count or 0,
-                    notes=(
-                        f"Cooperative dividend reinvestment (submission #{submission.pk})."
-                    ),
-                    status="approved",
-                )
-
     submission.ledger_applied_at = now
     submission.save(update_fields=["ledger_applied_at"])
 

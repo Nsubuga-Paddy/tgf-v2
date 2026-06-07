@@ -13,7 +13,6 @@ from accounts.models import (
     UserProfile,
     WithdrawalRequest,
     GWCContribution,
-    MESUInterest,
     ProjectAccessRequest,
 )
 from accounts.project_access import (
@@ -179,14 +178,12 @@ class ProfileView(TemplateView):
                 # Pending requests (withheld) - user can see what they've requested
                 context['w52_pending_withdrawals'] = profile.withdrawal_requests.filter(status='pending').order_by('-created_at')
                 context['w52_pending_gwc'] = profile.gwc_contributions.filter(status='pending').order_by('-created_at')
-                context['w52_pending_mesu'] = profile.mesu_interests.filter(status='pending').order_by('-created_at')
             else:
                 context['w52_current_year_saved'] = Decimal('0')
                 context['w52_interest_ytd'] = Decimal('0')
                 context['w52_available_balance'] = Decimal('0')
                 context['w52_pending_withdrawals'] = []
                 context['w52_pending_gwc'] = []
-                context['w52_pending_mesu'] = []
 
             # Goat farming data (Commercial Goat Farming)
             if context['has_cgf']:
@@ -260,22 +257,7 @@ class ProfileView(TemplateView):
                 context['cgf_has_completed_cycles'] = False
                 context['cgf_action_requests'] = []
 
-            # Share holding summary (MESU interests)
-            from django.db.models import Sum
-
-            approved_mesu = profile.mesu_interests.filter(
-                status__in=["approved", "processed"]
-            )
-            context["mesu_interests"] = profile.mesu_interests.all().order_by(
-                "-created_at"
-            )
-            context["mesu_total_shares"] = sum(
-                m.number_of_shares or 0 for m in approved_mesu
-            )
-            mesu_agg = approved_mesu.aggregate(total=Sum("investment_amount"))
-            context["mesu_total_invested"] = mesu_agg["total"] or Decimal("0")
-
-            # Cooperative shareholding (SACCO — separate from MESU Academy)
+            # Cooperative shareholding
             from cooperative_shareholding.models import (
                 CooperativeShareholding,
                 DividendChoiceRequest,
@@ -459,16 +441,6 @@ class ProfileView(TemplateView):
                     'status_display': r.get_status_display(),
                     'created_at': r.created_at,
                 })
-            for r in profile.mesu_interests.all().order_by('-created_at'):
-                all_requests.append({
-                    'project': '52WSC',
-                    'type_label': 'MESU Shares',
-                    'icon': 'fa-graduation-cap',
-                    'detail': f"{r.number_of_shares} share(s) · UGX {r.investment_amount:,.0f}",
-                    'status': r.status,
-                    'status_display': r.get_status_display(),
-                    'created_at': r.created_at,
-                })
             for r in profile.project_access_requests.select_related("project").order_by(
                 "-created_at"
             ):
@@ -528,7 +500,6 @@ class ProfileView(TemplateView):
                 coop_icons = {
                     DividendAllocationLine.ActionType.CASH: "fa-money-bill-wave",
                     DividendAllocationLine.ActionType.MCS_SHARES: "fa-chart-line",
-                    DividendAllocationLine.ActionType.MESU_SHARES: "fa-graduation-cap",
                     DividendAllocationLine.ActionType.SAVINGS: "fa-piggy-bank",
                 }
                 for sub in coop_holding.dividend_choices.prefetch_related(
@@ -572,7 +543,6 @@ class ProfileView(TemplateView):
             context['w52_available_balance'] = Decimal('0')
             context['w52_pending_withdrawals'] = []
             context['w52_pending_gwc'] = []
-            context['w52_pending_mesu'] = []
             context['cgf_total_goats'] = 0
             context['cgf_farms'] = []
             context['cgf_total_invested'] = Decimal('0')
@@ -584,9 +554,6 @@ class ProfileView(TemplateView):
             context['cgf_has_completed_cycles'] = False
             context['cgf_action_requests'] = []
             context['all_action_requests'] = []
-            context['mesu_interests'] = []
-            context['mesu_total_shares'] = 0
-            context['mesu_total_invested'] = Decimal('0')
             context['has_cooperative_access'] = False
             context['show_cooperative_section'] = True
             context['coop_display_state'] = 'no_access'
@@ -629,8 +596,6 @@ class ProfileView(TemplateView):
             return self.handle_withdraw(request)
         elif action == 'join_gwc':
             return self.handle_join_gwc(request)
-        elif action == 'buy_mesu':
-            return self.handle_buy_mesu(request)
         elif action == 'cgf_sell_cash_out':
             return self.handle_cgf_action(request, 'sell_cash_out')
         elif action == 'cgf_take_goats':
@@ -791,48 +756,6 @@ class ProfileView(TemplateView):
         
         return redirect('profile')
     
-    def handle_buy_mesu(self, request):
-        """Handle MESU shares purchase request"""
-        user = request.user
-        profile = user.profile
-
-        bank_guard = self._require_bank_details_for_request(request)
-        if bank_guard:
-            return bank_guard
-        
-        try:
-            mesu_amount = Decimal(request.POST.get('mesu_amount', '0'))
-            total_savings = profile.get_total_savings()
-            
-            if mesu_amount < 1000000:
-                messages.error(request, 'Minimum investment amount is UGX 1,000,000 (1 share).')
-                return redirect('profile')
-            
-            if mesu_amount > total_savings:
-                messages.error(request, 'Insufficient balance. Available: UGX {:,}'.format(int(total_savings)))
-                return redirect('profile')
-            
-            # Calculate number of shares (1 share = 1,000,000 UGX)
-            number_of_shares = int(mesu_amount / Decimal('1000000'))
-            
-            # Create MESU interest record
-            MESUInterest.objects.create(
-                user_profile=profile,
-                investment_amount=mesu_amount,
-                number_of_shares=number_of_shares,
-                notes=request.POST.get('mesu_notes', ''),
-                status='pending'
-            )
-            
-            # Redirect with success parameter for enhanced notification
-            return redirect(f"{reverse('profile')}?action=mesu_success&shares={number_of_shares}&amount={mesu_amount:,.0f}")
-            
-        except (ValueError, TypeError) as e:
-            messages.error(request, 'Invalid investment amount.')
-            return redirect('profile')
-        
-        return redirect('profile')
-
     def handle_cgf_action(self, request, request_type):
         """Handle CGF action request (Sell & Cash Out, Take Goats, Transfer)"""
         user = request.user

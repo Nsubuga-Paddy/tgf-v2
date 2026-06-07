@@ -12,7 +12,6 @@ from .models import (
     AccountNumberCounter,
     WithdrawalRequest,
     GWCContribution,
-    MESUInterest,
     ProjectAccessRequest,
 )
 from core.admin_base import ExportableAdminMixin
@@ -981,41 +980,3 @@ class GWCContributionAdmin(ExportableAdminMixin, admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user_profile__user')
 
-
-@admin.register(MESUInterest)
-class MESUInterestAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ('user_profile', 'investment_amount_display', 'number_of_shares', 'status', 'created_at', 'link_to_profile')
-    list_filter = ('status', 'created_at')
-    list_editable = ('status',)
-    autocomplete_fields = ('user_profile',)
-    search_fields = ('user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name', 'user_profile__account_number')
-    readonly_fields = ('number_of_shares', 'created_at', 'updated_at')
-    date_hierarchy = 'created_at'
-    fieldsets = (
-        ('Investment Details', {
-            'fields': ('user_profile', 'investment_amount', 'number_of_shares', 'notes', 'status'),
-            'description': 'Review the MESU share purchase interest. Update status to approve, reject, or mark as processed.'
-        }),
-        ('Admin Action', {
-            'fields': ('admin_notes', 'processed_at'),
-            'description': 'Add notes and set processed date when the shares have been allocated.'
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
-
-    def investment_amount_display(self, obj):
-        return f"UGX {obj.investment_amount:,.0f}"
-    investment_amount_display.short_description = 'Amount'
-
-    def link_to_profile(self, obj):
-        from django.utils.html import format_html
-        from django.urls import reverse
-        url = reverse('admin:accounts_userprofile_change', args=[obj.user_profile.id])
-        return format_html('<a href="{}">View Profile</a>', url)
-    link_to_profile.short_description = 'User'
-    
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('user_profile__user')

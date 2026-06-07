@@ -16,8 +16,8 @@ class HelpVideo(models.Model):
         GWC = "gwc", "Generational Wealth (GWC)"
         CGF = "cgf", "Commercial Goat Farming"
         COOPERATIVE = "cooperative", "Cooperative Shareholding"
-        REAL_ESTATE = "real_estate", "Real Estate"
         MESU = "mesu", "MESU Academy"
+        REAL_ESTATE = "real_estate", "Real Estate"
         OTHER = "other", "Other"
 
     title = models.CharField(max_length=200)

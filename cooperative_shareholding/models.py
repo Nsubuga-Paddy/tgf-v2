@@ -172,9 +172,6 @@ class ShareAcquisitionLine(models.Model):
         return f"{self.receipt_number or '—'}: {self.shares_held} shares"
 
 
-MESU_SHARE_PRICE = Decimal("1000000")
-
-
 class DividendChoiceRequest(models.Model):
     """One member submission per dividend request (may split across channels)."""
 
@@ -229,7 +226,6 @@ class DividendAllocationLine(models.Model):
     class ActionType(models.TextChoices):
         CASH = "cash", "Cash (MoMo / bank)"
         MCS_SHARES = "mcs_shares", "MCS cooperative shares (UGX 1M/share)"
-        MESU_SHARES = "mesu_shares", "MESU Academy shares (UGX 1M/share)"
         SAVINGS = "savings", "MCS Fixed Savings (7.5% p.a.)"
 
     submission = models.ForeignKey(
@@ -241,7 +237,7 @@ class DividendAllocationLine(models.Model):
     amount = models.DecimalField(max_digits=16, decimal_places=2)
     shares_count = models.PositiveIntegerField(
         default=0,
-        help_text="Whole shares for MCS/MESU reinvestment lines.",
+        help_text="Whole shares for MCS cooperative reinvestment lines.",
     )
 
     class Meta:
@@ -260,7 +256,6 @@ class DividendDisbursement(models.Model):
     class FulfillmentType(models.TextChoices):
         CASH_PAID = "cash_paid", "Cash paid (MoMo / bank)"
         MCS_REINVEST = "mcs_reinvest", "Reinvested in MCS shares"
-        MESU_REINVEST = "mesu_reinvest", "Reinvested in MESU Academy shares"
         SAVINGS_DEPOSIT = "savings_deposit", "Fixed / compulsory deposit"
 
     shareholding = models.ForeignKey(

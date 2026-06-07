@@ -1249,11 +1249,6 @@
       color: var(--info);
     }
 
-    .withheld-item-icon.mesu {
-      background: rgba(139, 92, 246, 0.1);
-      color: #8b5cf6;
-    }
-
     .withheld-item-content {
       flex: 1;
     }
@@ -1363,10 +1358,6 @@
 
     .action-gwc .action-icon {
       background: linear-gradient(135deg, #3b82f6, #2563eb);
-    }
-
-    .action-mesu .action-icon {
-      background: linear-gradient(135deg, #10b981, #059669);
     }
 
     .action-content {
@@ -2406,7 +2397,7 @@
         </div>
         {% endif %}
 
-        <!-- Cooperative Shareholding (brief — SACCO; not MESU; visible to all users) -->
+        <!-- Cooperative Shareholding (visible to all users) -->
         <div class="accordion-section">
           <div class="accordion-header" onclick="toggleAccordion(this)">
             <span class="accordion-header-title"><i class="fas fa-landmark"></i> Cooperative Shareholding</span>
@@ -2435,54 +2426,6 @@
               <p style="color: var(--muted); margin: 0; font-size: 0.9rem;">You have access, but your cooperative share records are not on the system yet. Please contact the office.</p>
               {% else %}
               <p style="color: var(--muted); margin: 0; font-size: 0.9rem;">You have no cooperative shares on record. If you are a shareholder, contact the office to request access and registration.</p>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-
-        <!-- MESU Academy Shares (separate product) -->
-        <div class="accordion-section">
-          <div class="accordion-header" onclick="toggleAccordion(this)">
-            <span class="accordion-header-title"><i class="fas fa-graduation-cap"></i> MESU Academy Shares</span>
-            <i class="fas fa-chevron-down accordion-chevron"></i>
-          </div>
-          <div class="accordion-content">
-            <div class="accordion-body">
-              <p style="font-size: 0.84rem; color: var(--muted); margin: 0 0 0.75rem;">MESU Academy shares (UGX 1,000,000 per share) are separate from cooperative (SACCO) shares.</p>
-              {% if mesu_interests %}
-                <div class="info-row">
-                  <span class="info-label">Total Shares (Approved)</span>
-                  <span class="info-value">{{ mesu_total_shares }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Total Invested</span>
-                  <span class="info-value">UGX {{ mesu_total_invested|floatformat:0|intcomma }}</span>
-                </div>
-                <div style="margin-top: 1rem; font-size: 0.875rem; color: var(--muted);">Holdings by status:</div>
-                <div style="margin-top: 0.5rem; max-height: 200px; overflow-y: auto;">
-                  <table style="width: 100%; font-size: 0.85rem; border-collapse: collapse;">
-                    <thead>
-                      <tr style="border-bottom: 2px solid var(--border);">
-                        <th style="text-align: left; padding: 0.5rem;">Shares</th>
-                        <th style="text-align: right; padding: 0.5rem;">Amount</th>
-                        <th style="text-align: center; padding: 0.5rem;">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for m in mesu_interests %}
-                      <tr style="border-bottom: 1px solid var(--border);">
-                        <td style="padding: 0.5rem;">{{ m.number_of_shares }}</td>
-                        <td style="text-align: right; padding: 0.5rem;">UGX {{ m.investment_amount|floatformat:0|intcomma }}</td>
-                        <td style="text-align: center; padding: 0.5rem;">
-                          <span class="badge {% if m.status == 'approved' %}badge-success{% elif m.status == 'processed' %}badge-info{% else %}badge-warning{% endif %}" style="font-size: 0.75rem;">{{ m.get_status_display }}</span>
-                        </td>
-                      </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
-              {% else %}
-                <p style="color: var(--muted); margin: 0;">No MESU Academy share requests yet.</p>
               {% endif %}
             </div>
           </div>
@@ -2682,7 +2625,7 @@
             </p>
             {% else %}
             <p style="color: var(--muted); margin: 0; font-size: 0.95rem; line-height: 1.5;">
-              <i class="fas fa-info-circle"></i> You have <strong>no cooperative shares</strong> on record. Cooperative shareholding is separate from MESU Academy shares. If you are a shareholder, contact the office to request access and registration.
+              <i class="fas fa-info-circle"></i> You have <strong>no cooperative shares</strong> on record. Cooperative shareholders are also members of MESU Academy. If you are a shareholder, contact the office to request access and registration.
             </p>
             {% endif %}
           </div>
@@ -2710,7 +2653,6 @@
                 <div class="project-actions-compact">
                   <button type="button" class="project-action-btn" onclick="openWithdrawModal()"><i class="fas fa-money-bill-wave"></i> Withdraw</button>
                   <button type="button" class="project-action-btn" onclick="openGWCModal()"><i class="fas fa-users"></i> Join GWC Group</button>
-                  <button type="button" class="project-action-btn" onclick="openMESUModal()"><i class="fas fa-graduation-cap"></i> Buy MESU Shares</button>
                 </div>
               </div>
             </div>
@@ -3133,7 +3075,7 @@
         <button type="button" class="modal-close" onclick="closeCoopTierInfoModal()">&times;</button>
       </div>
       <div class="modal-body">
-        <p style="font-size: 0.9rem; color: var(--muted); margin-bottom: 1rem;">Your category is based on the total cooperative shares you hold (not MESU Academy shares).</p>
+        <p style="font-size: 0.9rem; color: var(--muted); margin-bottom: 1rem;">Your category is based on the total cooperative shares you hold.</p>
         <ul style="margin: 0; padding-left: 1.2rem; line-height: 1.6; font-size: 0.9rem;">
           <li><span aria-hidden="true">🌱</span> <strong>Standard:</strong> 1 – 99 shares</li>
           <li><span aria-hidden="true">⭐</span> <strong>Elite:</strong> 100 – 499 shares</li>
@@ -3176,7 +3118,7 @@
           {% endif %}
         </div>
         <p style="font-size: 0.85rem; color: var(--muted); margin-top: 1rem;">
-          When the election is open, split your dividend across: <strong>cash</strong> (MoMo/bank), <strong>MCS cooperative shares</strong> (UGX 1,000,000 per share — separate from book shares), <strong>MESU Academy shares</strong> (UGX 1,000,000 per share), and/or <strong>MCS Fixed Savings</strong> (7.5% p.a.). You can combine options (e.g. reinvest part in shares and take the rest as cash).
+          When the election is open, split your dividend across: <strong>cash</strong> (MoMo/bank), <strong>more MCS cooperative shares</strong> (at the current reinvestment price), and/or <strong>MCS Fixed Savings</strong> (7.5% p.a.). You can combine options (e.g. reinvest part in shares and take the rest as cash).
         </p>
       </div>
       <div class="modal-footer">
@@ -3253,11 +3195,6 @@
               <small class="form-text text-muted" id="allocMcsSharesHint">UGX {{ coop_summary.reinvest_share_price|floatformat:0|intcomma }} per share · <span class="coop-shares-est">0</span> whole shares</small>
             </div>
             <div class="form-group coop-split-row">
-              <label class="form-label"><i class="fas fa-graduation-cap"></i> MESU Academy shares</label>
-              <input type="number" class="form-control coop-alloc-input" name="alloc_mesu_shares" id="allocMesuShares" min="0" step="1" placeholder="0" data-coop-alloc>
-              <small class="form-text text-muted" id="allocMesuSharesHint">UGX 1,000,000 per share · <span class="coop-shares-est">0</span> whole shares</small>
-            </div>
-            <div class="form-group coop-split-row">
               <label class="form-label"><i class="fas fa-piggy-bank"></i> MCS fixed / compulsory deposit (15% p.a.)</label>
               <input type="number" class="form-control coop-alloc-input" name="alloc_savings" id="allocSavings" min="0" step="1" placeholder="0" data-coop-alloc>
             </div>
@@ -3281,65 +3218,6 @@
   </div>
   {% if coop_edit_payload %}{{ coop_edit_payload|json_script:"coop-pending-edit-data" }}{% endif %}
   {% endif %}
-
-  <!-- Buy MESU Shares Modal -->
-  <div id="mesuModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title">
-          <i class="fas fa-graduation-cap"></i>
-          Buy MESU Academy Shares
-        </h3>
-        <button class="modal-close" onclick="closeMESUModal()">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form id="mesuForm" method="post" action="{% url 'profile' %}">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="buy_mesu">
-          
-            <div class="form-group">
-              <label class="form-label">Available Balance</label>
-              <input type="text" class="form-control" value="UGX {{ user.profile.get_available_balance|default:0|floatformat:0|intcomma }}" readonly>
-              <div class="form-help">Amount available for withdrawal (after deducting pending requests)</div>
-            </div>
-          
-          <div class="form-group">
-            <label class="form-label">Investment Amount (UGX)</label>
-            <input type="number" class="form-control" name="mesu_amount" id="mesuAmount" min="1000000" step="1000000" required placeholder="Enter investment amount (multiples of 1,000,000)">
-            <div class="form-help">Minimum investment: UGX 1,000,000 (1 share). Each share costs UGX 1,000,000</div>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">Number of Shares</label>
-            <input type="number" class="form-control" name="mesu_shares" id="mesuShares" min="1" step="1" placeholder="Will be calculated automatically" readonly>
-            <div class="form-help">Number of shares will be calculated automatically (1 share = UGX 1,000,000)</div>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">Additional Notes (Optional)</label>
-            <textarea class="form-control" name="mesu_notes" rows="3" placeholder="Any additional information or questions"></textarea>
-          </div>
-          
-          <div class="info-card" style="margin-top: 1rem;">
-            <h4 style="color: var(--brand-d); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-              <i class="fas fa-info-circle"></i>
-              About MESU Academy
-            </h4>
-            <p style="color: #9a3412; margin: 0; line-height: 1.6; font-size: 0.9rem;">
-              MESU Academy offers investment opportunities through share purchases. Each share costs UGX 1,000,000. Your investment will be held pending admin approval. Once approved, the amount will be deducted from your savings.
-            </p>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline" onclick="closeMESUModal()">Cancel</button>
-        <button type="submit" form="mesuForm" class="btn btn-primary">
-          <i class="fas fa-graduation-cap"></i>
-          Express Interest
-        </button>
-      </div>
-    </div>
-  </div>
 
   <!-- Real Estate: Withdraw Modal -->
   <div id="repWithdrawModal" class="modal">
@@ -3689,7 +3567,6 @@
     }
     const COOP_DIVIDEND_TOTAL = {{ coop_summary.expected_dividend|default:0 }};
     const COOP_MCS_SHARE_PRICE = {{ coop_summary.reinvest_share_price|default:1000000 }};
-    const COOP_MESU_SHARE_PRICE = 1000000;
 
     function coopFormatUgx(n) {
       const v = Math.max(0, Math.round(Number(n) || 0));
@@ -3749,7 +3626,6 @@
       const map = {
         allocCash: data.alloc_cash,
         allocMcsShares: data.alloc_mcs_shares,
-        allocMesuShares: data.alloc_mesu_shares,
         allocSavings: data.alloc_savings
       };
       Object.keys(map).forEach(function(id) {
@@ -3798,16 +3674,10 @@
         remEl.style.color = remaining === 0 ? '#16a34a' : (remaining < 0 ? '#dc2626' : 'var(--brand)');
       }
       const mcsVal = parseInt(document.getElementById('allocMcsShares')?.value, 10) || 0;
-      const mesuVal = parseInt(document.getElementById('allocMesuShares')?.value, 10) || 0;
       const mcsHint = document.getElementById('allocMcsSharesHint');
-      const mesuHint = document.getElementById('allocMesuSharesHint');
       if (mcsHint) {
         const est = COOP_MCS_SHARE_PRICE > 0 ? Math.floor(mcsVal / COOP_MCS_SHARE_PRICE) : 0;
         mcsHint.querySelector('.coop-shares-est').textContent = String(est);
-      }
-      if (mesuHint) {
-        const est = Math.floor(mesuVal / COOP_MESU_SHARE_PRICE);
-        mesuHint.querySelector('.coop-shares-est').textContent = String(est);
       }
       let errMsg = '';
       if (allocated === 0) errMsg = 'Enter at least one allocation amount.';
@@ -3848,14 +3718,6 @@
     document.querySelectorAll('[data-coop-alloc]').forEach(function(el) {
       el.addEventListener('input', coopUpdateSplitTotals);
     });
-
-    function openMESUModal() {
-      document.getElementById('mesuModal').classList.add('show');
-    }
-
-    function closeMESUModal() {
-      document.getElementById('mesuModal').classList.remove('show');
-    }
 
     function openRepWithdrawModal() {
       document.getElementById('repWithdrawModal').classList.add('show');
@@ -3903,7 +3765,6 @@
       const coopDividendInfoModal = document.getElementById('coopDividendInfoModal');
       const coopDividendChoiceModal = document.getElementById('coopDividendChoiceModal');
       const coopDividendSplitModal = document.getElementById('coopDividendSplitModal');
-      const mesuModal = document.getElementById('mesuModal');
       const repWithdrawModal = document.getElementById('repWithdrawModal');
       const repTransferGWCModal = document.getElementById('repTransferGWCModal');
       const repTransferNamayumbaModal = document.getElementById('repTransferNamayumbaModal');
@@ -3919,7 +3780,6 @@
       if (event.target == coopDividendInfoModal) closeCoopDividendInfoModal();
       if (event.target == coopDividendChoiceModal) closeCoopDividendChoiceModal();
       if (event.target == coopDividendSplitModal) closeCoopDividendSplitModal();
-      if (event.target == mesuModal) closeMESUModal();
       if (event.target == repWithdrawModal) closeRepWithdrawModal();
       if (event.target == repTransferGWCModal) closeRepTransferGWCModal();
       if (event.target == repTransferNamayumbaModal) closeRepTransferNamayumbaModal();
@@ -3930,20 +3790,7 @@
       if (event.target == editBankModal) closeEditBankModal();
     }
 
-    // Calculate MESU shares automatically (1 share = 1,000,000 UGX)
-    // CGF Sell: update cash value when goats count changes
     document.addEventListener('DOMContentLoaded', function() {
-      const mesuAmountInput = document.getElementById('mesuAmount');
-      const mesuSharesInput = document.getElementById('mesuShares');
-      
-      if (mesuAmountInput && mesuSharesInput) {
-        mesuAmountInput.addEventListener('input', function() {
-          const amount = parseFloat(this.value) || 0;
-          const shares = Math.floor(amount / 1000000);
-          mesuSharesInput.value = shares;
-        });
-      }
-
       const cgfGoatsAvailable = {{ cgf_goats_available|default:0 }};
       const cgfGoatPrice = {{ cgf_goat_sell_price|default:400000 }};
       const cgfSellGoatsInput = document.getElementById('cgfSellGoatsCount');
@@ -4062,13 +3909,6 @@
         showNotification('success',
           `Your request to transfer UGX ${amount} to GWC (${type}) has been submitted. Admin will review your request. The amount is withheld until approved.`,
           'Transfer to GWC Requested'
-        );
-      } else if (action === 'mesu_success') {
-        const shares = urlParams.get('shares') || '';
-        const amount = urlParams.get('amount') || '';
-        showNotification('success',
-          `Your interest in MESU shares (${shares} share(s) = UGX ${amount}) has been submitted successfully! Admin will review your request.`,
-          'MESU Investment Interest Submitted'
         );
       } else if (action === 'cgf_request_success') {
         const type = urlParams.get('type') || '';

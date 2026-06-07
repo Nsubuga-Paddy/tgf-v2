@@ -482,7 +482,7 @@ class UserProfile(models.Model):
         This method intentionally ignores withdrawals and GWC deductions.
         Those are applied later in get_available_balance via:
         - Approved/processed withdrawals & GWC contributions
-        - Pending (withheld) withdrawals, GWC, and MESU requests
+        - Pending (withheld) withdrawals and GWC requests
         """
         try:
             from datetime import date
@@ -594,9 +594,6 @@ class UserProfile(models.Model):
         """
         Combined approved/processed withdrawals and GWC contributions.
 
-        NOTE: MESU investments move funds into shares but do not currently
-        reduce the matured savings pot here. If that should change, add a
-        similar helper for MESU and include it in this total.
         """
         return self.get_approved_withdrawal_amount() + self.get_approved_gwc_amount()
 
@@ -622,23 +619,11 @@ class UserProfile(models.Model):
         except Exception:
             return Decimal("0.00")
 
-    def get_pending_mesu_amount(self) -> Decimal:
-        """Get total amount in pending MESU investments"""
-        try:
-            pending_mesu = self.mesu_interests.filter(status='pending')
-            total = pending_mesu.aggregate(
-                total=Coalesce(Sum('investment_amount'), Value(Decimal("0.00"), output_field=DecimalField()))
-            )["total"] or Decimal("0.00")
-            return total
-        except Exception:
-            return Decimal("0.00")
-
     def get_total_withheld_amount(self) -> Decimal:
         """Get total amount withheld in all pending requests"""
         return (
             self.get_pending_withdrawal_amount() +
-            self.get_pending_gwc_amount() +
-            self.get_pending_mesu_amount()
+            self.get_pending_gwc_amount()
         )
 
     def get_available_balance(self) -> Decimal:
@@ -653,7 +638,6 @@ class UserProfile(models.Model):
         - Subtract amounts that are currently withheld in pending requests:
             * Pending withdrawals
             * Pending GWC contributions
-            * Pending MESU investments
 
         This ensures:
         - When a request is first created (pending), the amount is withheld once.
@@ -959,10 +943,10 @@ class GWCContribution(models.Model):
 
 
 # -------------------------------------------------------------------
-# MESU Interest Model
+# MESU Interest Model (deprecated — no longer used in member flows)
 # -------------------------------------------------------------------
 class MESUInterest(models.Model):
-    """Model to track user interest in MESU Academy shares"""
+    """Legacy table; cooperative shareholding is the single shareholder record."""
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('approved', 'Approved'),

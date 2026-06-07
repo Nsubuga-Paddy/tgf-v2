@@ -14,7 +14,7 @@ class Command(BaseCommand):
         Project.objects.get_or_create(
             name=PROJECT_NAME,
             defaults={
-                "description": "MCS Cooperative (SACCO) shareholding — separate from MESU Academy.",
+                "description": "MCS Cooperative shareholding (includes academy membership for shareholders).",
             },
         )
         self.stdout.write(self.style.SUCCESS(f'Project "{PROJECT_NAME}" ready.'))
