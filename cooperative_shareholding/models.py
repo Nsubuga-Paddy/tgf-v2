@@ -3,8 +3,36 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Sum
+
+
+SHARE_QUANTITY_STEP = Decimal("0.5")
+
+
+def validate_share_quantity_step(value) -> None:
+    """Shares must be positive multiples of 0.5 (e.g. 1, 1.5, 2). Zero allowed for empty rows."""
+    if value is None or value == "":
+        return
+    qty = Decimal(value)
+    if qty == 0:
+        return
+    if qty < 0:
+        raise ValidationError("Shares held cannot be negative.")
+    doubled = qty * 2
+    if doubled != doubled.to_integral_value():
+        raise ValidationError(
+            "Shares must be entered in steps of 0.5 (e.g. 1, 1.5, 2, 2.5)."
+        )
+
+
+def format_share_quantity(value) -> str:
+    """Format share count for display (1, 1.5, 100 — no trailing .0)."""
+    qty = Decimal(value or 0).quantize(Decimal("0.1"))
+    if qty == qty.to_integral_value():
+        return str(int(qty))
+    return f"{qty}"
 
 
 class CooperativeGlobalDefaults(models.Model):
@@ -143,13 +171,11 @@ class CooperativeShareholding(models.Model):
         return self.user.get_full_name() or self.user.get_username()
 
     @property
-    def total_shares(self) -> int:
-        return int(
-            self.acquisition_lines.filter(shares_held__gt=0).aggregate(t=Sum("shares_held"))[
-                "t"
-            ]
-            or 0
-        )
+    def total_shares(self) -> Decimal:
+        total = self.acquisition_lines.filter(shares_held__gt=0).aggregate(
+            t=Sum("shares_held")
+        )["t"]
+        return Decimal(total or 0).quantize(Decimal("0.1"))
 
     @property
     def usd_to_ugx_rate(self) -> Decimal:
@@ -166,7 +192,13 @@ class ShareAcquisitionLine(models.Model):
     )
     receipt_number = models.CharField(max_length=64, blank=True)
     acquisition_date = models.DateField(null=True, blank=True)
-    shares_held = models.PositiveIntegerField(default=0)
+    shares_held = models.DecimalField(
+        max_digits=12,
+        decimal_places=1,
+        default=Decimal("0"),
+        validators=[validate_share_quantity_step],
+        help_text="Number of shares in this lot (steps of 0.5 only, e.g. 1, 1.5, 2).",
+    )
     share_amount = models.DecimalField(
         max_digits=16,
         decimal_places=2,
@@ -232,7 +264,18 @@ class ShareAcquisitionLine(models.Model):
             self.current_value_per_share = legacy_value
             self.dividend_eligible = True
 
+    @property
+    def shares_held_display(self) -> str:
+        return format_share_quantity(self.shares_held)
+
+    def clean(self):
+        super().clean()
+        if self.shares_held and Decimal(self.shares_held) > 0:
+            validate_share_quantity_step(self.shares_held)
+
     def save(self, *args, **kwargs):
+        if self.shares_held and Decimal(self.shares_held) > 0:
+            validate_share_quantity_step(self.shares_held)
         self.refresh_valuation()
         super().save(*args, **kwargs)
 

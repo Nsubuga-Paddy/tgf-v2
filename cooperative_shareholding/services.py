@@ -14,6 +14,7 @@ from .models import (
     DividendChoiceRequest,
     DividendDisbursement,
     ShareAcquisitionLine,
+    format_share_quantity,
 )
 
 PROJECT_NAME = "Cooperative Shareholding"
@@ -33,22 +34,23 @@ def get_tier_emoji(tier_name: str) -> str:
 
 
 def get_shareholder_tier(
-    total_shares: int,
+    total_shares: Decimal | int | float,
     current_value_ugx: Decimal,
     usd_to_ugx_rate: Decimal,
     global_defaults: CooperativeGlobalDefaults | None = None,
 ) -> str:
     global_defaults = global_defaults or CooperativeGlobalDefaults.get_solo()
+    shares = Decimal(total_shares or 0)
     blue_ugx = global_defaults.blue_diamond_usd_threshold * usd_to_ugx_rate
     if current_value_ugx >= blue_ugx:
         return "Blue Diamond"
-    if total_shares >= 2000:
+    if shares >= Decimal("2000"):
         return "Diamond"
-    if total_shares >= 1000:
+    if shares >= Decimal("1000"):
         return "Platinum"
-    if total_shares >= 500:
+    if shares >= Decimal("500"):
         return "Gold"
-    if total_shares >= 100:
+    if shares >= Decimal("100"):
         return "Elite"
     return "Standard"
 
@@ -64,15 +66,15 @@ def compute_acquisition_line_valuation(
 
 
 def _summarize_acquisition_lines(lines) -> dict[str, Any]:
-    total_shares = 0
+    total_shares = Decimal("0")
     portfolio_value = Decimal("0")
-    dividend_eligible_shares = 0
+    dividend_eligible_shares = Decimal("0")
     dividend_eligible_value = Decimal("0")
-    new_era_shares = 0
+    new_era_shares = Decimal("0")
     new_era_value = Decimal("0")
 
     for line in lines:
-        shares = int(line.shares_held or 0)
+        shares = Decimal(line.shares_held or 0)
         if shares <= 0:
             continue
         lot_value = line.lot_current_value
@@ -85,12 +87,21 @@ def _summarize_acquisition_lines(lines) -> dict[str, Any]:
             new_era_shares += shares
             new_era_value += lot_value
 
+    total_shares = total_shares.quantize(Decimal("0.1"))
+    dividend_eligible_shares = dividend_eligible_shares.quantize(Decimal("0.1"))
+    new_era_shares = new_era_shares.quantize(Decimal("0.1"))
+
     return {
         "total_shares": total_shares,
+        "total_shares_display": format_share_quantity(total_shares),
         "portfolio_value": portfolio_value,
         "dividend_eligible_shares": dividend_eligible_shares,
+        "dividend_eligible_shares_display": format_share_quantity(
+            dividend_eligible_shares
+        ),
         "dividend_eligible_value": dividend_eligible_value,
         "new_era_shares": new_era_shares,
+        "new_era_shares_display": format_share_quantity(new_era_shares),
         "new_era_value": new_era_value,
     }
 
@@ -115,12 +126,15 @@ def build_shareholding_summary(
     rate_pct = (shareholding.dividend_rate * 100).quantize(Decimal("0.01"))
     return {
         "total_shares": total_shares,
+        "total_shares_display": totals["total_shares_display"],
         "total_historical_amount": total_historical,
         "portfolio_value": portfolio_value,
         "current_share_value": portfolio_value,
         "dividend_eligible_shares": totals["dividend_eligible_shares"],
+        "dividend_eligible_shares_display": totals["dividend_eligible_shares_display"],
         "dividend_eligible_value": dividend_eligible_value,
         "new_era_shares": totals["new_era_shares"],
+        "new_era_shares_display": totals["new_era_shares_display"],
         "new_era_value": totals["new_era_value"],
         "legacy_value_per_share": global_defaults.legacy_dividend_value_per_share,
         "new_share_purchase_price": global_defaults.new_share_purchase_price,
@@ -370,7 +384,7 @@ def apply_approved_dividend_ledger(submission: DividendChoiceRequest) -> None:
                 shareholding=shareholding,
                 receipt_number=f"DIV-{submission.pk}-MCS",
                 acquisition_date=today,
-                shares_held=line.shares_count or 0,
+                shares_held=Decimal(line.shares_count or 0),
                 share_amount=line.amount,
                 price_per_share=mcs_price,
                 source_description="Dividend reinvestment — MCS shares",

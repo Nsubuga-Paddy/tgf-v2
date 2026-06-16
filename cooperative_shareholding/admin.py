@@ -3,7 +3,7 @@ from django.contrib import admin
 from accounts.admin import format_user_autocomplete_label
 from core.admin_base import ExportableAdminMixin
 
-from .models import (
+from cooperative_shareholding.models import (
     CooperativeGlobalDefaults,
     CooperativeIssuancePeriod,
     CooperativeShareholding,
@@ -11,6 +11,7 @@ from .models import (
     DividendChoiceRequest,
     DividendDisbursement,
     ShareAcquisitionLine,
+    format_share_quantity,
 )
 
 
@@ -135,7 +136,7 @@ class CooperativeShareholdingAdmin(ExportableAdminMixin, admin.ModelAdmin):
     member_display.admin_order_field = "user__last_name"
 
     def total_shares_display(self, obj):
-        return obj.total_shares
+        return format_share_quantity(obj.total_shares)
 
     total_shares_display.short_description = "Total shares"
 
