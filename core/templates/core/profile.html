@@ -2415,11 +2415,15 @@
                 <span class="info-value">{{ coop_summary.total_shares|intcomma }}</span>
               </div>
               <div class="info-row">
-                <span class="info-label">Current value</span>
-                <span class="info-value">UGX {{ coop_summary.current_share_value|floatformat:0|intcomma }}</span>
+                <span class="info-label">Portfolio value</span>
+                <span class="info-value">UGX {{ coop_summary.portfolio_value|floatformat:0|intcomma }}</span>
               </div>
               <div class="info-row">
-                <span class="info-label info-label-with-icon">Earned dividend<button type="button" class="coop-info-btn-inline" onclick="openCoopDividendInfoModal()" title="How dividends work" aria-label="How dividends work"><i class="fas fa-circle-info"></i></button></span>
+                <span class="info-label">Eligible for this dividend</span>
+                <span class="info-value">{{ coop_summary.dividend_eligible_shares|intcomma }} share{{ coop_summary.dividend_eligible_shares|pluralize }} · UGX {{ coop_summary.dividend_eligible_value|floatformat:0|intcomma }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label info-label-with-icon">This cycle's dividend<button type="button" class="coop-info-btn-inline" onclick="openCoopDividendInfoModal()" title="How dividends work" aria-label="How dividends work"><i class="fas fa-circle-info"></i></button></span>
                 <span class="info-value">UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}</span>
               </div>
               {% elif coop_display_state == 'pending_setup' %}
@@ -2475,10 +2479,13 @@
             {% if coop_display_state == 'full' and coop_summary %}
             <div class="project-stats-list project-stats-list-orange">
               <div class="project-stat-row"><span class="project-stat-label project-stat-label-with-icon">Shares held:<button type="button" class="coop-info-btn-inline" onclick="openCoopTierInfoModal()" title="Cooperative share categories" aria-label="Cooperative share categories"><i class="fas fa-circle-info"></i></button></span><span class="project-stat-value">{{ coop_summary.total_shares|intcomma }}</span></div>
-              <div class="project-stat-row"><span class="project-stat-label">Current share price:</span><span class="project-stat-value">UGX {{ coop_summary.current_share_price|floatformat:0|intcomma }}</span></div>
-              <div class="project-stat-row"><span class="project-stat-label">Current share value:</span><span class="project-stat-value">UGX {{ coop_summary.current_share_value|floatformat:0|intcomma }}</span></div>
+              <div class="project-stat-row"><span class="project-stat-label">Portfolio value:</span><span class="project-stat-value">UGX {{ coop_summary.portfolio_value|floatformat:0|intcomma }}</span></div>
+              <div class="project-stat-row"><span class="project-stat-label">Eligible for this dividend:</span><span class="project-stat-value">{{ coop_summary.dividend_eligible_shares|intcomma }} share{{ coop_summary.dividend_eligible_shares|pluralize }} · UGX {{ coop_summary.dividend_eligible_value|floatformat:0|intcomma }}</span></div>
+              {% if coop_summary.new_era_shares %}
+              <div class="project-stat-row"><span class="project-stat-label">New shares (UGX {{ coop_summary.new_share_purchase_price|floatformat:0|intcomma }} lots):</span><span class="project-stat-value">{{ coop_summary.new_era_shares|intcomma }} · UGX {{ coop_summary.new_era_value|floatformat:0|intcomma }}</span></div>
+              {% endif %}
               <div class="project-stat-row"><span class="project-stat-label">Dividend rate:</span><span class="project-stat-value">{{ coop_summary.dividend_rate_percent }}%</span></div>
-              <div class="project-stat-row"><span class="project-stat-label project-stat-label-with-icon">Your earned dividend:<button type="button" class="coop-info-btn-inline" onclick="openCoopDividendInfoModal()" title="How dividends work" aria-label="How dividends work"><i class="fas fa-circle-info"></i></button></span><span class="project-stat-value project-stat-value-interest">UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}</span></div>
+              <div class="project-stat-row"><span class="project-stat-label project-stat-label-with-icon">This cycle's dividend:<button type="button" class="coop-info-btn-inline" onclick="openCoopDividendInfoModal()" title="How dividends work" aria-label="How dividends work"><i class="fas fa-circle-info"></i></button></span><span class="project-stat-value project-stat-value-interest">UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}</span></div>
               {% if coop_dividend_account.has_disbursements %}
               <div class="project-stat-row"><span class="project-stat-label">Dividend disbursed:</span><span class="project-stat-value">UGX {{ coop_dividend_account.total_disbursed|floatformat:0|intcomma }}</span></div>
               <div class="project-stat-row"><span class="project-stat-label">Outstanding balance:</span><span class="project-stat-value">UGX {{ coop_dividend_account.outstanding_balance|floatformat:0|intcomma }}</span></div>
@@ -2493,14 +2500,16 @@
             {% if coop_acquisition_lines %}
             <div style="margin-top: 1rem; font-size: 0.875rem; font-weight: 600;">Your share acquisitions</div>
             <div style="margin-top: 0.5rem; overflow-x: auto;">
-              <table style="width: 100%; font-size: 0.85rem; border-collapse: collapse; min-width: 520px;">
+              <table style="width: 100%; font-size: 0.85rem; border-collapse: collapse; min-width: 680px;">
                 <thead>
                   <tr style="border-bottom: 2px solid var(--border);">
                     <th style="text-align: left; padding: 0.5rem;">Receipt no.</th>
                     <th style="text-align: left; padding: 0.5rem;">Acquisition date</th>
                     <th style="text-align: right; padding: 0.5rem;">Shares</th>
-                    <th style="text-align: right; padding: 0.5rem;">Share amount</th>
+                    <th style="text-align: right; padding: 0.5rem;">Paid</th>
                     <th style="text-align: right; padding: 0.5rem;">Price/share</th>
+                    <th style="text-align: right; padding: 0.5rem;">Current value</th>
+                    <th style="text-align: center; padding: 0.5rem;">This dividend</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2511,6 +2520,14 @@
                     <td style="text-align: right; padding: 0.5rem;">{{ line.shares_held|intcomma }}</td>
                     <td style="text-align: right; padding: 0.5rem;">UGX {{ line.share_amount|floatformat:0|intcomma }}</td>
                     <td style="text-align: right; padding: 0.5rem;">{% if line.price_per_share %}UGX {{ line.price_per_share|floatformat:0|intcomma }}{% else %}—{% endif %}</td>
+                    <td style="text-align: right; padding: 0.5rem; font-weight: 600;">UGX {{ line.lot_current_value|floatformat:0|intcomma }}</td>
+                    <td style="text-align: center; padding: 0.5rem;">
+                      {% if line.dividend_eligible %}
+                      <span class="badge badge-success" style="font-size: 0.72rem;">Yes</span>
+                      {% else %}
+                      <span class="badge badge-warning" style="font-size: 0.72rem;" title="New UGX {{ coop_summary.new_share_purchase_price|floatformat:0|intcomma }} purchase — not in this dividend cycle">No</span>
+                      {% endif %}
+                    </td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -3103,18 +3120,23 @@
       </div>
       <div class="modal-body">
         <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 1rem;">
-          <strong>Your dividend</strong> = <strong>current share value</strong> × <strong>dividend rate</strong>
+          <strong>This cycle's dividend</strong> applies only to shares purchased <strong>below UGX {{ coop_summary.new_share_purchase_price|floatformat:0|intcomma }}</strong> per share (valued at UGX {{ coop_summary.legacy_value_per_share|floatformat:0|intcomma }} each). New UGX {{ coop_summary.new_share_purchase_price|floatformat:0|intcomma }} shares are in your portfolio but are not included until a future dividend cycle.
         </p>
         <div style="padding: 1rem; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); font-size: 0.9rem; line-height: 1.55;">
           {% if coop_summary %}
-          <div>Current share value: <strong>UGX {{ coop_summary.current_share_value|floatformat:0|intcomma }}</strong></div>
-          <div>× Dividend rate: <strong>{{ coop_summary.dividend_rate_percent }}%</strong> ({{ coop_summary.dividend_rate }})</div>
+          <div>Eligible share value: <strong>UGX {{ coop_summary.dividend_eligible_value|floatformat:0|intcomma }}</strong> ({{ coop_summary.dividend_eligible_shares|intcomma }} share{{ coop_summary.dividend_eligible_shares|pluralize }})</div>
+          <div>× Dividend rate: <strong>{{ coop_summary.dividend_rate_percent }}%</strong></div>
           <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);">
-            = Expected dividend: <strong style="color: var(--brand);">UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}</strong>
+            = This cycle's dividend: <strong style="color: var(--brand);">UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}</strong>
           </div>
+          {% if coop_summary.new_era_shares %}
+          <div style="margin-top: 0.75rem; font-size: 0.84rem; color: var(--muted);">
+            Portfolio total (all lots): UGX {{ coop_summary.portfolio_value|floatformat:0|intcomma }} — includes {{ coop_summary.new_era_shares|intcomma }} new-era share{{ coop_summary.new_era_shares|pluralize }} (UGX {{ coop_summary.new_era_value|floatformat:0|intcomma }}) not in this dividend.
+          </div>
+          {% endif %}
           {% else %}
-          <div>Current share value = shares held × current cooperative share price</div>
-          <div>Expected dividend = current share value × dividend rate (e.g. 26% = 0.26)</div>
+          <div>Dividend = eligible share value × dividend rate</div>
+          <div>Only legacy lots (below UGX 1,000,000 purchase price) count for the current cycle.</div>
           {% endif %}
         </div>
         <p style="font-size: 0.85rem; color: var(--muted); margin-top: 1rem;">

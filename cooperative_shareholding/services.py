@@ -53,28 +53,77 @@ def get_shareholder_tier(
     return "Standard"
 
 
+def compute_acquisition_line_valuation(
+    line: ShareAcquisitionLine,
+    global_defaults: CooperativeGlobalDefaults | None = None,
+) -> tuple[Decimal, bool]:
+    """Return (current_value_per_share, dividend_eligible) for one acquisition lot."""
+    defaults = global_defaults or CooperativeGlobalDefaults.get_solo()
+    line.refresh_valuation(defaults)
+    return line.current_value_per_share, line.dividend_eligible
+
+
+def _summarize_acquisition_lines(lines) -> dict[str, Any]:
+    total_shares = 0
+    portfolio_value = Decimal("0")
+    dividend_eligible_shares = 0
+    dividend_eligible_value = Decimal("0")
+    new_era_shares = 0
+    new_era_value = Decimal("0")
+
+    for line in lines:
+        shares = int(line.shares_held or 0)
+        if shares <= 0:
+            continue
+        lot_value = line.lot_current_value
+        total_shares += shares
+        portfolio_value += lot_value
+        if line.dividend_eligible:
+            dividend_eligible_shares += shares
+            dividend_eligible_value += lot_value
+        else:
+            new_era_shares += shares
+            new_era_value += lot_value
+
+    return {
+        "total_shares": total_shares,
+        "portfolio_value": portfolio_value,
+        "dividend_eligible_shares": dividend_eligible_shares,
+        "dividend_eligible_value": dividend_eligible_value,
+        "new_era_shares": new_era_shares,
+        "new_era_value": new_era_value,
+    }
+
+
 def build_shareholding_summary(
     shareholding: CooperativeShareholding,
 ) -> dict[str, Any]:
     global_defaults = CooperativeGlobalDefaults.get_solo()
-    lines = shareholding.acquisition_lines.filter(shares_held__gt=0)
-    total_shares = int(lines.aggregate(t=Sum("shares_held"))["t"] or 0)
-    total_historical = lines.aggregate(t=Sum("share_amount"))["t"] or Decimal("0")
-    current_share_price = shareholding.current_share_price
-    current_share_value = Decimal(total_shares) * current_share_price
+    lines = list(shareholding.acquisition_lines.filter(shares_held__gt=0))
+    totals = _summarize_acquisition_lines(lines)
+    total_shares = totals["total_shares"]
+    portfolio_value = totals["portfolio_value"]
+    dividend_eligible_value = totals["dividend_eligible_value"]
+    total_historical = sum((line.share_amount or Decimal("0") for line in lines), Decimal("0"))
     usd_rate = shareholding.usd_to_ugx_rate
     tier = get_shareholder_tier(
-        total_shares, current_share_value, usd_rate, global_defaults
+        total_shares, portfolio_value, usd_rate, global_defaults
     )
     expected_dividend = (
-        current_share_value * shareholding.dividend_rate
+        dividend_eligible_value * shareholding.dividend_rate
     ).quantize(Decimal("1"))
     rate_pct = (shareholding.dividend_rate * 100).quantize(Decimal("0.01"))
     return {
         "total_shares": total_shares,
         "total_historical_amount": total_historical,
-        "current_share_price": current_share_price,
-        "current_share_value": current_share_value,
+        "portfolio_value": portfolio_value,
+        "current_share_value": portfolio_value,
+        "dividend_eligible_shares": totals["dividend_eligible_shares"],
+        "dividend_eligible_value": dividend_eligible_value,
+        "new_era_shares": totals["new_era_shares"],
+        "new_era_value": totals["new_era_value"],
+        "legacy_value_per_share": global_defaults.legacy_dividend_value_per_share,
+        "new_share_purchase_price": global_defaults.new_share_purchase_price,
         "dividend_rate": shareholding.dividend_rate,
         "dividend_rate_percent": rate_pct,
         "expected_dividend": expected_dividend,
@@ -317,7 +366,7 @@ def apply_approved_dividend_ledger(submission: DividendChoiceRequest) -> None:
         )
 
         if line.action_type == DividendAllocationLine.ActionType.MCS_SHARES:
-            ShareAcquisitionLine.objects.create(
+            acquisition = ShareAcquisitionLine(
                 shareholding=shareholding,
                 receipt_number=f"DIV-{submission.pk}-MCS",
                 acquisition_date=today,
@@ -326,6 +375,7 @@ def apply_approved_dividend_ledger(submission: DividendChoiceRequest) -> None:
                 price_per_share=mcs_price,
                 source_description="Dividend reinvestment — MCS shares",
             )
+            acquisition.save()
     submission.ledger_applied_at = now
     submission.save(update_fields=["ledger_applied_at"])
 

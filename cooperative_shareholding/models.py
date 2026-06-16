@@ -16,6 +16,24 @@ class CooperativeGlobalDefaults(models.Model):
         default=Decimal("1000000"),
         help_text="Price per share when reinvesting dividends (separate from cooperative book).",
     )
+    legacy_dividend_value_per_share = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("100000"),
+        help_text=(
+            "Current value per share for lots purchased below the new-share price "
+            "(e.g. UGX 100,000 as at 31 Dec 2025). Used for dividend calculation."
+        ),
+    )
+    new_share_purchase_price = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("1000000"),
+        help_text=(
+            "Purchase price per share at or above this amount marks a new-era lot: "
+            "valued at purchase price and not eligible for the legacy dividend cycle."
+        ),
+    )
     blue_diamond_usd_threshold = models.DecimalField(
         max_digits=14,
         decimal_places=2,
@@ -90,7 +108,10 @@ class CooperativeShareholding(models.Model):
         max_digits=14,
         decimal_places=2,
         default=Decimal("100000"),
-        help_text="Current cooperative share price in UGX for this member.",
+        help_text=(
+            "Legacy field — per-lot values on acquisition lines drive portfolio and "
+            "dividend totals. Kept for admin reference only."
+        ),
     )
     dividend_rate = models.DecimalField(
         max_digits=7,
@@ -162,6 +183,19 @@ class ShareAcquisitionLine(models.Model):
         blank=True,
         help_text="e.g. dividend reinvestment choice, manual purchase.",
     )
+    current_value_per_share = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0"),
+        help_text="Current value of one share in this lot (auto-calculated from purchase price).",
+    )
+    dividend_eligible = models.BooleanField(
+        default=True,
+        help_text=(
+            "Whether this lot is included in the current legacy dividend cycle. "
+            "Lots purchased at the new-share price are excluded until a future cycle."
+        ),
+    )
 
     class Meta:
         ordering = ["-acquisition_date", "-pk"]
@@ -170,6 +204,37 @@ class ShareAcquisitionLine(models.Model):
 
     def __str__(self) -> str:
         return f"{self.receipt_number or '—'}: {self.shares_held} shares"
+
+    def effective_purchase_price_per_share(self) -> Decimal:
+        if self.price_per_share and self.price_per_share > 0:
+            return self.price_per_share
+        if self.shares_held and self.share_amount:
+            return (self.share_amount / Decimal(self.shares_held)).quantize(Decimal("1"))
+        return Decimal("0")
+
+    @property
+    def lot_current_value(self) -> Decimal:
+        return Decimal(self.shares_held or 0) * (self.current_value_per_share or Decimal("0"))
+
+    def refresh_valuation(self, global_defaults: CooperativeGlobalDefaults | None = None) -> None:
+        defaults = global_defaults or CooperativeGlobalDefaults.get_solo()
+        purchase_price = self.effective_purchase_price_per_share()
+        new_price = defaults.new_share_purchase_price
+        legacy_value = defaults.legacy_dividend_value_per_share
+
+        if purchase_price >= new_price:
+            self.current_value_per_share = purchase_price
+            self.dividend_eligible = False
+        elif purchase_price > 0:
+            self.current_value_per_share = legacy_value
+            self.dividend_eligible = True
+        else:
+            self.current_value_per_share = legacy_value
+            self.dividend_eligible = True
+
+    def save(self, *args, **kwargs):
+        self.refresh_valuation()
+        super().save(*args, **kwargs)
 
 
 class DividendChoiceRequest(models.Model):

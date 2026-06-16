@@ -51,8 +51,11 @@ class ShareAcquisitionLineInline(admin.TabularInline):
         "shares_held",
         "share_amount",
         "price_per_share",
+        "current_value_per_share",
+        "dividend_eligible",
         "source_description",
     )
+    readonly_fields = ("current_value_per_share", "dividend_eligible")
 
 
 @admin.register(CooperativeIssuancePeriod)
@@ -65,6 +68,8 @@ class CooperativeIssuancePeriodAdmin(admin.ModelAdmin):
 @admin.register(CooperativeGlobalDefaults)
 class CooperativeGlobalDefaultsAdmin(admin.ModelAdmin):
     list_display = (
+        "legacy_dividend_value_per_share",
+        "new_share_purchase_price",
         "reinvest_share_price",
         "blue_diamond_usd_threshold",
         "updated_at",
@@ -115,7 +120,8 @@ class CooperativeShareholdingAdmin(ExportableAdminMixin, admin.ModelAdmin):
                     "issuance_period",
                 ),
                 "description": (
-                    "Current share price and dividend rate apply to this member. "
+                    "Dividend rate and election apply to this member. Portfolio and dividend "
+                    "amounts are calculated per acquisition line (purchase price). "
                     "Issuance period supplies the USD→UGX rate for Blue Diamond tier."
                 ),
             },
