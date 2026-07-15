@@ -264,17 +264,19 @@ class ProjectAccessRequestAdmin(admin.ModelAdmin):
 class UserProfileAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = (
         'user',
-        'account_number',
+        'get_full_name',
+        'get_email',
         'whatsapp_number',
+        'account_number',
         'get_bank_info',
+        'get_projects',
         'is_verified',
         'is_admin',
-        'get_projects',
         'get_pending_project_requests_count',
         'created_at',
     )
     list_filter = ('is_verified', 'is_admin', UserProfileProjectAccessListFilter, 'created_at', 'bank_name')
-    search_fields = ('user__username', 'user__first_name', 'user__last_name', 'account_number', 'whatsapp_number', 'bank_name', 'bank_account_number', 'bank_account_name')
+    search_fields = ('user__username', 'user__first_name', 'user__last_name', 'user__email', 'account_number', 'whatsapp_number', 'bank_name', 'bank_account_number', 'bank_account_name')
     readonly_fields = ('account_number', 'created_at', 'updated_at')
     autocomplete_fields = ('user',)
     filter_horizontal = ('projects',)
@@ -304,13 +306,24 @@ class UserProfileAdmin(ExportableAdminMixin, admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user').prefetch_related('projects')
     
+    def get_full_name(self, obj):
+        """Member's full name from the linked User record."""
+        return obj.user.get_full_name() or '—'
+    get_full_name.short_description = 'Full Name'
+    get_full_name.admin_order_field = 'user__last_name'
+
+    def get_email(self, obj):
+        return obj.user.email or '—'
+    get_email.short_description = 'Email'
+    get_email.admin_order_field = 'user__email'
+
     def get_projects(self, obj):
         """Display projects as a comma-separated list"""
         projects = obj.projects.all()
         if projects:
             return ', '.join([project.name for project in projects])
         return 'No projects'
-    get_projects.short_description = 'Projects'
+    get_projects.short_description = 'Groups / Projects'
 
     def get_pending_project_requests_count(self, obj):
         pending = obj.project_access_requests.filter(
@@ -321,9 +334,12 @@ class UserProfileAdmin(ExportableAdminMixin, admin.ModelAdmin):
     get_pending_project_requests_count.short_description = "Pending group requests"
     
     def get_bank_info(self, obj):
-        """Display bank account information"""
+        """Display bank account information (bank, number, account name)"""
         if obj.bank_name and obj.bank_account_number:
-            return f"{obj.bank_name} - {obj.bank_account_number}"
+            parts = f"{obj.bank_name} - {obj.bank_account_number}"
+            if obj.bank_account_name:
+                parts += f" ({obj.bank_account_name})"
+            return parts
         return 'Not provided'
     get_bank_info.short_description = 'Bank Account'
     
