@@ -1,13 +1,10 @@
 # Railway / Nixpacks: Python API + build React into Django static files.
+# Use the Node provider for npm (do not also add nodejs_20 in nixPkgs — that conflicts).
 providers = ["python", "node"]
 
 [variables]
 NIXPACKS_NODE_VERSION = "20"
 NPM_CONFIG_PRODUCTION = "false"
-
-[phases.setup]
-# "..." keeps the Python provider packages; nodejs_20 adds npm for the SPA build.
-nixPkgs = ["...", "nodejs_20"]
 
 [phases.build]
 cmds = [
