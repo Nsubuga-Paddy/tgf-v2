@@ -1,0 +1,16 @@
+# Railway / Nixpacks: Python API + build React into Django static files.
+# Python deps still come from requirements.txt via the Python provider.
+providers = ["python"]
+
+[variables]
+NIXPACKS_NODE_VERSION = "20"
+NPM_CONFIG_PRODUCTION = "false"
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.build]
+cmds = [
+  "npm ci --prefix front-end",
+  "npm run build:django --prefix front-end",
+]

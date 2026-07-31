@@ -1,0 +1,162 @@
+:root {
+    --primary: #ff6b00;
+    --primary-light: #ffd699;
+    --primary-dark: #cc5500;
+    --success: #28a745;
+    --warning: #ffc107;
+    --danger: #dc3545;
+    --info: #17a2b8;
+    --gray-100: #f8f9fa;
+    --gray-200: #e9ecef;
+    --gray-300: #dee2e6;
+    --gray-400: #ced4da;
+    --gray-500: #adb5bd;
+    --gray-600: #6c757d;
+    --gray-700: #495057;
+    --gray-800: #343a40;
+    --gray-900: #212529;
+}
+
+/* Card Styles */
+.fixed-savings-card {
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+    background-color: white;
+}
+
+.fixed-savings-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Table Styles */
+.fixed-savings-table {
+    width: 100%;
+    margin-bottom: 1rem;
+    color: var(--gray-800);
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.fixed-savings-table th {
+    background-color: var(--gray-100);
+    font-weight: 600;
+    padding: 1rem;
+    border-bottom: 2px solid var(--gray-300);
+}
+
+.fixed-savings-table td {
+    padding: 1rem;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.fixed-savings-table tbody tr:hover {
+    background-color: var(--gray-100);
+}
+
+/* Badge Styles */
+.status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+/* Progress Bar */
+.progress {
+    height: 8px;
+    border-radius: 4px;
+    background-color: var(--gray-200);
+}
+
+.progress-bar {
+    background-color: var(--primary);
+}
+
+/* Collapse Styles */
+.deposit-details {
+    background-color: var(--gray-100);
+    border-radius: 0 0 15px 15px;
+    padding: 1.5rem;
+    margin-top: -1px;
+}
+
+.deposit-details .row {
+    margin-bottom: 1rem;
+}
+
+/* Action Buttons */
+.action-btn {
+    padding: 0.5rem;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    transform: scale(1.1);
+}
+
+/* Chart Container */
+.maturity-chart {
+    height: 100px;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: white;
+    border-radius: 15px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .status-badge {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    .fixed-savings-table th,
+    .fixed-savings-table td {
+        padding: 0.75rem;
+    }
+
+    .action-btn {
+        width: 28px;
+        height: 28px;
+    }
+}
+
+/* Accessibility */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Focus Styles */
+:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* Print Styles */
+@media print {
+    .fixed-savings-card {
+        box-shadow: none;
+        border: 1px solid var(--gray-300);
+    }
+
+    .action-btn {
+        display: none;
+    }
+} 

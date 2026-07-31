@@ -352,6 +352,71 @@ class UserProfileAdmin(ExportableAdminMixin, admin.ModelAdmin):
             form.base_fields['projects'].widget.can_delete_related = False
         return form
     
+    def credit_main_account_action(self, request, queryset):
+        """Intermediate admin action: credit ONE selected member's main account."""
+        from decimal import Decimal, InvalidOperation
+
+        from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+        from django.shortcuts import redirect
+        from django.template.response import TemplateResponse
+
+        from main_account.services import credit_member, posted_balance
+
+        if queryset.count() != 1:
+            self.message_user(
+                request,
+                "Select exactly one member to credit their main account.",
+                level=messages.ERROR,
+            )
+            return None
+
+        profile = queryset.select_related("user").first()
+
+        if "apply" in request.POST:
+            raw_amount = (request.POST.get("amount") or "").strip()
+            source_label = (request.POST.get("source_label") or "").strip()
+            description = (request.POST.get("description") or "").strip()
+            try:
+                amount = Decimal(raw_amount)
+            except (InvalidOperation, ValueError):
+                self.message_user(request, "Enter a valid credit amount.", level=messages.ERROR)
+                return None
+            try:
+                tx = credit_member(
+                    profile,
+                    amount,
+                    source_label=source_label or "Admin credit",
+                    description=description,
+                    created_by=request.user,
+                )
+            except ValueError as exc:
+                self.message_user(request, str(exc), level=messages.ERROR)
+                return None
+            self.message_user(
+                request,
+                f"Credited UGX {tx.amount:,.0f} to {profile}. "
+                f"New main account balance: UGX {tx.balance_after:,.0f}.",
+                level=messages.SUCCESS,
+            )
+            return redirect(request.get_full_path())
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Credit main account",
+            "profile": profile,
+            "queryset": queryset,
+            "current_balance": posted_balance(profile),
+            "action_checkbox_name": ACTION_CHECKBOX_NAME,
+            "opts": self.model._meta,
+        }
+        return TemplateResponse(
+            request,
+            "admin/accounts/credit_main_account.html",
+            context,
+        )
+
+    credit_main_account_action.short_description = "Credit selected member's main account…"
+
     def get_actions(self, request):
         """Add custom export actions for 52WSC users"""
         actions = super().get_actions(request)
@@ -383,6 +448,18 @@ class UserProfileAdmin(ExportableAdminMixin, admin.ModelAdmin):
             export_52wsc_pdf_wrapper,
             'export_52wsc_users_pdf',
             export_52wsc_pdf_wrapper.short_description
+        )
+
+        def credit_main_account_wrapper(modeladmin, request, queryset):
+            return self.credit_main_account_action(request, queryset)
+
+        credit_main_account_wrapper.short_description = (
+            self.credit_main_account_action.short_description
+        )
+        actions["credit_main_account_action"] = (
+            credit_main_account_wrapper,
+            "credit_main_account_action",
+            credit_main_account_wrapper.short_description,
         )
         
         return actions

@@ -79,6 +79,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',
 
     #our apps
     
@@ -91,6 +93,7 @@ INSTALLED_APPS = [
     'fixed_savings',
     'cooperative_shareholding',
     'help_center',
+    'main_account',
 ]
 
 MIDDLEWARE = [
@@ -173,6 +176,10 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'core' / 'static',
 ]
+# Vite production build (npm run build:django) lands in core/static/frontend/
+# and is served at /static/frontend/... on the same origin as /api/.
+FRONTEND_DIST_DIR = BASE_DIR / 'core' / 'static' / 'frontend'
+FRONTEND_DIST_DIR.mkdir(parents=True, exist_ok=True)
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # WhiteNoise storage (hashed filenames + gzip/brotli)
@@ -187,6 +194,21 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+}
+
+SIMPLE_JWT = {
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
+}
+
 # Authentication Settings
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'landing'
@@ -194,6 +216,12 @@ LOGOUT_REDIRECT_URL = 'accounts:login'
 
 # Public base URL for links in outbound email (e.g. https://portal.mcsug.org or http://10.x.x.x:8000 for LAN testing)
 SITE_URL = config("SITE_URL", default="").strip().rstrip("/")
+# React member app origin used in password-reset emails.
+# When Django serves the SPA, this is the same host as the API (e.g. http://127.0.0.1:8000).
+FRONTEND_BASE_URL = config(
+    "FRONTEND_BASE_URL",
+    default=SITE_URL or "http://127.0.0.1:8000",
+).strip().rstrip("/")
 
 # Email: canonical sender is mcsug.org (cPanel mailbox). Set EMAIL_* in .env / Railway.
 # SMTP hostname is provider-specific (cPanel often mail.mcsug.org; override EMAIL_HOST if needed).

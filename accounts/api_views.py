@@ -33,15 +33,20 @@ class MobileSignupView(APIView):
         serializer = MobileSignupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        # Match web signup: log the member in immediately, then send them to
+        # verification-pending (JWT so the React app can call authenticated APIs).
+        refresh = MobileTokenObtainPairSerializer.get_token(user)
         return Response(
             {
                 "message": (
-                    "Account created successfully. Your account is pending "
-                    "verification by an administrator. Verifying and updating "
-                    "your account may take up to 24hrs. If not, contact support."
+                    f"Account created for {user.username}! Please tell us which MCS "
+                    "groups you belong to while your account is reviewed by an "
+                    "administrator."
                 ),
                 "support_whatsapp_url": "https://wa.me/256755142271",
                 "support_phone": "+256755142271",
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
                 "user": {
                     "username": user.username,
                     "email": user.email or "",
@@ -77,6 +82,8 @@ class MobilePasswordResetRequestView(APIView):
 
         token = default_token_generator.make_token(user)
         uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+        frontend = getattr(settings, "FRONTEND_BASE_URL", "").rstrip("/")
+        reset_url = f"{frontend}/reset/{uidb64}/{token}" if frontend else ""
         message = render_to_string(
             "core/password_reset_email.html",
             {
@@ -85,6 +92,7 @@ class MobilePasswordResetRequestView(APIView):
                 "domain": request.get_host(),
                 "uid": uidb64,
                 "token": token,
+                "reset_url": reset_url,
             },
             request=request,
         )

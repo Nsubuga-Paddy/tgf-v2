@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<!--
+  MCS Member Portal — Dashboard mockup (frontend only, mocked data)
+  Standalone file: open directly in a browser to preview.
+  Later this converts to a Django template (core/templates/core/dashboard.html)
+  by replacing the hardcoded mock values with {{ context }} variables.
+
+  Demo controls (bottom-right) let you preview member states:
+    - Verified / Unverified   (unverified hides balances)
+    - Shareholder / Not a shareholder
+    - Mobile frame preview
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCS Member Portal — Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    :root {
+      --brand: #ff6b00;
+      --brand-d: #e05f00;
+      --brand-l: #fff3e6;
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --success: #16a34a;
+      --success-bg: #dcfce7;
+      --warning: #f59e0b;
+      --warning-bg: #fef3c7;
+      --info: #0ea5e9;
+      --info-bg: #e0f2fe;
+      --danger: #dc2626;
+      --danger-bg: #fee2e2;
+      --equity: #7c3aed;
+      --equity-bg: #f3e8ff;
+      --border: #e5e7eb;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+      --shadow: 0 6px 20px rgba(0,0,0,.07);
+      --shadow-lg: 0 18px 40px rgba(0,0,0,.12);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --radius-xs: 9px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; cursor: pointer; }
+
+    /* ============ HEADER ============ */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 900;
+      background: var(--brand);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(224,95,0,.25);
+    }
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .logo { display: flex; align-items: center; gap: 0.65rem; font-weight: 800; }
+    .logo-img { height: 42px; width: auto; display: block; background: #fff; border-radius: 10px; padding: 3px 6px; }
+    .logo-mark {
+      width: 40px; height: 40px; border-radius: 11px;
+      background: #fff; color: var(--brand);
+      display: grid; place-items: center;
+      font-size: 1.05rem; font-weight: 900; letter-spacing: -0.5px;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.4);
+    }
+    .logo-text { line-height: 1.1; }
+    .logo-text b { display: block; font-size: 1.15rem; font-weight: 800; }
+    .logo-text span { font-size: 0.7rem; font-weight: 500; opacity: 0.85; }
+
+    .header-actions { display: flex; align-items: center; gap: 0.4rem; }
+    .header-util {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      padding: 0.5rem 0.8rem; border-radius: 10px;
+      background: rgba(255,255,255,.14); color: #fff;
+      font-size: 0.85rem; font-weight: 600;
+      border: 1px solid rgba(255,255,255,.18);
+      transition: background .18s ease;
+    }
+    .header-util:hover { background: rgba(255,255,255,.26); }
+    .header-icon-btn {
+      position: relative;
+      width: 40px; height: 40px; border-radius: 10px;
+      background: rgba(255,255,255,.14); color: #fff;
+      border: 1px solid rgba(255,255,255,.18);
+      display: grid; place-items: center; font-size: 0.95rem;
+      transition: background .18s ease;
+    }
+    .header-icon-btn:hover { background: rgba(255,255,255,.26); }
+    .notif-dot {
+      position: absolute; top: 7px; right: 8px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #fde047; border: 2px solid var(--brand);
+    }
+    .user-btn {
+      display: flex; align-items: center; gap: 0.55rem;
+      padding: 0.4rem 0.7rem 0.4rem 0.4rem; border-radius: 30px;
+      background: rgba(255,255,255,.16); color: #fff;
+      border: 1px solid rgba(255,255,255,.2);
+      font-weight: 600; font-size: 0.88rem;
+    }
+    .user-btn:hover { background: rgba(255,255,255,.28); }
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #fff; color: var(--brand);
+      display: grid; place-items: center; font-weight: 800; font-size: 0.82rem;
+    }
+    .user-btn .caret { font-size: 0.7rem; opacity: 0.8; transition: transform .18s ease; }
+    .util-label { display: inline; }
+
+    /* User dropdown */
+    .user-menu { position: relative; }
+    .user-dropdown {
+      position: absolute; top: calc(100% + 0.55rem); right: 0;
+      background: #fff; color: var(--text); border: 1px solid var(--border);
+      border-radius: 14px; box-shadow: var(--shadow-lg); min-width: 240px;
+      opacity: 0; visibility: hidden; transform: translateY(-8px);
+      transition: all .18s ease; overflow: hidden; z-index: 950;
+    }
+    .user-dropdown.show { opacity: 1; visibility: visible; transform: translateY(0); }
+    .user-menu.open .caret { transform: rotate(180deg); }
+    .ud-head { display: flex; align-items: center; gap: 0.7rem; padding: 1rem 1.1rem; background: var(--bg); border-bottom: 1px solid var(--border); }
+    .ud-head b { font-size: 0.9rem; font-weight: 800; display: block; }
+    .ud-head span { font-size: 0.75rem; color: var(--muted); }
+    .ud-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 1.1rem; font-size: 0.87rem; font-weight: 500; color: var(--text); transition: background .15s ease; }
+    .ud-item i { width: 18px; text-align: center; color: var(--muted); }
+    .ud-item:hover { background: var(--brand-l); color: var(--brand); }
+    .ud-item:hover i { color: var(--brand); }
+    .ud-item.danger { color: var(--danger); }
+    .ud-item.danger i { color: var(--danger); }
+    .ud-item.danger:hover { background: var(--danger-bg); }
+    .ud-divider { height: 1px; background: var(--border); margin: 0.25rem 0; }
+
+    /* ============ LAYOUT ============ */
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+
+    .section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; margin: 2rem 0 1rem;
+    }
+    .section-head:first-child { margin-top: 0; }
+    .section-title {
+      font-size: 1.15rem; font-weight: 800; letter-spacing: -0.3px;
+      display: flex; align-items: center; gap: 0.55rem;
+    }
+    .section-title i { color: var(--brand); }
+    .section-sub { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+
+    /* ============ VERIFICATION BANNER ============ */
+    .verify-banner {
+      display: none;
+      align-items: center; gap: 0.9rem;
+      background: var(--warning-bg); color: #92400e;
+      border: 1px solid #fcd8a0; border-left: 4px solid var(--warning);
+      border-radius: var(--radius-sm); padding: 0.9rem 1.1rem; margin-bottom: 1.25rem;
+    }
+    body.state-unverified .verify-banner { display: flex; }
+    .verify-banner i.lead { font-size: 1.3rem; }
+    .verify-banner .vb-text { flex: 1; font-size: 0.88rem; }
+    .verify-banner .vb-text b { display: block; margin-bottom: 0.1rem; }
+    .verify-banner .btn-verify {
+      background: var(--warning); color: #fff; border: none;
+      padding: 0.55rem 0.95rem; border-radius: 9px; font-weight: 700; font-size: 0.82rem;
+      white-space: nowrap;
+    }
+
+    /* ============ HERO / MAIN ACCOUNT ============ */
+    .hero {
+      display: grid; grid-template-columns: 1.15fr 1fr; gap: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+    .greeting-card {
+      background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+      color: #fff; border-radius: var(--radius); padding: 1.5rem 1.6rem;
+      position: relative; overflow: hidden;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .greeting-card::after {
+      content: ""; position: absolute; right: -40px; top: -40px;
+      width: 180px; height: 180px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,107,0,.35), transparent 70%);
+    }
+    .greeting-top { position: relative; z-index: 1; }
+    .greet-hello { font-size: 0.85rem; opacity: 0.8; font-weight: 500; }
+    .greet-name { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; margin-top: 0.15rem; }
+    .acct-chip {
+      position: relative; z-index: 1;
+      margin-top: 1.2rem;
+      display: inline-flex; align-items: center; gap: 0.6rem;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18);
+      padding: 0.55rem 0.85rem; border-radius: 11px; width: fit-content;
+    }
+    .acct-chip .acct-label { font-size: 0.68rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.6px; }
+    .acct-chip .acct-num { font-weight: 700; letter-spacing: 0.5px; font-size: 0.92rem; }
+    .acct-chip .copy-btn {
+      background: rgba(255,255,255,.16); border: none; color: #fff;
+      width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; font-size: 0.75rem;
+    }
+    .acct-chip .copy-btn:hover { background: rgba(255,255,255,.3); }
+    .verify-pill {
+      position: relative; z-index: 1; margin-top: 0.85rem;
+      display: inline-flex; align-items: center; gap: 0.4rem; width: fit-content;
+      font-size: 0.75rem; font-weight: 600; padding: 0.3rem 0.7rem; border-radius: 30px;
+    }
+    .verify-pill.ok { background: rgba(34,197,94,.22); color: #86efac; }
+    .verify-pill.no { background: rgba(245,158,11,.22); color: #fcd34d; }
+    body.state-verified .verify-pill.no { display: none; }
+    body.state-unverified .verify-pill.ok { display: none; }
+
+    .balance-card {
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-d) 100%);
+      color: #fff; border-radius: var(--radius); padding: 1.5rem 1.6rem;
+      position: relative; overflow: hidden;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .balance-card::before {
+      content: "\f19c"; font-family: "Font Awesome 6 Free"; font-weight: 900;
+      position: absolute; right: -10px; bottom: -25px; font-size: 8rem;
+      opacity: 0.08; color: #fff;
+    }
+    .bc-top { display: flex; align-items: center; justify-content: space-between; }
+    .bc-label { font-size: 0.82rem; opacity: 0.9; font-weight: 600; display: flex; align-items: center; gap: 0.45rem; }
+    .bc-eye { background: rgba(255,255,255,.18); border: none; color: #fff; width: 30px; height: 30px; border-radius: 8px; font-size: 0.78rem; }
+    .bc-amount { font-size: 2.3rem; font-weight: 800; letter-spacing: -1px; margin: 0.5rem 0 0.15rem; position: relative; z-index: 1; }
+    .bc-amount .cur { font-size: 1.1rem; font-weight: 600; opacity: 0.85; margin-right: 0.25rem; }
+    .bc-portfolio { font-size: 0.82rem; opacity: 0.9; position: relative; z-index: 1; }
+    .bc-portfolio b { font-weight: 700; }
+    .bc-actions { display: flex; gap: 0.6rem; margin-top: 1.2rem; position: relative; z-index: 1; }
+    .btn-white {
+      background: #fff; color: var(--brand-d); border: none;
+      padding: 0.7rem 1.1rem; border-radius: 11px; font-weight: 700; font-size: 0.88rem;
+      display: inline-flex; align-items: center; gap: 0.5rem; flex: 1; justify-content: center;
+    }
+    .btn-white:hover { background: #fff7f0; }
+    .btn-ghost-w {
+      background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.28);
+      padding: 0.7rem 1.1rem; border-radius: 11px; font-weight: 700; font-size: 0.88rem;
+      display: inline-flex; align-items: center; gap: 0.5rem; flex: 1; justify-content: center;
+    }
+    .btn-ghost-w:hover { background: rgba(255,255,255,.28); }
+
+    /* Hide sensitive numbers when unverified */
+    .sensitive { transition: filter .2s ease; }
+    body.state-unverified .sensitive {
+      filter: blur(9px); pointer-events: none; user-select: none;
+    }
+    .locked-note { display: none; }
+    body.state-unverified .balance-card .bc-actions { display: none; }
+    body.state-unverified .balance-card .locked-note {
+      display: flex; align-items: center; gap: 0.5rem; margin-top: 1.2rem;
+      font-size: 0.8rem; background: rgba(0,0,0,.18); padding: 0.6rem 0.8rem; border-radius: 10px; position: relative; z-index: 1;
+    }
+
+    /* ============ SUMMARY CARDS ============ */
+    .summary-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 1.1rem;
+    }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 1.1rem 1.15rem; box-shadow: var(--shadow-sm);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+    .stat-icon {
+      width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center;
+      font-size: 1.05rem; margin-bottom: 0.75rem;
+    }
+    .si-brand { background: var(--brand-l); color: var(--brand); }
+    .si-green { background: var(--success-bg); color: var(--success); }
+    .si-purple { background: var(--equity-bg); color: var(--equity); }
+    .si-blue { background: var(--info-bg); color: var(--info); }
+    .stat-label { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+    .stat-value { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px; margin-top: 0.15rem; }
+    .stat-value .cur { font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-right: 0.2rem; }
+    .stat-meta { font-size: 0.74rem; color: var(--muted); margin-top: 0.3rem; }
+    .stat-meta.up { color: var(--success); font-weight: 600; }
+
+    /* ============ SHAREHOLDER EQUITY BLOCK ============ */
+    .equity-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      box-shadow: var(--shadow-sm); overflow: hidden; position: relative;
+    }
+    .equity-card::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--equity);
+    }
+    .equity-inner { padding: 1.3rem 1.5rem; }
+    .equity-header { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.1rem; flex-wrap: wrap; }
+    .equity-badge {
+      width: 46px; height: 46px; border-radius: 12px; background: var(--equity-bg); color: var(--equity);
+      display: grid; place-items: center; font-size: 1.25rem;
+    }
+    .equity-title b { font-size: 1.05rem; font-weight: 800; }
+    .equity-title span { display: block; font-size: 0.78rem; color: var(--muted); }
+    .tier-chip {
+      margin-left: auto; display: inline-flex; align-items: center; gap: 0.45rem;
+      background: linear-gradient(135deg,#7c3aed,#a855f7); color: #fff;
+      padding: 0.45rem 0.9rem; border-radius: 30px; font-weight: 700; font-size: 0.82rem;
+    }
+    .equity-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+    .eq-metric { padding: 0.85rem 0; }
+    .eq-metric .lbl { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
+    .eq-metric .val { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.4px; margin-top: 0.15rem; }
+    .eq-metric .val .cur { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
+    .eq-metric .val.accent { color: var(--equity); }
+    .equity-foot {
+      margin-top: 0.6rem; padding-top: 1rem; border-top: 1px dashed var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    }
+    .equity-foot .note { font-size: 0.8rem; color: var(--muted); display: flex; align-items: center; gap: 0.5rem; }
+    .btn-equity {
+      background: var(--equity); color: #fff; border: none;
+      padding: 0.6rem 1rem; border-radius: 10px; font-weight: 700; font-size: 0.83rem;
+      display: inline-flex; align-items: center; gap: 0.5rem;
+    }
+    .btn-equity.outline { background: transparent; color: var(--equity); border: 1.5px solid var(--equity); }
+    .equity-actions { display: flex; gap: 0.55rem; flex-wrap: wrap; }
+    @media (max-width: 620px) { .equity-actions { width: 100%; } .equity-actions .btn-equity { flex: 1 1 45%; justify-content: center; } }
+
+    /* Non-shareholder state */
+    .equity-empty { display: none; text-align: center; padding: 2rem 1.5rem; }
+    .equity-empty .ee-icon {
+      width: 60px; height: 60px; border-radius: 16px; background: var(--equity-bg); color: var(--equity);
+      display: grid; place-items: center; font-size: 1.6rem; margin: 0 auto 0.9rem;
+    }
+    .equity-empty h4 { font-size: 1.05rem; font-weight: 800; }
+    .equity-empty p { font-size: 0.86rem; color: var(--muted); max-width: 440px; margin: 0.4rem auto 1.1rem; }
+    body.state-nonshareholder .equity-populated { display: none; }
+    body.state-nonshareholder .equity-empty { display: block; }
+    body.state-nonshareholder .equity-card::before { background: var(--border); }
+
+    /* ============ PROJECT CARDS ============ */
+    .cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; }
+
+    .pcard {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      box-shadow: var(--shadow-sm); overflow: hidden; display: flex; flex-direction: column;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .pcard:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+    .pcard-head {
+      display: flex; align-items: center; gap: 0.75rem; padding: 1.1rem 1.2rem 0.9rem;
+    }
+    .pcard-icon {
+      width: 44px; height: 44px; border-radius: 12px; background: var(--brand-l); color: var(--brand);
+      display: grid; place-items: center; font-size: 1.15rem; flex-shrink: 0;
+    }
+    .pcard-titles { flex: 1; min-width: 0; }
+    .pcard-titles b { font-size: 0.98rem; font-weight: 800; display: block; line-height: 1.25; }
+    .pcard-titles .cycle { font-size: 0.75rem; color: var(--muted); }
+    .status-tag {
+      font-size: 0.68rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 30px;
+      text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap;
+    }
+    .st-active { background: var(--success-bg); color: var(--success); }
+    .st-matured { background: var(--info-bg); color: #0369a1; }
+    .st-locked { background: #f1f5f9; color: var(--muted); }
+    .st-soon { background: var(--warning-bg); color: #92400e; }
+
+    .pcard-body { padding: 0 1.2rem 1rem; flex: 1; }
+    .stat-line {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.5rem 0; border-bottom: 1px solid #f3f4f6; font-size: 0.86rem;
+    }
+    .stat-line:last-child { border-bottom: none; }
+    .stat-line .sl-label { color: var(--muted); font-weight: 500; display: flex; align-items: center; gap: 0.35rem; }
+    .stat-line .sl-value { font-weight: 700; }
+    .sl-value.green { color: var(--success); }
+    .sl-value.locked { color: var(--muted); }
+    .mini-badge {
+      font-size: 0.62rem; font-weight: 700; background: #f1f5f9; color: var(--muted);
+      padding: 0.1rem 0.4rem; border-radius: 5px; text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    /* progress bar for cycle */
+    .cycle-bar { margin: 0.7rem 0 0.2rem; }
+    .cycle-bar .track { height: 7px; background: #f1f5f9; border-radius: 20px; overflow: hidden; }
+    .cycle-bar .fill { height: 100%; background: linear-gradient(90deg,var(--brand),var(--brand-d)); border-radius: 20px; }
+    .cycle-bar .cap { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--muted); margin-top: 0.35rem; }
+
+    .pcard-foot { padding: 0.9rem 1.2rem; background: #fafafa; border-top: 1px solid var(--border); display: flex; gap: 0.55rem; flex-wrap: wrap; }
+    .btn-sm {
+      padding: 0.55rem 0.85rem; border-radius: 9px; font-weight: 700; font-size: 0.8rem;
+      display: inline-flex; align-items: center; gap: 0.45rem; border: none; flex: 1; justify-content: center;
+    }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-primary:hover { background: var(--brand-d); }
+    .btn-outline { background: #fff; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-outline:hover { border-color: var(--brand); color: var(--brand); }
+    .btn-transfer { background: var(--info-bg); color: #0369a1; }
+    .btn-transfer:hover { background: #bae6fd; }
+    .btn-open { flex: 0 0 auto; }
+
+    /* ============ DISCOVER ============ */
+    .discover-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; }
+    .dcard {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      box-shadow: var(--shadow-sm); overflow: hidden; display: flex; flex-direction: column; position: relative;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .dcard:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+    .dcard-head { padding: 1.1rem 1.2rem 0.5rem; display: flex; align-items: flex-start; gap: 0.75rem; }
+    .dcard-icon {
+      width: 44px; height: 44px; border-radius: 12px; background: #f1f5f9; color: var(--muted);
+      display: grid; place-items: center; font-size: 1.15rem; flex-shrink: 0;
+    }
+    .dcard.avail .dcard-icon { background: var(--brand-l); color: var(--brand); }
+    .dcard-titles { flex: 1; }
+    .dcard-titles b { font-size: 0.98rem; font-weight: 800; display: block; }
+    .lock-chip { color: var(--muted); font-size: 0.8rem; }
+    .dcard-body { padding: 0.3rem 1.2rem 1rem; flex: 1; }
+    .dcard-desc { font-size: 0.83rem; color: var(--muted); line-height: 1.5; margin-bottom: 0.9rem; }
+    .dfacts { display: flex; flex-direction: column; gap: 0.4rem; }
+    .dfact { display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; }
+    .dfact .k { color: var(--muted); display: flex; align-items: center; gap: 0.4rem; }
+    .dfact .v { font-weight: 700; }
+    .dfact .v.rate { color: var(--success); }
+    .dcard-foot { padding: 0.9rem 1.2rem; background: #fafafa; border-top: 1px solid var(--border); display: flex; gap: 0.55rem; }
+    .req-pending {
+      flex: 1; justify-content: center; display: inline-flex; align-items: center; gap: 0.45rem;
+      background: var(--warning-bg); color: #92400e; padding: 0.55rem 0.85rem; border-radius: 9px;
+      font-weight: 700; font-size: 0.8rem;
+    }
+    .soon-tag-abs {
+      position: absolute; top: 0.9rem; right: 0.9rem;
+    }
+
+    /* ============ MODAL ============ */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 1000;
+      background: rgba(17,24,39,.55); backdrop-filter: blur(3px);
+      align-items: center; justify-content: center; padding: 1.2rem;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: #fff; border-radius: var(--radius); width: 100%; max-width: 500px;
+      box-shadow: var(--shadow-lg); overflow: hidden; animation: pop .18s ease;
+      max-height: 90vh; display: flex; flex-direction: column;
+    }
+    @keyframes pop { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .modal-head {
+      padding: 1.2rem 1.4rem; display: flex; align-items: center; gap: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-head .mh-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--brand-l); color: var(--brand); display: grid; place-items: center; font-size: 1.2rem; }
+    .modal-head b { font-size: 1.1rem; font-weight: 800; }
+    .modal-head span { font-size: 0.8rem; color: var(--muted); }
+    .modal-head .close-x { margin-left: auto; background: #f3f4f6; border: none; width: 34px; height: 34px; border-radius: 9px; color: var(--muted); font-size: 0.95rem; }
+    .modal-body { padding: 1.3rem 1.4rem; overflow-y: auto; }
+    .modal-body p.lead { font-size: 0.9rem; color: var(--text); margin-bottom: 1.1rem; }
+    .mrow { display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0; border-bottom: 1px solid #f3f4f6; font-size: 0.88rem; }
+    .mrow .k { color: var(--muted); }
+    .mrow .v { font-weight: 700; }
+    .modal-foot { padding: 1.1rem 1.4rem; border-top: 1px solid var(--border); display: flex; gap: 0.6rem; }
+    .modal-foot .btn-sm { flex: 1; padding: 0.75rem; }
+    .field-label { font-size: 0.82rem; font-weight: 600; margin: 0.9rem 0 0.4rem; display: block; }
+    .field {
+      width: 100%; padding: 0.7rem 0.85rem; border: 1.5px solid var(--border); border-radius: 10px;
+      font-family: inherit; font-size: 0.9rem;
+    }
+    .field:focus { outline: none; border-color: var(--brand); }
+
+    .modal.wide { max-width: 640px; }
+
+    /* Ledger / transaction history */
+    .ledger-filters { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .ledger-chip {
+      font-size: 0.78rem; font-weight: 600; padding: 0.4rem 0.8rem; border-radius: 30px;
+      border: 1.5px solid var(--border); background: #fff; color: var(--muted);
+    }
+    .ledger-chip.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .ledger-list { display: flex; flex-direction: column; }
+    .ledger-row {
+      display: flex; align-items: center; gap: 0.85rem; padding: 0.8rem 0; border-bottom: 1px solid #f3f4f6;
+    }
+    .ledger-row:last-child { border-bottom: none; }
+    .lr-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font-size: 0.85rem; flex-shrink: 0; }
+    .lr-in { background: var(--success-bg); color: var(--success); }
+    .lr-out { background: var(--danger-bg); color: var(--danger); }
+    .lr-invest { background: var(--brand-l); color: var(--brand); }
+    .lr-body { flex: 1; min-width: 0; }
+    .lr-title { font-size: 0.87rem; font-weight: 700; }
+    .lr-meta { font-size: 0.74rem; color: var(--muted); }
+    .lr-amount { font-weight: 800; font-size: 0.9rem; white-space: nowrap; }
+    .lr-amount.pos { color: var(--success); }
+    .lr-amount.neg { color: var(--danger); }
+    .lr-ref { font-size: 0.68rem; color: var(--muted); background: #f1f5f9; padding: 0.1rem 0.4rem; border-radius: 5px; }
+
+    /* ============ FOOTER ============ */
+    .foot {
+      max-width: 1200px; margin: 0 auto; padding: 1.5rem 1.25rem 2rem;
+      color: var(--muted); font-size: 0.8rem; text-align: center; border-top: 1px solid var(--border); margin-top: 1rem;
+    }
+    .foot a { color: var(--brand); font-weight: 600; }
+
+    /* ============ DEMO CONTROLS ============ */
+    .demo-toggle-btn {
+      position: fixed; bottom: 1.1rem; right: 1.1rem; z-index: 1100;
+      background: #111827; color: #fff; border: none; border-radius: 30px;
+      padding: 0.7rem 1.1rem; font-weight: 700; font-size: 0.82rem; box-shadow: var(--shadow-lg);
+      display: inline-flex; align-items: center; gap: 0.5rem;
+    }
+    .demo-panel {
+      position: fixed; bottom: 4rem; right: 1.1rem; z-index: 1100;
+      background: #111827; color: #fff; border-radius: 14px; padding: 1rem 1.1rem;
+      width: 250px; box-shadow: var(--shadow-lg); display: none;
+    }
+    .demo-panel.show { display: block; }
+    .demo-panel h5 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.6px; opacity: 0.6; margin-bottom: 0.7rem; }
+    .demo-row { display: flex; gap: 0.4rem; margin-bottom: 0.8rem; }
+    .demo-row:last-child { margin-bottom: 0; }
+    .demo-opt {
+      flex: 1; text-align: center; background: rgba(255,255,255,.08); color: #d1d5db; border: 1px solid rgba(255,255,255,.12);
+      padding: 0.5rem; border-radius: 8px; font-size: 0.76rem; font-weight: 600;
+    }
+    .demo-opt.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+    .demo-note { font-size: 0.68rem; opacity: 0.5; margin-top: 0.3rem; line-height: 1.4; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 980px) {
+      .hero { grid-template-columns: 1fr; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+      .equity-metrics { grid-template-columns: repeat(2, 1fr); }
+      .cards-grid, .discover-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 620px) {
+      .wrap { padding: 1rem 0.9rem 3.5rem; }
+      .util-label { display: none; }
+      .header-util { padding: 0.5rem 0.6rem; }
+      .logo-text span { display: none; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+      .stat-value { font-size: 1.15rem; }
+      .cards-grid, .discover-grid { grid-template-columns: 1fr; }
+      .equity-metrics { grid-template-columns: repeat(2, 1fr); }
+      .bc-amount { font-size: 1.9rem; }
+      .greet-name { font-size: 1.35rem; }
+      .section-head { flex-wrap: wrap; }
+      .user-btn .uname { display: none; }
+    }
+    @media (max-width: 400px) {
+      .summary-grid { grid-template-columns: 1fr; }
+      .equity-metrics { grid-template-columns: 1fr; }
+    }
+
+    /* Mobile preview frame (demo only) */
+    body.mobile-frame { background: #374151; }
+    body.mobile-frame .header,
+    body.mobile-frame .wrap,
+    body.mobile-frame .foot { max-width: 430px; margin-left: auto; margin-right: auto; }
+    body.mobile-frame .app-shell {
+      max-width: 430px; margin: 1rem auto; background: var(--bg);
+      border-radius: 22px; overflow: hidden; box-shadow: var(--shadow-lg); border: 8px solid #111827;
+    }
+  </style>
+</head>
+<body class="state-verified state-shareholder">
+  <div class="app-shell">
+    <!-- ============ HEADER ============ -->
+    <header class="header">
+      <div class="header-inner">
+        <a href="#" class="logo">
+          <!-- In the Django template this becomes:
+               <img src="{% static 'core/images/logo.png' %}" ... onerror="show .logo-mark"> -->
+          <img src="../core/static/core/images/logo.png" alt="MCS Logo" class="logo-img"
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';" />
+          <span class="logo-mark">MCS</span>
+          <span class="logo-text">
+            <b>Member Portal</b>
+            <span>Mushana Multipurpose Cooperative</span>
+          </span>
+        </a>
+        <div class="header-actions">
+          <a href="#" class="header-util" title="Help Center">
+            <i class="fas fa-circle-question"></i><span class="util-label">Help</span>
+          </a>
+          <button class="header-icon-btn" title="Notifications">
+            <i class="fas fa-bell"></i><span class="notif-dot"></span>
+          </button>
+          <div class="user-menu">
+            <button class="user-btn" onclick="toggleUserMenu(event)">
+              <span class="avatar">SN</span>
+              <span class="uname">Sarah</span>
+              <i class="fas fa-chevron-down caret"></i>
+            </button>
+            <div class="user-dropdown" id="userDropdown">
+              <div class="ud-head">
+                <span class="avatar" style="background:var(--brand-l);color:var(--brand)">SN</span>
+                <div>
+                  <b>Sarah Nakato</b>
+                  <span>MCSTGF-NS0042</span>
+                </div>
+              </div>
+              <a href="#" class="ud-item"><i class="fas fa-user"></i> My Profile</a>
+              <a href="#" class="ud-item"><i class="fas fa-gear"></i> Account Settings</a>
+              <a href="#" class="ud-item"><i class="fas fa-shield-halved"></i> Security</a>
+              <a href="#" class="ud-item"><i class="fas fa-circle-question"></i> Help Center</a>
+              <div class="ud-divider"></div>
+              <a href="#" class="ud-item danger"><i class="fas fa-arrow-right-from-bracket"></i> Log Out</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <!-- ============ VERIFICATION BANNER (unverified only) ============ -->
+      <div class="verify-banner">
+        <i class="fas fa-shield-halved lead"></i>
+        <div class="vb-text">
+          <b>Your account is pending verification</b>
+          Balances and transactions are hidden until an administrator verifies your account. You can still explore projects below.
+        </div>
+        <button class="btn-verify">Check status</button>
+      </div>
+
+      <!-- ============ HERO ============ -->
+      <div class="hero">
+        <div class="greeting-card">
+          <div class="greeting-top">
+            <div class="greet-hello">Good morning,</div>
+            <div class="greet-name">Sarah Nakato</div>
+            <div class="verify-pill ok"><i class="fas fa-circle-check"></i> Verified member</div>
+            <div class="verify-pill no"><i class="fas fa-clock"></i> Pending verification</div>
+          </div>
+          <div class="acct-chip">
+            <div>
+              <div class="acct-label">Main Account</div>
+              <div class="acct-num">MCSTGF-NS0042</div>
+            </div>
+            <button class="copy-btn" title="Copy account number" onclick="copyAcct()"><i class="fas fa-copy"></i></button>
+          </div>
+        </div>
+
+        <div class="balance-card">
+          <div class="bc-top">
+            <div class="bc-label"><i class="fas fa-wallet"></i> Available to withdraw</div>
+            <button class="bc-eye" title="Hide/show"><i class="fas fa-eye"></i></button>
+          </div>
+          <div class="bc-amount sensitive"><span class="cur">UGX</span>4,250,000</div>
+          <div class="bc-portfolio sensitive">Total portfolio value · <b>UGX 28,600,000</b></div>
+          <div class="bc-actions">
+            <button class="btn-white" onclick="openModal('withdrawModal')"><i class="fas fa-money-bill-wave"></i> Withdraw</button>
+            <button class="btn-ghost-w" onclick="openModal('historyModal')"><i class="fas fa-clock-rotate-left"></i> History</button>
+          </div>
+          <div class="locked-note"><i class="fas fa-lock"></i> Verify your account to view balances and withdraw.</div>
+        </div>
+      </div>
+
+      <!-- ============ SUMMARY ============ -->
+      <div class="summary-grid">
+        <div class="stat-card">
+          <div class="stat-icon si-brand"><i class="fas fa-wallet"></i></div>
+          <div class="stat-label">Main account</div>
+          <div class="stat-value sensitive"><span class="cur">UGX</span>4,250,000</div>
+          <div class="stat-meta">Available now</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon si-green"><i class="fas fa-chart-line"></i></div>
+          <div class="stat-label">Invested in projects</div>
+          <div class="stat-value sensitive"><span class="cur">UGX</span>18,900,000</div>
+          <div class="stat-meta up"><i class="fas fa-arrow-trend-up"></i> Across 4 projects</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon si-purple"><i class="fas fa-landmark"></i></div>
+          <div class="stat-label">Cooperative shares</div>
+          <div class="stat-value sensitive"><span class="cur">UGX</span>5,000,000</div>
+          <div class="stat-meta">Equity · 50 shares</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon si-blue"><i class="fas fa-hourglass-half"></i></div>
+          <div class="stat-label">Pending requests</div>
+          <div class="stat-value">2</div>
+          <div class="stat-meta sensitive">UGX 500,000 withheld</div>
+        </div>
+      </div>
+
+      <!-- ============ SHAREHOLDER EQUITY BLOCK ============ -->
+      <div class="section-head">
+        <div class="section-title"><i class="fas fa-landmark"></i> Cooperative Shareholding</div>
+        <div class="section-sub">Your equity in Mushana Cooperative</div>
+      </div>
+      <div class="equity-card">
+        <!-- Shareholder (populated) -->
+        <div class="equity-inner equity-populated">
+          <div class="equity-header">
+            <div class="equity-badge"><i class="fas fa-landmark"></i></div>
+            <div class="equity-title">
+              <b>Shareholder Equity</b>
+              <span>Member since 2021 · Certificate #MCS-SH-0042</span>
+            </div>
+            <div class="tier-chip"><i class="fas fa-star"></i> Elite Tier</div>
+          </div>
+          <div class="equity-metrics sensitive">
+            <div class="eq-metric">
+              <div class="lbl">Shares held</div>
+              <div class="val">50<span class="cur"> shares</span></div>
+            </div>
+            <div class="eq-metric">
+              <div class="lbl">Portfolio value</div>
+              <div class="val"><span class="cur">UGX </span>5,000,000</div>
+            </div>
+            <div class="eq-metric">
+              <div class="lbl">Dividend eligible</div>
+              <div class="val">48<span class="cur"> shares</span></div>
+            </div>
+            <div class="eq-metric">
+              <div class="lbl">Expected dividend</div>
+              <div class="val accent"><span class="cur">UGX </span>720,000</div>
+            </div>
+          </div>
+          <div class="equity-foot">
+            <div class="note"><i class="fas fa-circle-info"></i> Dividend election is open until 31 Dec 2026.</div>
+            <div class="equity-actions">
+              <button class="btn-equity"><i class="fas fa-cart-plus"></i> Buy more shares</button>
+              <button class="btn-equity outline" onclick="openModal('statementModal')"><i class="fas fa-file-lines"></i> Statement</button>
+              <button class="btn-equity outline"><i class="fas fa-certificate"></i> Certificate</button>
+              <button class="btn-equity outline"><i class="fas fa-hand-holding-dollar"></i> Choose dividend</button>
+            </div>
+          </div>
+        </div>
+        <!-- Non-shareholder (empty) -->
+        <div class="equity-empty">
+          <div class="ee-icon"><i class="fas fa-landmark"></i></div>
+          <h4>You are not a shareholder yet</h4>
+          <p>You are a valued cooperative member, but you don't hold cooperative shares. Shareholders earn annual dividends and gain voting rights. Contact the office to learn how to buy shares.</p>
+          <button class="btn-equity"><i class="fas fa-circle-info"></i> Learn about shares</button>
+        </div>
+      </div>
+
+      <!-- ============ MY PROJECTS ============ -->
+      <div class="section-head">
+        <div class="section-title"><i class="fas fa-folder-open"></i> My Projects</div>
+        <div class="section-sub">Projects you have access to</div>
+      </div>
+      <div class="cards-grid">
+
+        <!-- 52 WSC -->
+        <div class="pcard">
+          <div class="pcard-head">
+            <div class="pcard-icon"><i class="fas fa-piggy-bank"></i></div>
+            <div class="pcard-titles">
+              <b>52 Weeks Saving Challenge</b>
+              <span class="cycle">Cycle 2026 · Week 28 of 52</span>
+            </div>
+            <span class="status-tag st-active">Active</span>
+          </div>
+          <div class="pcard-body">
+            <div class="stat-line">
+              <span class="sl-label">Saved this year <span class="mini-badge">Locked</span></span>
+              <span class="sl-value locked sensitive">UGX 1,040,000</span>
+            </div>
+            <div class="stat-line">
+              <span class="sl-label">Interest earned</span>
+              <span class="sl-value green sensitive">UGX 78,000</span>
+            </div>
+            <div class="cycle-bar">
+              <div class="track"><div class="fill" style="width:54%"></div></div>
+              <div class="cap"><span>Week 28 / 52</span><span>Matures Dec 2026</span></div>
+            </div>
+          </div>
+          <div class="pcard-foot">
+            <button class="btn-sm btn-primary"><i class="fas fa-arrow-right"></i> Open project</button>
+          </div>
+        </div>
+
+        <!-- CGF (matured -> transfer) -->
+        <div class="pcard">
+          <div class="pcard-head">
+            <div class="pcard-icon"><i class="fas fa-horse"></i></div>
+            <div class="pcard-titles">
+              <b>Commercial Goat Farming</b>
+              <span class="cycle">14-month cycle · 1 completed</span>
+            </div>
+            <span class="status-tag st-matured">Matured</span>
+          </div>
+          <div class="pcard-body">
+            <div class="stat-line">
+              <span class="sl-label">Amount invested</span>
+              <span class="sl-value sensitive">UGX 4,000,000</span>
+            </div>
+            <div class="stat-line">
+              <span class="sl-label">Goats at maturity</span>
+              <span class="sl-value">8 goats</span>
+            </div>
+            <div class="stat-line">
+              <span class="sl-label">Matured value <span class="mini-badge" style="background:var(--info-bg);color:#0369a1">Ready</span></span>
+              <span class="sl-value green sensitive">UGX 3,200,000</span>
+            </div>
+            <div class="cycle-bar">
+              <div class="track"><div class="fill" style="width:100%"></div></div>
+              <div class="cap"><span>Cycle 1 complete</span><span>Cycle 2: Month 2 / 14</span></div>
+            </div>
+          </div>
+          <div class="pcard-foot">
+            <button class="btn-sm btn-primary"><i class="fas fa-arrow-right"></i> Open project</button>
+          </div>
+        </div>
+
+        <!-- GWC -->
+        <div class="pcard">
+          <div class="pcard-head">
+            <div class="pcard-icon"><i class="fas fa-hand-holding-heart"></i></div>
+            <div class="pcard-titles">
+              <b>Generational Wealth Creation</b>
+              <span class="cycle">Fixed deposits · 3 active</span>
+            </div>
+            <span class="status-tag st-active">Active</span>
+          </div>
+          <div class="pcard-body">
+            <div class="stat-line">
+              <span class="sl-label">Total deposited</span>
+              <span class="sl-value sensitive">UGX 6,000,000</span>
+            </div>
+            <div class="stat-line">
+              <span class="sl-label">Projected returns</span>
+              <span class="sl-value green sensitive">UGX 1,350,000</span>
+            </div>
+            <div class="stat-line">
+              <span class="sl-label">Nearest maturity</span>
+              <span class="sl-value">14 Mar 2027</span>
+            </div>
+            <div class="cycle-bar">
+              <div class="track"><div class="fill" style="width:67%"></div></div>
+              <div class="cap"><span>Month 8 / 12</span><span>Matures Mar 2027</span></div>
+            </div>
+          </div>
+          <div class="pcard-foot">
+            <button class="btn-sm btn-primary"><i class="fas fa-arrow-right"></i> Open project</button>
+          </div>
+        </div>
+
+        <!-- REP -->
+        <div class="pcard">
+          <div class="pcard-head">
+            <div class="pcard-icon"><i class="fas fa-city"></i></div>
+            <div class="pcard-titles">
+              <b>Real Estate Projects</b>
+              <span class="cycle">Namayumba Phase 2</span>
+            </div>
+            <span class="status-tag st-active">Active</span>
+          </div>
+          <div class="pcard-body">
+            <div class="stat-line">
+              <span class="sl-label">Total contributed</span>
+              <span class="sl-value sensitive">UGX 7,900,000</span>
+            </div>
+            <div class="stat-line">
+              <span class="sl-label">Withheld</span>
+              <span class="sl-value sensitive">UGX 500,000</span>
+            </div>
+            <div class="stat-line">
+              <span class="sl-label">Available in project</span>
+              <span class="sl-value green sensitive">UGX 900,000</span>
+            </div>
+            <div class="cycle-bar">
+              <div class="track"><div class="fill" style="width:65%"></div></div>
+              <div class="cap"><span>Construction 65%</span><span>Handover Q4 2027</span></div>
+            </div>
+          </div>
+          <div class="pcard-foot">
+            <button class="btn-sm btn-primary"><i class="fas fa-arrow-right"></i> Open project</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ============ DISCOVER ============ -->
+      <div class="section-head">
+        <div class="section-title"><i class="fas fa-compass"></i> Discover Projects</div>
+        <div class="section-sub">Running projects you can request to join</div>
+      </div>
+      <div class="discover-grid">
+
+        <!-- FSA -->
+        <div class="dcard avail">
+          <div class="dcard-head">
+            <div class="dcard-icon"><i class="fas fa-lock"></i></div>
+            <div class="dcard-titles">
+              <b>Fixed Savings Account</b>
+              <span class="lock-chip"><i class="fas fa-lock"></i> No access</span>
+            </div>
+          </div>
+          <div class="dcard-body">
+            <p class="dcard-desc">Lock your savings for a fixed term and earn a guaranteed higher interest rate than regular savings.</p>
+            <div class="dfacts">
+              <div class="dfact"><span class="k"><i class="fas fa-percent"></i> Interest rate</span><span class="v rate">10% p.a.</span></div>
+              <div class="dfact"><span class="k"><i class="fas fa-coins"></i> Minimum</span><span class="v">UGX 500,000</span></div>
+              <div class="dfact"><span class="k"><i class="fas fa-calendar"></i> Term</span><span class="v">6 – 24 months</span></div>
+            </div>
+          </div>
+          <div class="dcard-foot">
+            <button class="btn-sm btn-outline" onclick="openDetails('Fixed Savings Account','fa-lock','Lock your savings for a fixed term and earn a guaranteed higher interest rate than regular savings.',[['Interest rate','10% p.a.'],['Minimum deposit','UGX 500,000'],['Term length','6 – 24 months'],['Early exit','Interest forfeited'],['Cycle window','Rolling — join anytime']])"><i class="fas fa-circle-info"></i> Details</button>
+            <button class="btn-sm btn-primary" onclick="openModal('requestModal')"><i class="fas fa-paper-plane"></i> Request</button>
+          </div>
+        </div>
+
+        <!-- RSS (pending request) -->
+        <div class="dcard">
+          <div class="dcard-head">
+            <div class="dcard-icon"><i class="fas fa-user-clock"></i></div>
+            <div class="dcard-titles">
+              <b>Retirement Savings Scheme</b>
+              <span class="lock-chip"><i class="fas fa-lock"></i> No access</span>
+            </div>
+          </div>
+          <div class="dcard-body">
+            <p class="dcard-desc">A long-term savings plan that builds a reliable retirement fund with compounding growth over the years.</p>
+            <div class="dfacts">
+              <div class="dfact"><span class="k"><i class="fas fa-percent"></i> Growth rate</span><span class="v rate">12% p.a.</span></div>
+              <div class="dfact"><span class="k"><i class="fas fa-coins"></i> Monthly min</span><span class="v">UGX 50,000</span></div>
+              <div class="dfact"><span class="k"><i class="fas fa-calendar"></i> Access at</span><span class="v">Age 55+</span></div>
+            </div>
+          </div>
+          <div class="dcard-foot">
+            <button class="btn-sm btn-outline" onclick="openDetails('Retirement Savings Scheme','fa-user-clock','A long-term savings plan that builds a reliable retirement fund with compounding growth over the years.',[['Growth rate','12% p.a.'],['Monthly minimum','UGX 50,000'],['Access age','55 years'],['Cycle window','Rolling — join anytime']])"><i class="fas fa-circle-info"></i> Details</button>
+            <span class="req-pending"><i class="fas fa-hourglass-half"></i> Under review</span>
+          </div>
+        </div>
+
+        <!-- Clubs Account -->
+        <div class="dcard">
+          <div class="dcard-head">
+            <div class="dcard-icon"><i class="fas fa-users"></i></div>
+            <div class="dcard-titles">
+              <b>Clubs Account</b>
+              <span class="lock-chip"><i class="fas fa-lock"></i> No access</span>
+            </div>
+          </div>
+          <div class="dcard-body">
+            <p class="dcard-desc">Join a savings club and pool resources with other members towards shared goals and group investments.</p>
+            <div class="dfacts">
+              <div class="dfact"><span class="k"><i class="fas fa-percent"></i> Interest rate</span><span class="v rate">8% p.a.</span></div>
+              <div class="dfact"><span class="k"><i class="fas fa-coins"></i> Joining fee</span><span class="v">UGX 20,000</span></div>
+              <div class="dfact"><span class="k"><i class="fas fa-calendar"></i> Cycle</span><span class="v">12 months</span></div>
+            </div>
+          </div>
+          <div class="dcard-foot">
+            <button class="btn-sm btn-outline" onclick="openDetails('Clubs Account','fa-users','Join a savings club and pool resources with other members towards shared goals and group investments.',[['Interest rate','8% p.a.'],['Joining fee','UGX 20,000'],['Cycle length','12 months'],['Cycle window','Opens Jan & Jul']])"><i class="fas fa-circle-info"></i> Details</button>
+            <button class="btn-sm btn-primary" onclick="openModal('requestModal')"><i class="fas fa-paper-plane"></i> Request</button>
+          </div>
+        </div>
+
+        <!-- Coffee Farming (coming soon) -->
+        <div class="dcard">
+          <span class="status-tag st-soon soon-tag-abs">Coming soon</span>
+          <div class="dcard-head">
+            <div class="dcard-icon"><i class="fas fa-mug-hot"></i></div>
+            <div class="dcard-titles">
+              <b>Coffee Farming</b>
+              <span class="lock-chip"><i class="fas fa-seedling"></i> Launching soon</span>
+            </div>
+          </div>
+          <div class="dcard-body">
+            <p class="dcard-desc">Invest in managed coffee plantations and earn from harvest sales across multiple growing seasons.</p>
+            <div class="dfacts">
+              <div class="dfact"><span class="k"><i class="fas fa-percent"></i> Est. return</span><span class="v rate">18 – 25%</span></div>
+              <div class="dfact"><span class="k"><i class="fas fa-coins"></i> Entry from</span><span class="v">UGX 2,000,000</span></div>
+              <div class="dfact"><span class="k"><i class="fas fa-calendar"></i> First cycle</span><span class="v">Q1 2027</span></div>
+            </div>
+          </div>
+          <div class="dcard-foot">
+            <button class="btn-sm btn-outline" onclick="openDetails('Coffee Farming','fa-mug-hot','Invest in managed coffee plantations and earn from harvest sales across multiple growing seasons.',[['Estimated return','18 – 25% per cycle'],['Entry from','UGX 2,000,000'],['First cycle','Q1 2027'],['Status','Coming soon']])"><i class="fas fa-circle-info"></i> Details</button>
+            <button class="btn-sm btn-outline" style="flex:1"><i class="fas fa-bell"></i> Notify me</button>
+          </div>
+        </div>
+
+        <!-- Cocoa Farming (coming soon) -->
+        <div class="dcard">
+          <span class="status-tag st-soon soon-tag-abs">Coming soon</span>
+          <div class="dcard-head">
+            <div class="dcard-icon"><i class="fas fa-seedling"></i></div>
+            <div class="dcard-titles">
+              <b>Cocoa Farming</b>
+              <span class="lock-chip"><i class="fas fa-seedling"></i> Launching soon</span>
+            </div>
+          </div>
+          <div class="dcard-body">
+            <p class="dcard-desc">Participate in cocoa growing projects with strong export demand and attractive long-term yields.</p>
+            <div class="dfacts">
+              <div class="dfact"><span class="k"><i class="fas fa-percent"></i> Est. return</span><span class="v rate">20 – 28%</span></div>
+              <div class="dfact"><span class="k"><i class="fas fa-coins"></i> Entry from</span><span class="v">UGX 2,500,000</span></div>
+              <div class="dfact"><span class="k"><i class="fas fa-calendar"></i> First cycle</span><span class="v">Q2 2027</span></div>
+            </div>
+          </div>
+          <div class="dcard-foot">
+            <button class="btn-sm btn-outline" onclick="openDetails('Cocoa Farming','fa-seedling','Participate in cocoa growing projects with strong export demand and attractive long-term yields.',[['Estimated return','20 – 28% per cycle'],['Entry from','UGX 2,500,000'],['First cycle','Q2 2027'],['Status','Coming soon']])"><i class="fas fa-circle-info"></i> Details</button>
+            <button class="btn-sm btn-outline" style="flex:1"><i class="fas fa-bell"></i> Notify me</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <footer class="foot">
+      &copy; 2026 Mushana Multipurpose Cooperative Society · <a href="#">Privacy</a> · <a href="#">Contact</a><br />
+      <span style="opacity:.7">MCS Member Portal — frontend mockup with sample data</span>
+    </footer>
+  </div>
+
+  <!-- ============ MODALS ============ -->
+  <div class="modal-overlay" id="withdrawModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="mh-icon"><i class="fas fa-money-bill-wave"></i></div>
+        <div><b>Withdraw funds</b><span>From your main account</span></div>
+        <button class="close-x" onclick="closeModal('withdrawModal')"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="lead">Withdraw from your available main account balance to your registered bank account.</p>
+        <div class="mrow"><span class="k">Available balance</span><span class="v">UGX 4,250,000</span></div>
+        <div class="mrow"><span class="k">Bank on file</span><span class="v">Centenary • ****4021</span></div>
+        <label class="field-label">Amount (UGX)</label>
+        <input class="field" type="text" placeholder="e.g. 500,000" />
+        <label class="field-label">Reason (optional)</label>
+        <input class="field" type="text" placeholder="What is this withdrawal for?" />
+      </div>
+      <div class="modal-foot">
+        <button class="btn-sm btn-outline" onclick="closeModal('withdrawModal')">Cancel</button>
+        <button class="btn-sm btn-primary"><i class="fas fa-paper-plane"></i> Request withdrawal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main account transaction history (ledger) -->
+  <div class="modal-overlay" id="historyModal">
+    <div class="modal wide">
+      <div class="modal-head">
+        <div class="mh-icon"><i class="fas fa-clock-rotate-left"></i></div>
+        <div><b>Main Account History</b><span>Transfers in/out & investments · MCSTGF-NS0042</span></div>
+        <button class="close-x" onclick="closeModal('historyModal')"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="ledger-filters">
+          <button class="ledger-chip active">All</button>
+          <button class="ledger-chip">Money in</button>
+          <button class="ledger-chip">Money out</button>
+          <button class="ledger-chip">Investments</button>
+        </div>
+        <div class="ledger-list">
+          <div class="ledger-row">
+            <div class="lr-icon lr-in"><i class="fas fa-arrow-down"></i></div>
+            <div class="lr-body">
+              <div class="lr-title">Transfer from Commercial Goat Farming</div>
+              <div class="lr-meta">Matured cycle 1 payout · 10 Jul 2026 · <span class="lr-ref">TRF-000482</span></div>
+            </div>
+            <div class="lr-amount pos">+3,200,000</div>
+          </div>
+          <div class="ledger-row">
+            <div class="lr-icon lr-out"><i class="fas fa-arrow-up"></i></div>
+            <div class="lr-body">
+              <div class="lr-title">Withdrawal to bank</div>
+              <div class="lr-meta">Centenary ****4021 · 28 Jun 2026 · <span class="lr-ref">WD-000311</span></div>
+            </div>
+            <div class="lr-amount neg">−1,000,000</div>
+          </div>
+          <div class="ledger-row">
+            <div class="lr-icon lr-invest"><i class="fas fa-seedling"></i></div>
+            <div class="lr-body">
+              <div class="lr-title">Investment into GWC fixed deposit</div>
+              <div class="lr-meta">From main account · 15 Jun 2026 · <span class="lr-ref">INV-000209</span></div>
+            </div>
+            <div class="lr-amount neg">−2,000,000</div>
+          </div>
+          <div class="ledger-row">
+            <div class="lr-icon lr-in"><i class="fas fa-arrow-down"></i></div>
+            <div class="lr-body">
+              <div class="lr-title">Transfer from 52 Weeks Saving Challenge</div>
+              <div class="lr-meta">2025 cycle savings + interest · 02 Jan 2026 · <span class="lr-ref">TRF-000198</span></div>
+            </div>
+            <div class="lr-amount pos">+2,050,000</div>
+          </div>
+          <div class="ledger-row">
+            <div class="lr-icon lr-in"><i class="fas fa-arrow-down"></i></div>
+            <div class="lr-body">
+              <div class="lr-title">Dividend credited (Cooperative shares)</div>
+              <div class="lr-meta">2025 dividend payout · 20 Feb 2026 · <span class="lr-ref">DIV-000077</span></div>
+            </div>
+            <div class="lr-amount pos">+650,000</div>
+          </div>
+          <div class="ledger-row">
+            <div class="lr-icon lr-invest"><i class="fas fa-city"></i></div>
+            <div class="lr-body">
+              <div class="lr-title">Investment into Real Estate (Namayumba Phase 2)</div>
+              <div class="lr-meta">From main account · 05 Dec 2025 · <span class="lr-ref">INV-000154</span></div>
+            </div>
+            <div class="lr-amount neg">−5,000,000</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-sm btn-outline" onclick="closeModal('historyModal')">Close</button>
+        <button class="btn-sm btn-primary"><i class="fas fa-download"></i> Download statement</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shareholding statement (dividends deposits/withdrawals) -->
+  <div class="modal-overlay" id="statementModal">
+    <div class="modal wide">
+      <div class="modal-head">
+        <div class="mh-icon" style="background:var(--equity-bg);color:var(--equity)"><i class="fas fa-file-lines"></i></div>
+        <div><b>Shareholding Statement</b><span>Shares, dividends & payouts · Certificate #MCS-SH-0042</span></div>
+        <button class="close-x" onclick="closeModal('statementModal')"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="mrow"><span class="k">Shares held</span><span class="v">50 shares</span></div>
+        <div class="mrow"><span class="k">Portfolio value</span><span class="v">UGX 5,000,000</span></div>
+        <div class="mrow"><span class="k">Total dividends earned</span><span class="v" style="color:var(--success)">UGX 1,370,000</span></div>
+        <div class="ledger-list" style="margin-top:0.8rem">
+          <div class="ledger-row">
+            <div class="lr-icon lr-invest"><i class="fas fa-cart-plus"></i></div>
+            <div class="lr-body"><div class="lr-title">Purchased 10 shares</div><div class="lr-meta">14 Mar 2024 · <span class="lr-ref">SH-000042</span></div></div>
+            <div class="lr-amount neg">−1,000,000</div>
+          </div>
+          <div class="ledger-row">
+            <div class="lr-icon lr-in"><i class="fas fa-arrow-down"></i></div>
+            <div class="lr-body"><div class="lr-title">2024 dividend paid</div><div class="lr-meta">Credited to main account · 18 Feb 2025 · <span class="lr-ref">DIV-000041</span></div></div>
+            <div class="lr-amount pos">+720,000</div>
+          </div>
+          <div class="ledger-row">
+            <div class="lr-icon lr-in"><i class="fas fa-arrow-down"></i></div>
+            <div class="lr-body"><div class="lr-title">2025 dividend paid</div><div class="lr-meta">Credited to main account · 20 Feb 2026 · <span class="lr-ref">DIV-000077</span></div></div>
+            <div class="lr-amount pos">+650,000</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-sm btn-outline" onclick="closeModal('statementModal')">Close</button>
+        <button class="btn-sm btn-primary" style="background:var(--equity)"><i class="fas fa-download"></i> Download PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="requestModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="mh-icon"><i class="fas fa-paper-plane"></i></div>
+        <div><b>Request project access</b><span>Reviewed by an administrator</span></div>
+        <button class="close-x" onclick="closeModal('requestModal')"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="lead">Send a request to join this project. An administrator will review it and grant access if you qualify.</p>
+        <label class="field-label">Message to administrator (optional)</label>
+        <textarea class="field" rows="3" placeholder="Tell us why you'd like to join..."></textarea>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-sm btn-outline" onclick="closeModal('requestModal')">Cancel</button>
+        <button class="btn-sm btn-primary"><i class="fas fa-paper-plane"></i> Send request</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="detailsModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="mh-icon" id="dm-icon"><i class="fas fa-circle-info"></i></div>
+        <div><b id="dm-title">Project</b><span>Project details</span></div>
+        <button class="close-x" onclick="closeModal('detailsModal')"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="lead" id="dm-desc"></p>
+        <div id="dm-rows"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-sm btn-outline" onclick="closeModal('detailsModal')">Close</button>
+        <button class="btn-sm btn-primary" onclick="closeModal('detailsModal');openModal('requestModal')"><i class="fas fa-paper-plane"></i> Request access</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DEMO CONTROLS ============ -->
+  <button class="demo-toggle-btn" onclick="document.getElementById('demoPanel').classList.toggle('show')">
+    <i class="fas fa-sliders"></i> Preview states
+  </button>
+  <div class="demo-panel" id="demoPanel">
+    <h5>Account status</h5>
+    <div class="demo-row" data-group="verify">
+      <button class="demo-opt active" data-state="state-verified" onclick="setState('verify','state-verified',this)">Verified</button>
+      <button class="demo-opt" data-state="state-unverified" onclick="setState('verify','state-unverified',this)">Unverified</button>
+    </div>
+    <h5>Shareholding</h5>
+    <div class="demo-row" data-group="share">
+      <button class="demo-opt active" data-state="state-shareholder" onclick="setState('share','state-shareholder',this)">Shareholder</button>
+      <button class="demo-opt" data-state="state-nonshareholder" onclick="setState('share','state-nonshareholder',this)">Not a shareholder</button>
+    </div>
+    <h5>Layout</h5>
+    <div class="demo-row" data-group="frame">
+      <button class="demo-opt active" onclick="toggleFrame(false,this)">Full width</button>
+      <button class="demo-opt" onclick="toggleFrame(true,this)">Mobile</button>
+    </div>
+    <div class="demo-note">Mockup only — these toggles simulate what different members see. They won't exist in the real page.</div>
+  </div>
+
+  <script>
+    function toggleUserMenu(e){
+      e.stopPropagation();
+      document.getElementById('userDropdown').classList.toggle('show');
+      document.querySelector('.user-menu').classList.toggle('open');
+    }
+    document.addEventListener('click', function(e){
+      if(!e.target.closest('.user-menu')){
+        document.getElementById('userDropdown').classList.remove('show');
+        document.querySelector('.user-menu').classList.remove('open');
+      }
+    });
+
+    function openModal(id){ document.getElementById(id).classList.add('show'); }
+    function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+    document.querySelectorAll('.modal-overlay').forEach(function(o){
+      o.addEventListener('click', function(e){ if(e.target === o) o.classList.remove('show'); });
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape') document.querySelectorAll('.modal-overlay.show').forEach(function(o){ o.classList.remove('show'); });
+    });
+
+    function openDetails(title, icon, desc, rows){
+      document.getElementById('dm-title').textContent = title;
+      document.getElementById('dm-icon').innerHTML = '<i class="fas ' + icon + '"></i>';
+      document.getElementById('dm-desc').textContent = desc;
+      var html = '';
+      rows.forEach(function(r){ html += '<div class="mrow"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; });
+      document.getElementById('dm-rows').innerHTML = html;
+      openModal('detailsModal');
+    }
+
+    function copyAcct(){
+      navigator.clipboard && navigator.clipboard.writeText('MCSTGF-NS0042');
+      var btn = event.currentTarget;
+      var old = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-check"></i>';
+      setTimeout(function(){ btn.innerHTML = old; }, 1200);
+    }
+
+    function setState(group, state, el){
+      var classes = { verify:['state-verified','state-unverified'], share:['state-shareholder','state-nonshareholder'] };
+      classes[group].forEach(function(c){ document.body.classList.remove(c); });
+      document.body.classList.add(state);
+      el.parentElement.querySelectorAll('.demo-opt').forEach(function(b){ b.classList.remove('active'); });
+      el.classList.add('active');
+    }
+
+    function toggleFrame(on, el){
+      document.body.classList.toggle('mobile-frame', on);
+      el.parentElement.querySelectorAll('.demo-opt').forEach(function(b){ b.classList.remove('active'); });
+      el.classList.add('active');
+    }
+  </script>
+</body>
+</html>

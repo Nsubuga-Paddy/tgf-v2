@@ -36,11 +36,60 @@ class AccountNumberCounter(models.Model):
 # Project (users can belong to multiple projects/apps)
 # -------------------------------------------------------------------
 class Project(models.Model):
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        COMING_SOON = "coming_soon", "Coming soon"
+        CLOSED = "closed", "Closed"
+
     name = models.CharField(max_length=120, unique=True)
     description = models.TextField(blank=True)
 
+    # ---- Discover / catalog metadata (admin-controlled) ----
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.OPEN,
+        help_text="Open = joinable; Coming soon = teaser only; Closed = no new members.",
+    )
+    is_public = models.BooleanField(
+        default=True,
+        help_text="Show in the Discover section to members who don't have access.",
+    )
+    accepts_requests = models.BooleanField(
+        default=True,
+        help_text="Allow members to submit access requests for this project.",
+    )
+    summary = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Short marketing description shown on the Discover card.",
+    )
+    icon = models.CharField(
+        max_length=40,
+        blank=True,
+        help_text="Font Awesome icon class, e.g. 'fa-piggy-bank'.",
+    )
+    # Display strings (kept as text for flexibility: rates, ranges, ages, dates)
+    rate_display = models.CharField(
+        max_length=60, blank=True, help_text="e.g. '10% p.a.' or '18 – 25% per cycle'."
+    )
+    min_entry_display = models.CharField(
+        max_length=60, blank=True, help_text="e.g. 'UGX 500,000' or 'UGX 50,000 / month'."
+    )
+    cycle_display = models.CharField(
+        max_length=80, blank=True, help_text="e.g. '6 – 24 months' or 'First cycle Q1 2027'."
+    )
+    dashboard_url_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Named URL for the project's dashboard, e.g. 'savings_52_weeks:member_dashboard'.",
+    )
+    sort_order = models.PositiveIntegerField(
+        default=100, help_text="Lower numbers appear first in Discover."
+    )
+
     class Meta:
-        ordering = ["name"]
+        ordering = ["sort_order", "name"]
 
     def __str__(self) -> str:
         return self.name

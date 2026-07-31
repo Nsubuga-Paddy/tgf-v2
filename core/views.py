@@ -32,13 +32,111 @@ from decimal import Decimal
 
 
 @method_decorator(login_required, name='dispatch')
-@method_decorator(verified_required, name='dispatch')
 class LandingPage(TemplateView):
     """
-    Landing page that requires user authentication.
-    This will be the main dashboard after login.
+    Member dashboard (home page after login).
+
+    Unverified members can view the dashboard shell and Discover projects, but
+    balances are hidden and money actions are blocked (enforced here + in the
+    template). Verified members get the full experience.
     """
-    template_name = "core/index.html"
+    template_name = "core/dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from core.dashboard_service import build_member_dashboard
+        context.update(build_member_dashboard(self.request.user))
+        return context
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get("action")
+        if action == "main_withdraw":
+            return self._handle_main_withdraw(request)
+        if action == "transfer_to_main":
+            return self._handle_transfer_to_main(request)
+        if action == "request_project_access":
+            return self._handle_request_access(request)
+        messages.error(request, "Unknown action.")
+        return redirect("landing")
+
+    @staticmethod
+    def _require_verified(request):
+        profile = getattr(request.user, "profile", None)
+        if not profile or not profile.is_verified:
+            messages.error(request, "Your account must be verified before you can do this.")
+            return False
+        return True
+
+    def _handle_main_withdraw(self, request):
+        from main_account import services as ledger
+        if not self._require_verified(request):
+            return redirect("landing")
+        profile = request.user.profile
+        if not (profile.bank_name and profile.bank_account_number and profile.bank_account_name):
+            messages.error(request, "Add your bank account details on your profile before withdrawing.")
+            return redirect("profile")
+        try:
+            amount = Decimal(str(request.POST.get("amount", "0")).replace(",", ""))
+        except Exception:
+            messages.error(request, "Invalid withdrawal amount.")
+            return redirect("landing")
+        try:
+            ledger.create_withdrawal(profile, amount, reason=request.POST.get("reason", ""))
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return redirect("landing")
+        messages.success(
+            request,
+            f"Withdrawal request for UGX {amount:,.0f} submitted. It will be reviewed by an administrator.",
+        )
+        return redirect("landing")
+
+    def _handle_transfer_to_main(self, request):
+        from main_account import services as ledger
+        if not self._require_verified(request):
+            return redirect("landing")
+        profile = request.user.profile
+        project_label = (request.POST.get("project_label", "") or "").strip()
+        if not project_label:
+            messages.error(request, "Missing project for transfer.")
+            return redirect("landing")
+        try:
+            amount = Decimal(str(request.POST.get("amount", "0")).replace(",", ""))
+        except Exception:
+            messages.error(request, "Invalid transfer amount.")
+            return redirect("landing")
+        try:
+            ledger.create_transfer_request(
+                profile, project_label, amount,
+                member_notes=request.POST.get("member_notes", ""),
+            )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return redirect("landing")
+        messages.success(
+            request,
+            f"Transfer request of UGX {amount:,.0f} from {project_label} submitted for approval.",
+        )
+        return redirect("landing")
+
+    def _handle_request_access(self, request):
+        profile = getattr(request.user, "profile", None)
+        if profile is None:
+            messages.error(request, "Profile not found.")
+            return redirect("landing")
+        if not profile.is_verified:
+            messages.error(request, "Complete account verification before requesting project access.")
+            return redirect("verification_pending")
+        project_ids = request.POST.getlist("project_ids")
+        if not project_ids:
+            messages.warning(request, "Select a project to request access.")
+            return redirect("landing")
+        result = submit_project_access_requests(
+            profile, project_ids, request.POST.get("member_notes", "")
+        )
+        for level, msg in build_submission_messages(result):
+            getattr(messages, level)(request, msg)
+        return redirect("landing")
 
 
 class LoginPage(TemplateView):

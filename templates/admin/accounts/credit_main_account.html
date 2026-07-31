@@ -1,0 +1,40 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<h1>Credit main account</h1>
+<p>
+  Credit <strong>{{ profile.display_name }}</strong>
+  ({{ profile.account_number|default:profile.user.username }})
+  with a posted admin credit. This increases their main account balance immediately.
+</p>
+<p>
+  Current posted balance:
+  <strong>UGX {{ current_balance|floatformat:0 }}</strong>
+</p>
+
+<form method="post">{% csrf_token %}
+  {% for obj in queryset %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk }}">
+  {% endfor %}
+  <input type="hidden" name="action" value="credit_main_account_action">
+  <fieldset class="module aligned">
+    <div class="form-row">
+      <label for="id_amount">Amount (UGX):</label>
+      <input type="number" name="amount" id="id_amount" min="1" step="1" required>
+    </div>
+    <div class="form-row">
+      <label for="id_source_label">Source / label (optional):</label>
+      <input type="text" name="source_label" id="id_source_label" maxlength="160" placeholder="Admin credit">
+    </div>
+    <div class="form-row">
+      <label for="id_description">Description (optional):</label>
+      <textarea name="description" id="id_description" rows="3" cols="40"></textarea>
+    </div>
+  </fieldset>
+  <div class="submit-row">
+    <input type="submit" name="apply" value="Credit main account" class="default">
+    <a href=".." class="button cancel-link">Cancel</a>
+  </div>
+</form>
+{% endblock %}

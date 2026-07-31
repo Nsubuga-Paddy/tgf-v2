@@ -5,7 +5,7 @@ from django.db import IntegrityError, transaction
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -46,7 +46,15 @@ class MobileTokenObtainPairSerializer(TokenObtainPairSerializer):
                         )
                     )
 
-        data = super().validate(attrs)
+        try:
+            data = super().validate(attrs)
+        except AuthenticationFailed:
+            raise AuthenticationFailed(
+                detail=(
+                    "Invalid username or password. "
+                    "Please check your credentials and try again."
+                )
+            )
         user = self.user
         try:
             is_verified = user.profile.is_verified

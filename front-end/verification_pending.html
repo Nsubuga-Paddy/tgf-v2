@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Verification Pending - MCS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root { --brand: #ff6b00; --bg: #f8f5f1; --ink: #1f2937; --muted: #6b7280; --border: #e5e7eb; --warning: #f59e0b; }
+        body { min-height: 100vh; background: var(--bg); color: var(--ink); padding: 2rem 1rem; }
+        .pending-card { width: min(720px, 100%); margin: 0 auto; background: #fff; border: 1px solid var(--border); border-radius: 1rem; box-shadow: 0 18px 45px rgba(31, 41, 55, 0.1); padding: 2rem; text-align: center; }
+        .pending-icon { width: 76px; height: 76px; margin: 0 auto 1rem; border-radius: 50%; background: var(--warning); color: #fff; display: grid; place-items: center; font-size: 2rem; }
+        .section-block { text-align: left; background: var(--bg); border: 1px solid var(--border); border-radius: 0.85rem; padding: 1rem; margin-top: 1rem; }
+        .project-check { display: flex; gap: 0.6rem; align-items: center; padding: 0.55rem 0.65rem; background: #fff; border: 1px solid var(--border); border-radius: 0.65rem; margin-top: 0.45rem; }
+        .btn-primary { background: var(--brand); border-color: var(--brand); font-weight: 700; }
+        .btn-outline-primary { color: var(--brand); border-color: var(--brand); font-weight: 700; }
+        .support { color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 1.25rem; }
+    </style>
+</head>
+<body>
+    <main class="pending-card">
+        <div class="pending-icon">⏱</div>
+        <h1>Account Verification Pending</h1>
+        <p class="text-muted">Your account is currently under review by our administrators.</p>
+
+        <div class="section-block">
+            <h2 class="h5">What happens next?</h2>
+            <p class="mb-0 text-muted">An administrator will review your account and the MCS groups you belong to. Access to each project is approved separately.</p>
+        </div>
+
+        <div class="section-block">
+            <h2 class="h5">Which MCS groups do you belong to?</h2>
+            <p class="text-muted">Select every Target Group Funding project you are part of.</p>
+            <label class="project-check"><input type="checkbox"> Fixed Savings Account</label>
+            <label class="project-check"><input type="checkbox"> Clubs Account</label>
+            <label class="project-check"><input type="checkbox"> Coffee Farming</label>
+            <label class="project-check"><input type="checkbox"> Cocoa Farming</label>
+            <textarea class="form-control mt-3" rows="3" placeholder="Optional note for the administrator"></textarea>
+            <button class="btn btn-primary w-100 mt-3">Submit group requests</button>
+        </div>
+
+        <div class="d-grid gap-2 mt-3">
+            <a href="/login" class="btn btn-primary">Sign Out</a>
+            <a href="/login" class="btn btn-outline-primary">Try Signing In Again</a>
+            <a href="/help" class="btn btn-outline-primary">Help Center</a>
+        </div>
+
+        <p class="support">Need help? Contact support at <strong>support@mcs.com</strong></p>
+    </main>
+</body>
+</html>

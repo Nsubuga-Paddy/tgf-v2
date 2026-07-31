@@ -33,6 +33,14 @@ def pending_withdrawal_request_count() -> int:
     return WithdrawalRequest.objects.filter(status="pending").count()
 
 
+def pending_main_account_withdrawal_count() -> int:
+    from main_account.models import MainAccountWithdrawal
+
+    return MainAccountWithdrawal.objects.filter(
+        status=MainAccountWithdrawal.STATUS_PENDING,
+    ).count()
+
+
 def pending_dividend_request_count() -> int:
     from cooperative_shareholding.models import DividendChoiceRequest
 
@@ -60,6 +68,7 @@ ADMIN_PENDING_BADGE_COUNTERS: dict[tuple[str, str], Callable[[], int]] = {
     ("auth", "User"): pending_user_verification_count,
     ("accounts", "ProjectAccessRequest"): pending_project_access_request_count,
     ("accounts", "WithdrawalRequest"): pending_withdrawal_request_count,
+    ("main_account", "MainAccountWithdrawal"): pending_main_account_withdrawal_count,
     ("cooperative_shareholding", "DividendChoiceRequest"): pending_dividend_request_count,
     ("goat_farming", "CGFActionRequest"): pending_cgf_action_request_count,
     (

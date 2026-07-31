@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Mushanapp</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet" />
+    <!-- Landing Page CSS -->
+    <link href="landing.css" rel="stylesheet" />
+</head>
+
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <img src="tgfs/images/tgfs.png" alt="MCS Logo" height="40" class="d-inline-block align-text-top me-2" />
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <div class="navbar-nav">
+                    <!-- User is not authenticated (dummy state) -->
+                    <a href="/login" class="btn btn-outline-light me-2">Login</a>
+                    <a href="/signup" class="btn btn-primary">Sign Up</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- (Optional) Flash message example -->
+    <div class="container mt-3">
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            Welcome back, John Doe!
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <header class="hero-section py-5 bg-light">
+        <div class="container">
+            <div class="row justify-content-center text-center">
+                <div class="col-lg-8">
+                    <h1 class="display-4 fw-bold">Welcome to TGF's Platform</h1>
+                    <p class="lead">
+                        Access the Target Group Financial services through our unified
+                        platform.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Projects Grid -->
+    <section class="projects-section py-5">
+        <div class="container">
+            <h2 class="section-title text-center mb-5">TGF Groups</h2>
+            <div class="row g-4">
+                <!-- 52-WSC Project -->
+                <div class="col-md-4">
+                    <div class="project-card text-center p-4 border rounded">
+                        <div class="project-icon fs-2 mb-3">
+                            <i class="fas fa-calculator"></i>
+                            <i class="fas fa-money-bill-wave ms-1"></i>
+                        </div>
+                        <h3>52-WSC</h3>
+                        <p>52 Weeks Saving Challenge</p>
+                        <a href="/login" class="btn btn-primary">Access Project</a>
+                    </div>
+                </div>
+
+                <!-- RSS Project -->
+                <div class="col-md-4">
+                    <div class="project-card text-center p-4 border rounded">
+                        <div class="project-icon fs-2 mb-3">
+                            <i class="fas fa-user-clock"></i>
+                        </div>
+                        <h3>RSS</h3>
+                        <p>Retirement Savings Scheme</p>
+                        <a href="/login" class="btn btn-primary">Access Project</a>
+                    </div>
+                </div>
+
+                <!-- GWC Project -->
+                <div class="col-md-4">
+                    <div class="project-card text-center p-4 border rounded">
+                        <div class="project-icon fs-2 mb-3">
+                            <i class="fas fa-hand-holding-heart"></i>
+                            <i class="fas fa-chart-line ms-1"></i>
+                        </div>
+                        <h3>GWC</h3>
+                        <p>Generational Wealth Creation</p>
+                        <a href="/login" class="btn btn-primary">Access Project</a>
+                    </div>
+                </div>
+
+                <!-- Clubs Account -->
+                <div class="col-md-4">
+                    <div class="project-card text-center p-4 border rounded">
+                        <div class="project-icon fs-2 mb-3">
+                            <i class="fas fa-users"></i>
+                            <i class="fas fa-coins ms-1"></i>
+                        </div>
+                        <h3>CA</h3>
+                        <p>Clubs Account</p>
+                        <a href="/login" class="btn btn-primary">Access Project</a>
+                    </div>
+                </div>
+
+                <!-- Fixed Savings Account -->
+                <div class="col-md-4">
+                    <div class="project-card text-center p-4 border rounded">
+                        <div class="project-icon fs-2 mb-3">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <i class="fas fa-lock ms-1"></i>
+                        </div>
+                        <h3>FSA</h3>
+                        <p>Fixed Savings Account</p>
+                        <a href="/login" class="btn btn-primary">Access Project</a>
+                    </div>
+                </div>
+
+                <!-- Collective Goat Farming -->
+                <div class="col-md-4">
+                    <div class="project-card text-center p-4 border rounded">
+                        <div class="project-icon fs-2 mb-3">
+                            <i class="fas fa-horse"></i>
+                            <i class="fas fa-sheep ms-1"></i>
+                        </div>
+                        <h3>CGF</h3>
+                        <p>Collective Goat Farming</p>
+                        <a href="/login" class="btn btn-primary">Access Project</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer py-3 bg-dark text-white">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-0">
+                        &copy; 2024 Mushana Multipurpose Cooperative Society. All rights
+                        reserved.
+                    </p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <a href="#" class="text-white me-3">Privacy Policy</a>
+                    <a href="#" class="text-white">Contact Us</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Landing Page JS -->
+    <script src="landing.js"></script>
+</body>
+
+</html>
