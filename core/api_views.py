@@ -19,12 +19,28 @@ PROJECT_REP = "Real Estate Projects"
 TARGET_52WSC = Decimal("13780000")
 
 
+def to_cooperative_datetime(value: datetime) -> datetime:
+    """
+    Normalize any datetime for member-facing display.
+
+    All members (any browser/timezone) see cooperative business time
+    (settings.TIME_ZONE, Africa/Kampala), so shared records stay consistent.
+
+    - Aware values (normal USE_TZ / Postgres UTC) are converted into TIME_ZONE.
+    - Naive legacy values are treated as already recorded in TIME_ZONE.
+    """
+    business_tz = timezone.get_default_timezone()
+    if timezone.is_naive(value):
+        return timezone.make_aware(value, business_tz)
+    return timezone.localtime(value, business_tz)
+
+
 def date_label(value) -> str:
     """Match Django template filters like date:\"M d, Y\"."""
     if not value:
         return "-"
     if isinstance(value, datetime):
-        value = timezone.localtime(value).date()
+        value = to_cooperative_datetime(value).date()
     if isinstance(value, date):
         return value.strftime("%b %d, %Y")
     return str(value)
@@ -35,7 +51,7 @@ def gwc_date_label(value) -> str:
     if not value:
         return "-"
     if isinstance(value, datetime):
-        value = timezone.localtime(value).date()
+        value = to_cooperative_datetime(value).date()
     if isinstance(value, date):
         return f"{value.day} {value.strftime('%b %Y')}"
     return str(value)
@@ -82,8 +98,7 @@ def date_display(value) -> str:
     if not value:
         return ""
     if isinstance(value, datetime):
-        value = timezone.localtime(value)
-        return value.strftime("%d %b %Y")
+        return to_cooperative_datetime(value).strftime("%d %b %Y")
     if isinstance(value, date):
         return value.strftime("%d %b %Y")
     return str(value)
@@ -223,7 +238,7 @@ def serialize_transaction(txn) -> dict:
 
     created = item_value(txn, "created_at") or item_value(txn, "date")
     if isinstance(created, datetime):
-        at_iso = timezone.localtime(created).isoformat()
+        at_iso = to_cooperative_datetime(created).isoformat()
     elif isinstance(created, date):
         at_iso = datetime.combine(created, datetime.min.time()).isoformat()
     else:
@@ -370,9 +385,9 @@ def _action_tone(project: str) -> str:
 def _sort_dt(value):
     if not value:
         return timezone.now()
-    if timezone.is_aware(value):
-        return value
-    return timezone.make_aware(value)
+    if isinstance(value, datetime):
+        return to_cooperative_datetime(value)
+    return value
 
 
 def build_action_requests(profile) -> list[dict]:
@@ -1065,7 +1080,7 @@ def build_cgf_member_payload(profile) -> dict:
             else int(account.current_goats * effective_kids_per_goat)
         )
         total_expected_kids += resolved_kids
-        created_local = timezone.localtime(account.created_at)
+        created_local = to_cooperative_datetime(account.created_at)
         farm_accounts.append(
             {
                 "id": f"fa-{account.pk}",
@@ -1501,7 +1516,7 @@ def build_rep_detail_payload(user, project) -> dict:
     txn_rows = []
     for txn in user_transactions:
         txn_date = txn.transaction_date or (
-            timezone.localtime(txn.created_at).date() if txn.created_at else None
+            to_cooperative_datetime(txn.created_at).date() if txn.created_at else None
         )
         txn_rows.append(
             {
