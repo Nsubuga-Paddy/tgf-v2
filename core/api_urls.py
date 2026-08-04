@@ -2,6 +2,7 @@ from django.urls import path
 
 from .api_views import (
     CgfAPIView,
+    ClaimDividendAPIView,
     DashboardAPIView,
     GwcAPIView,
     HelpVideosAPIView,
@@ -9,6 +10,7 @@ from .api_views import (
     ProfileAPIView,
     ProjectAccessRequestAPIView,
     RepDetailAPIView,
+    RepRefundRequestAPIView,
     RepListAPIView,
     Savings52APIView,
     VerificationPendingAPIView,
@@ -32,6 +34,11 @@ urlpatterns = [
         MainAccountWithdrawAPIView.as_view(),
         name="api_main_account_withdraw",
     ),
+    path(
+        "shareholding/claim-dividend/",
+        ClaimDividendAPIView.as_view(),
+        name="api_shareholding_claim_dividend",
+    ),
     path("projects/52wsc/", Savings52APIView.as_view(), name="api_projects_52wsc"),
     path("projects/cgf/", CgfAPIView.as_view(), name="api_projects_cgf"),
     path("projects/gwc/", GwcAPIView.as_view(), name="api_projects_gwc"),
@@ -40,6 +47,11 @@ urlpatterns = [
         "projects/rep/<int:project_id>/",
         RepDetailAPIView.as_view(),
         name="api_projects_rep_detail",
+    ),
+    path(
+        "projects/rep/<int:project_id>/refund/",
+        RepRefundRequestAPIView.as_view(),
+        name="api_projects_rep_refund",
     ),
     path("help/videos/", HelpVideosAPIView.as_view(), name="api_help_videos"),
 ]

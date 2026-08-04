@@ -201,6 +201,8 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+    # Always return JSON for /api/ failures — never Django DEBUG HTML pages.
+    "EXCEPTION_HANDLER": "core.api_exceptions.api_exception_handler",
 }
 
 SIMPLE_JWT = {
@@ -214,13 +216,14 @@ LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'landing'
 LOGOUT_REDIRECT_URL = 'accounts:login'
 
-# Public base URL for links in outbound email (e.g. https://portal.mcsug.org or http://10.x.x.x:8000 for LAN testing)
-SITE_URL = config("SITE_URL", default="").strip().rstrip("/")
+# Public base URL for links in outbound email.
+# Override SITE_URL in local/dev environments if you do not want production links.
+SITE_URL = config("SITE_URL", default="https://mcs-tgfs.com").strip().rstrip("/")
 # React member app origin used in password-reset emails.
 # When Django serves the SPA, this is the same host as the API (e.g. http://127.0.0.1:8000).
 FRONTEND_BASE_URL = config(
     "FRONTEND_BASE_URL",
-    default=SITE_URL or "http://127.0.0.1:8000",
+    default=SITE_URL,
 ).strip().rstrip("/")
 
 # Email: canonical sender is mcsug.org (cPanel mailbox). Set EMAIL_* in .env / Railway.

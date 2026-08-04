@@ -238,6 +238,7 @@ def build_pending_edit_payload(submission: DividendChoiceRequest) -> dict[str, A
     """Amounts per channel for pre-filling the profile edit form."""
     amounts = {
         DividendAllocationLine.ActionType.CASH: 0,
+        DividendAllocationLine.ActionType.MAIN_ACCOUNT: 0,
         DividendAllocationLine.ActionType.MCS_SHARES: 0,
         DividendAllocationLine.ActionType.SAVINGS: 0,
     }
@@ -246,10 +247,130 @@ def build_pending_edit_payload(submission: DividendChoiceRequest) -> dict[str, A
     return {
         "submission_id": submission.pk,
         "alloc_cash": amounts[DividendAllocationLine.ActionType.CASH],
+        "alloc_main_account": amounts[DividendAllocationLine.ActionType.MAIN_ACCOUNT],
         "alloc_mcs_shares": amounts[DividendAllocationLine.ActionType.MCS_SHARES],
         "alloc_savings": amounts[DividendAllocationLine.ActionType.SAVINGS],
         "notes": submission.member_notes or "",
     }
+
+
+def active_dividend_submission(
+    shareholding: CooperativeShareholding,
+) -> DividendChoiceRequest | None:
+    return (
+        DividendChoiceRequest.objects.filter(shareholding=shareholding)
+        .exclude(status=DividendChoiceRequest.Status.REJECTED)
+        .order_by("-created_at")
+        .first()
+    )
+
+
+def _main_account_claim_submission(
+    shareholding: CooperativeShareholding,
+) -> DividendChoiceRequest | None:
+    """Latest non-rejected claim that targets Main Account."""
+    return (
+        DividendChoiceRequest.objects.filter(
+            shareholding=shareholding,
+            allocation_lines__action_type=DividendAllocationLine.ActionType.MAIN_ACCOUNT,
+        )
+        .exclude(status=DividendChoiceRequest.Status.REJECTED)
+        .order_by("-created_at")
+        .distinct()
+        .first()
+    )
+
+
+def dividend_claim_state(shareholding: CooperativeShareholding) -> dict[str, Any]:
+    """Member-facing flags for claiming earned dividends to Main Account."""
+    account = build_dividend_account_summary(shareholding)
+    expected = Decimal(account.get("expected_dividend") or 0)
+    claimable = Decimal(account.get("outstanding_balance") or 0)
+    if claimable < 0:
+        claimable = Decimal("0")
+
+    claim_submission = _main_account_claim_submission(shareholding)
+    status = claim_submission.status if claim_submission else ""
+    pending = bool(
+        claim_submission
+        and claim_submission.status == DividendChoiceRequest.Status.PENDING
+    )
+    locked = bool(
+        claim_submission
+        and claim_submission.status
+        in (
+            DividendChoiceRequest.Status.APPROVED,
+            DividendChoiceRequest.Status.PROCESSED,
+        )
+    )
+    election_open = bool(shareholding.dividend_election_open)
+    can_claim = bool(election_open and claimable > 0 and not pending and not locked)
+
+    if not election_open:
+        block_reason = "election_closed"
+        block_message = "Dividends are not ready for claim."
+    elif pending:
+        block_reason = "pending"
+        block_message = (
+            "Your dividend claim is already awaiting administrator approval."
+        )
+    elif locked or claimable <= 0:
+        block_reason = "already_settled"
+        block_message = (
+            "Your earned dividends for this cycle have already been paid out "
+            "or claimed."
+        )
+    else:
+        block_reason = ""
+        block_message = ""
+
+    return {
+        "expected_dividend": expected,
+        "claimable_dividend": claimable,
+        "can_claim": can_claim,
+        "claim_pending": pending,
+        "claim_locked": locked,
+        "claim_status": status,
+        "claim_status_display": (
+            claim_submission.get_status_display() if claim_submission else ""
+        ),
+        "submission_id": claim_submission.pk if claim_submission else None,
+        "election_open": election_open,
+        "block_reason": block_reason,
+        "block_message": block_message,
+    }
+
+
+@transaction.atomic
+def claim_dividend_to_main_account(
+    shareholding: CooperativeShareholding,
+    *,
+    member_notes: str = "",
+) -> DividendChoiceRequest:
+    """
+    Submit a pending request to transfer claimable earned dividends to Main Account.
+    Credit is posted only when an administrator approves the request.
+    """
+    state = dividend_claim_state(shareholding)
+    if not state["election_open"]:
+        raise ValueError("Dividends are not ready for claim.")
+    if state["claim_pending"]:
+        raise ValueError(state["block_message"])
+    if state["claim_locked"]:
+        raise ValueError(state["block_message"])
+    claimable = Decimal(state["claimable_dividend"] or 0)
+    if claimable <= 0:
+        raise ValueError(
+            state["block_message"]
+            or "You do not have earned dividends to claim right now."
+        )
+
+    return create_dividend_submission(
+        shareholding,
+        claimable,
+        [(DividendAllocationLine.ActionType.MAIN_ACCOUNT, claimable)],
+        member_notes=(member_notes or "Claim earned dividends to Main Account").strip(),
+    )
 
 
 def create_dividend_submission(
@@ -291,6 +412,9 @@ def update_dividend_submission(
 def _fulfillment_type_for_line(line: DividendAllocationLine) -> str:
     mapping = {
         DividendAllocationLine.ActionType.CASH: DividendDisbursement.FulfillmentType.CASH_PAID,
+        DividendAllocationLine.ActionType.MAIN_ACCOUNT: (
+            DividendDisbursement.FulfillmentType.MAIN_ACCOUNT_CREDIT
+        ),
         DividendAllocationLine.ActionType.MCS_SHARES: DividendDisbursement.FulfillmentType.MCS_REINVEST,
         DividendAllocationLine.ActionType.SAVINGS: DividendDisbursement.FulfillmentType.SAVINGS_DEPOSIT,
     }
@@ -366,6 +490,10 @@ def apply_approved_dividend_ledger(submission: DividendChoiceRequest) -> None:
     today = timezone.localdate()
     now = timezone.now()
 
+    from main_account import services as main_account_ledger
+
+    profile = shareholding.user.profile
+
     for line in submission.allocation_lines.all():
         fulfillment = _fulfillment_type_for_line(line)
         DividendDisbursement.objects.create(
@@ -390,6 +518,14 @@ def apply_approved_dividend_ledger(submission: DividendChoiceRequest) -> None:
                 source_description="Dividend reinvestment — MCS shares",
             )
             acquisition.save()
+        elif line.action_type == DividendAllocationLine.ActionType.MAIN_ACCOUNT:
+            main_account_ledger.record_dividend(
+                profile,
+                line.amount,
+                description=(
+                    f"Cooperative dividend claim #{submission.pk} credited to Main Account"
+                ),
+            )
     submission.ledger_applied_at = now
     submission.save(update_fields=["ledger_applied_at"])
 

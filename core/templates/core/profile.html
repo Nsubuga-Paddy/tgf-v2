@@ -2755,7 +2755,7 @@
                             <span class="rep-project-metric-value">UGX {{ item.deducted_amount|floatformat:0|intcomma }}</span>
                           </div>
                           <div class="rep-project-metric">
-                            <span class="rep-project-metric-label">Available</span>
+                            <span class="rep-project-metric-label">Refundable</span>
                             <span class="rep-project-metric-value available">UGX {{ item.available_amount|floatformat:0|intcomma }}</span>
                           </div>
                         </div>
@@ -2768,7 +2768,7 @@
                 </div>
                 <div class="project-actions-compact">
                   <button type="button" class="project-action-btn" onclick="openRepWithdrawModal()">
-                    <i class="fas fa-money-bill-wave"></i> Withdraw from Real Estate
+                    <i class="fas fa-undo"></i> Request Real Estate Refund
                   </button>
                   <button type="button" class="project-action-btn" onclick="openRepTransferGWCModal()">
                     <i class="fas fa-users"></i> Transfer to GWC
@@ -3164,7 +3164,7 @@
           <input type="hidden" name="coop_submission_id" class="coopSubmissionIdField" value="">
           <input type="hidden" name="coop_action_type" id="coopActionType" value="">
           <div class="form-group">
-            <label class="form-label">Expected dividend</label>
+            <label class="form-label">Earned dividends</label>
             <input type="text" class="form-control" readonly value="UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}">
           </div>
           <div id="coopChoiceDescription" class="info-card" style="margin-top: 1rem;">
@@ -3196,7 +3196,7 @@
           <input type="hidden" name="action" value="cooperative_dividend_choice">
           <input type="hidden" name="coop_submission_id" class="coopSubmissionIdField" value="">
           <div class="form-group">
-            <label class="form-label">Total expected dividend</label>
+            <label class="form-label">Total earned dividends</label>
             <input type="text" class="form-control" readonly value="UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}">
           </div>
           <p style="font-size: 0.9rem; color: var(--text); margin: 0.75rem 0 0.5rem; line-height: 1.5;">
@@ -3241,27 +3241,27 @@
   {% if coop_edit_payload %}{{ coop_edit_payload|json_script:"coop-pending-edit-data" }}{% endif %}
   {% endif %}
 
-  <!-- Real Estate: Withdraw Modal -->
+  <!-- Real Estate: Refund Modal -->
   <div id="repWithdrawModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h3 class="modal-title">
-          <i class="fas fa-money-bill-wave"></i>
-          Withdraw from Real Estate
+          <i class="fas fa-undo"></i>
+          Request Real Estate Refund
         </h3>
         <button class="modal-close" onclick="closeRepWithdrawModal()">&times;</button>
       </div>
       <div class="modal-body">
         <form id="repWithdrawForm" method="post" action="{% url 'profile' %}">
           {% csrf_token %}
-          <input type="hidden" name="action" value="rep_withdraw">
+          <input type="hidden" name="action" value="rep_refund">
           <div class="form-group">
             <label class="form-label">Select Project</label>
             <select class="form-control" name="rep_project_id" required>
               <option value="">Select project</option>
               {% for item in realestate_projects_data %}
               <option value="{{ item.project.id }}">
-                {{ item.project.name }} ({{ item.project.get_status_display }}) - Available UGX {{ item.available_amount|floatformat:0|intcomma }} | Withheld UGX {{ item.withheld_amount|floatformat:0|intcomma }}
+                {{ item.project.name }} ({{ item.project.get_status_display }}) - Refundable UGX {{ item.available_amount|floatformat:0|intcomma }} | Pending UGX {{ item.withheld_amount|floatformat:0|intcomma }}
               </option>
               {% endfor %}
             </select>
@@ -3272,7 +3272,7 @@
           </div>
           <div class="form-group">
             <label class="form-label">Reason (Optional)</label>
-            <textarea class="form-control" name="rep_notes" rows="3" placeholder="Reason for withdrawal"></textarea>
+            <textarea class="form-control" name="rep_notes" rows="3" placeholder="Reason for refund request"></textarea>
           </div>
         </form>
       </div>
@@ -3955,16 +3955,23 @@
         showNotification('success', msg, 'Cooperative Dividend Submitted');
       } else if (action === 'rep_request_success') {
         const type = urlParams.get('type') || '';
-        const labels = {
-          withdraw: 'withdrawal from Real Estate',
-          transfer_gwc: 'transfer to GWC',
-          transfer_namayumba: 'transfer to Namayumba estate',
-        };
-        const label = labels[type] || type;
-        showNotification('success',
-          `Your ${label} request has been submitted successfully! Admin will review and process it.`,
-          'Real Estate Action Request Submitted'
-        );
+        if (type === 'refund') {
+          showNotification('success',
+            'Refund request submitted. A staff member will get in touch with you to confirm this request before it is processed.',
+            'Refund Request Submitted'
+          );
+        } else {
+          const labels = {
+            withdraw: 'withdrawal from Real Estate',
+            transfer_gwc: 'transfer to GWC',
+            transfer_namayumba: 'transfer to Namayumba estate',
+          };
+          const label = labels[type] || type;
+          showNotification('success',
+            `Your ${label} request has been submitted successfully! Admin will review and process it.`,
+            'Real Estate Action Request Submitted'
+          );
+        }
       }
       
       // Make 52WSC project items clickable

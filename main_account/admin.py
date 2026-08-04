@@ -13,6 +13,7 @@ from .services import (
     post_transaction,
     reject_transfer_request,
     reject_withdrawal,
+    reverse_withdrawal,
 )
 
 
@@ -256,11 +257,11 @@ class MainAccountWithdrawalAdmin(admin.ModelAdmin):
         "payout_destination",
         "reason_preview",
         "status",
+        "reversal_reference",
         "processed_by",
         "processed_at",
     )
     list_filter = ("status", "payout_method", "created_at")
-    list_editable = ("status",)
     search_fields = (
         "user_profile__account_number",
         "user_profile__user__username",
@@ -274,8 +275,11 @@ class MainAccountWithdrawalAdmin(admin.ModelAdmin):
     readonly_fields = (
         "payout_destination",
         "transaction",
+        "reversal_transaction",
         "processed_by",
         "processed_at",
+        "reversed_by",
+        "reversed_at",
         "created_at",
         "updated_at",
     )
@@ -292,15 +296,23 @@ class MainAccountWithdrawalAdmin(admin.ModelAdmin):
                     "status",
                 ),
                 "description": (
-                    "Change Status to Approved or Rejected (list or detail). "
-                    "Approving posts the debit to the member ledger."
+                    "Use the admin actions to approve, reject, or reverse. "
+                    "Approval posts a debit; reversal posts an equal credit adjustment."
                 ),
             },
         ),
         (
             "Admin decision",
             {
-                "fields": ("admin_notes", "processed_by", "processed_at", "transaction"),
+                "fields": (
+                    "admin_notes",
+                    "processed_by",
+                    "processed_at",
+                    "transaction",
+                    "reversal_transaction",
+                    "reversed_by",
+                    "reversed_at",
+                ),
                 "description": "Notes for the payment team (e.g. MoMo/bank reference).",
             },
         ),
@@ -312,7 +324,7 @@ class MainAccountWithdrawalAdmin(admin.ModelAdmin):
             },
         ),
     )
-    actions = ("action_approve", "action_reject")
+    actions = ("action_approve", "action_reject", "action_reverse")
 
     def get_queryset(self, request):
         return (
@@ -331,6 +343,12 @@ class MainAccountWithdrawalAdmin(admin.ModelAdmin):
             return "—"
         return obj.reason[:50] + ("…" if len(obj.reason) > 50 else "")
 
+    @admin.display(description="Reversal ref")
+    def reversal_reference(self, obj):
+        if obj.reversal_transaction_id:
+            return obj.reversal_transaction.reference
+        return "—"
+
     def save_model(self, request, obj, form, change):
         if not change or not obj.pk:
             return super().save_model(request, obj, form, change)
@@ -342,7 +360,8 @@ class MainAccountWithdrawalAdmin(admin.ModelAdmin):
         if previous.status != MainAccountWithdrawal.STATUS_PENDING:
             self.message_user(
                 request,
-                "Only pending withdrawals can change status.",
+                "Only pending withdrawals can change status manually. "
+                "Use the 'Reverse approved withdrawals' action for approved requests.",
                 level=messages.ERROR,
             )
             return
@@ -384,6 +403,26 @@ class MainAccountWithdrawalAdmin(admin.ModelAdmin):
             done += 1
         if done:
             self.message_user(request, f"Rejected {done} withdrawal(s).", level=messages.SUCCESS)
+
+    @admin.action(description="Reverse approved withdrawals (posts credit adjustment)")
+    def action_reverse(self, request, queryset):
+        done = 0
+        for wd in queryset.filter(status=MainAccountWithdrawal.STATUS_APPROVED):
+            try:
+                reverse_withdrawal(
+                    wd,
+                    admin=request.user,
+                    admin_notes=wd.admin_notes or "Reversed by Administrator",
+                )
+                done += 1
+            except ValueError as exc:
+                self.message_user(request, f"{wd.user_profile}: {exc}", level=messages.ERROR)
+        if done:
+            self.message_user(
+                request,
+                f"Reversed {done} approved withdrawal(s) and posted credit adjustment(s).",
+                level=messages.SUCCESS,
+            )
 
 
 @admin.register(ProjectTransferRequest)

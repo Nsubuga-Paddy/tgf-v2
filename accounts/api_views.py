@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from .emails import get_site_base_url
 from .serializers import (
     MobileLogoutSerializer,
     MobilePasswordResetConfirmSerializer,
@@ -82,8 +83,7 @@ class MobilePasswordResetRequestView(APIView):
 
         token = default_token_generator.make_token(user)
         uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-        frontend = getattr(settings, "FRONTEND_BASE_URL", "").rstrip("/")
-        reset_url = f"{frontend}/reset/{uidb64}/{token}" if frontend else ""
+        reset_url = f"{get_site_base_url()}/reset/{uidb64}/{token}"
         message = render_to_string(
             "core/password_reset_email.html",
             {

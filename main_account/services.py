@@ -249,6 +249,44 @@ def reject_withdrawal(withdrawal: MainAccountWithdrawal, *, admin=None, admin_no
     return withdrawal
 
 
+@transaction.atomic
+def reverse_withdrawal(withdrawal: MainAccountWithdrawal, *, admin=None, admin_notes=""):
+    """Reverse an approved withdrawal by posting an equal credit adjustment.
+
+    The original debit ledger row remains untouched for audit history. The
+    reversal credit restores the member's balance and is linked back to the
+    approved withdrawal.
+    """
+    if withdrawal.status != MainAccountWithdrawal.STATUS_APPROVED:
+        raise ValueError("Only approved withdrawals can be reversed.")
+    if withdrawal.reversal_transaction_id:
+        raise ValueError("This withdrawal has already been reversed.")
+
+    original_ref = withdrawal.transaction.reference if withdrawal.transaction_id else "unknown"
+    reason = (admin_notes or "").strip()
+    description = f"Reversal of withdrawal {original_ref}."
+    if reason:
+        description += f" Reason: {reason}"
+
+    tx = post_transaction(
+        withdrawal.user_profile,
+        direction=MainAccountTransaction.Direction.CREDIT,
+        category=MainAccountTransaction.Category.ADJUSTMENT,
+        amount=withdrawal.amount,
+        source_label=f"Withdrawal reversal {original_ref}",
+        description=description,
+        created_by=admin,
+        reference_prefix="REV",
+    )
+    withdrawal.status = MainAccountWithdrawal.STATUS_REVERSED
+    withdrawal.reversal_transaction = tx
+    withdrawal.reversed_by = admin
+    withdrawal.admin_notes = reason or withdrawal.admin_notes
+    withdrawal.reversed_at = timezone.now()
+    withdrawal.save()
+    return withdrawal
+
+
 def create_transfer_request(profile, project_label, amount, *, member_notes="") -> ProjectTransferRequest:
     """Member requests to move matured project funds into the main account."""
     amount = _q(amount)

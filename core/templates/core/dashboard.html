@@ -338,7 +338,7 @@
           <div class="eq-metric"><div class="lbl">Shares held</div><div class="val">{{ coop_summary.total_shares_display }}<span class="cur"> shares</span></div></div>
           <div class="eq-metric"><div class="lbl">Portfolio value</div><div class="val"><span class="cur">UGX </span>{{ coop_summary.portfolio_value|floatformat:0|intcomma }}</div></div>
           <div class="eq-metric"><div class="lbl">Dividend eligible</div><div class="val">{{ coop_summary.dividend_eligible_shares_display }}<span class="cur"> shares</span></div></div>
-          <div class="eq-metric"><div class="lbl">Expected dividend</div><div class="val accent"><span class="cur">UGX </span>{{ coop_summary.expected_dividend|floatformat:0|intcomma }}</div></div>
+          <div class="eq-metric"><div class="lbl">Earned dividends</div><div class="val accent"><span class="cur">UGX </span>{{ coop_summary.expected_dividend|floatformat:0|intcomma }}</div></div>
         </div>
         <div class="equity-foot">
           <div class="note"><i class="fas fa-circle-info"></i> {% if coop_election_open %}Dividend election is open.{% else %}Dividend election is currently closed.{% endif %}</div>
@@ -563,7 +563,7 @@
         <div class="mrow"><span class="k">Shares held</span><span class="v">{{ coop_summary.total_shares_display }} shares</span></div>
         <div class="mrow"><span class="k">Portfolio value</span><span class="v">UGX {{ coop_summary.portfolio_value|floatformat:0|intcomma }}</span></div>
         <div class="mrow"><span class="k">Dividend eligible shares</span><span class="v">{{ coop_summary.dividend_eligible_shares_display }}</span></div>
-        <div class="mrow"><span class="k">Expected dividend</span><span class="v" style="color:var(--success)">UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}</span></div>
+        <div class="mrow"><span class="k">Earned dividends</span><span class="v" style="color:var(--success)">UGX {{ coop_summary.expected_dividend|floatformat:0|intcomma }}</span></div>
         <div class="mrow"><span class="k">Tier</span><span class="v">{{ coop_summary.tier }}</span></div>
         {% else %}
         <p class="lead">No shareholding on record.</p>

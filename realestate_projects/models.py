@@ -216,11 +216,13 @@ class RealEstateProjectInterest(models.Model):
 
 class RealEstateProjectActionRequest(models.Model):
     ACTION_WITHDRAW = "withdraw"
+    ACTION_REFUND = "refund"
     ACTION_TRANSFER_GWC = "transfer_gwc"
     ACTION_TRANSFER_NAMAYUMBA = "transfer_namayumba"
 
     ACTION_CHOICES = [
         (ACTION_WITHDRAW, "Withdraw cash"),
+        (ACTION_REFUND, "Refund to Main Account"),
         (ACTION_TRANSFER_GWC, "Transfer to GWC"),
         (ACTION_TRANSFER_NAMAYUMBA, "Transfer to Namayumba estate"),
     ]
@@ -273,6 +275,29 @@ class RealEstateProjectActionRequest(models.Model):
     admin_notes = models.TextField(
         blank=True,
         help_text="Internal admin notes about how the request was handled.",
+    )
+    realestate_transaction = models.OneToOneField(
+        RealEstateProjectTransaction,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="action_request",
+        help_text="Project transaction posted when this request is processed.",
+    )
+    main_account_transaction = models.OneToOneField(
+        "main_account.MainAccountTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="realestate_refund_request",
+        help_text="Main Account credit posted when a refund request is processed.",
+    )
+    processed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="processed_realestate_action_requests",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(null=True, blank=True)

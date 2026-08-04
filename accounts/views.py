@@ -19,6 +19,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.conf import settings
 
 from .forms import CustomUserCreationForm, PasswordResetRequestForm
+from .emails import get_site_base_url
 from .models import UserProfile
 
 User = get_user_model()
@@ -201,6 +202,10 @@ def password_reset_request(request):
             try:
                 token = default_token_generator.make_token(user)
                 uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+                reset_url = (
+                    f"{get_site_base_url()}"
+                    f"{reverse('accounts:password_reset_confirm', kwargs={'uidb64': uidb64, 'token': token})}"
+                )
                 subject = "Reset your MCS password"
                 message = render_to_string(
                     "core/password_reset_email.html",
@@ -210,6 +215,7 @@ def password_reset_request(request):
                         "domain": request.get_host(),
                         "uid": uidb64,
                         "token": token,
+                        "reset_url": reset_url,
                     },
                     request=request,
                 )

@@ -14,6 +14,7 @@ import {
   MapPin,
   PlayCircle,
   Receipt,
+  RotateCcw,
   Scale,
   Settings,
   UserCheck,
@@ -57,8 +58,7 @@ export default function RealEstateProjectDetail() {
   const { projectId } = useParams()
   const navigate = useNavigate()
   const { authFetch } = useAuth()
-  const { member, addToast } = useMember()
-  const [showTransferHint, setShowTransferHint] = useState(false)
+  const { member, addToast, reloadDashboard } = useMember()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notFound, setNotFound] = useState(false)
@@ -68,8 +68,16 @@ export default function RealEstateProjectDetail() {
     totalPaid: 0,
     pendingBalance: null,
     paymentCompleted: false,
+    refundableAmount: 0,
+    pendingRefundTotal: 0,
+    projectStatus: '',
+    projectStatusLabel: '',
+    latestRefundStatus: '',
+    latestRefundStatusDisplay: '',
   })
   const [transactions, setTransactions] = useState([])
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [refundSubmitting, setRefundSubmitting] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -85,6 +93,12 @@ export default function RealEstateProjectDetail() {
           totalPaid: payload.user?.totalPaid || 0,
           pendingBalance: payload.user?.pendingBalance ?? null,
           paymentCompleted: Boolean(payload.user?.paymentCompleted),
+          refundableAmount: payload.user?.refundableAmount || 0,
+          pendingRefundTotal: payload.user?.pendingRefundTotal || 0,
+          projectStatus: payload.user?.projectStatus || '',
+          projectStatusLabel: payload.user?.projectStatusLabel || '',
+          latestRefundStatus: payload.user?.latestRefundStatus || '',
+          latestRefundStatusDisplay: payload.user?.latestRefundStatusDisplay || '',
         })
         setTransactions(payload.transactions || [])
       })
@@ -104,15 +118,54 @@ export default function RealEstateProjectDetail() {
     return () => {
       alive = false
     }
-  }, [authFetch, addToast, member.accountNumber, projectId])
+  }, [authFetch, addToast, member.accountNumber, projectId, refreshKey])
 
   if (!loading && notFound) return <Navigate to="/projects/rep" replace />
 
-  const isMatured = project?.status === 'closed'
   const totalBudget =
     project?.totalBudget ??
     ((project?.vendorTotalAmount || 0) + (project?.operationalCosts || 0) || 0)
-  const transferHint = 'This button becomes active after the project cycle has matured.'
+  const refundable = Number(userStats.refundableAmount || 0)
+
+  const requestRefund = () => {
+    if (!project || refundSubmitting) return
+    if (userStats.paymentCompleted) {
+      addToast('Fully paid projects move to land title processing, not refund.')
+      return
+    }
+    if (userStats.latestRefundStatus === 'pending' || userStats.latestRefundStatus === 'approved') {
+      addToast('Your refund request is already awaiting administrator processing.')
+      return
+    }
+    if (!refundable) {
+      addToast('No refundable amount is currently available for this project.')
+      return
+    }
+    setRefundSubmitting(true)
+    authFetch(`/api/projects/rep/${project.id}/refund/`, {
+      method: 'POST',
+      body: {
+        amount: refundable,
+        reason: 'Unable to complete Real Estate project payment',
+      },
+    })
+      .then((payload) => {
+        addToast(
+          payload.detail ||
+            'Refund request submitted. A staff member will get in touch with you to confirm this request before it is processed.',
+        )
+        setRefreshKey((key) => key + 1)
+        if (typeof reloadDashboard === 'function') {
+          reloadDashboard({ silent: true })
+        }
+      })
+      .catch((err) => {
+        addToast(err.message || 'Could not submit refund request.')
+      })
+      .finally(() => {
+        setRefundSubmitting(false)
+      })
+  }
 
   return (
     <AppShell title={project?.name || 'Real Estate project'}>
@@ -277,7 +330,27 @@ export default function RealEstateProjectDetail() {
                   <StatCard
                     icon={CheckCircle2}
                     label="Payment status"
-                    value={userStats.paymentCompleted ? 'Completed' : 'In progress'}
+                    value={
+                      userStats.projectStatusLabel ||
+                      (userStats.paymentCompleted ? 'Completed' : 'In progress')
+                    }
+                  />
+                  <StatCard
+                    icon={RotateCcw}
+                    label="Refundable amount"
+                    value={formatUGX(refundable)}
+                    meta="No penalties are deducted. Pending refund requests reduce this figure."
+                  />
+                  <StatCard
+                    icon={Clock3}
+                    label="Pending refund"
+                    value={formatUGX(userStats.pendingRefundTotal || 0)}
+                    meta={
+                      Number(userStats.pendingRefundTotal || 0) > 0
+                        ? 'Held while a staff member contacts you to confirm, then credits Main Account after approval.'
+                        : 'No refund request is currently awaiting review.'
+                    }
+                    tone={Number(userStats.pendingRefundTotal || 0) > 0 ? 'warning' : undefined}
                   />
                 </div>
 
@@ -288,6 +361,7 @@ export default function RealEstateProjectDetail() {
                         <tr>
                           <th>Date</th>
                           <th>Amount</th>
+                          <th>Type</th>
                           <th>Acquisition</th>
                           <th>Balance</th>
                           <th>Status</th>
@@ -298,6 +372,13 @@ export default function RealEstateProjectDetail() {
                           <tr key={transaction.id}>
                             <td>{transaction.date}</td>
                             <td>{formatUGX(transaction.amount)}</td>
+                            <td>
+                              {transaction.type === 'refund'
+                                ? 'Refund'
+                                : transaction.type === 'adjustment'
+                                  ? 'Adjustment'
+                                  : 'Payment'}
+                            </td>
                             <td>
                               {transaction.acquisitionQuantity
                                 ? `${transaction.acquisitionQuantity} ${transaction.acquisitionUnit}`
@@ -337,37 +418,31 @@ export default function RealEstateProjectDetail() {
                 >
                   Add contribution
                 </button>
-                <div
-                  className={`rep-transfer-wrap${isMatured ? '' : ' locked'}`}
-                  onMouseEnter={() => !isMatured && setShowTransferHint(true)}
-                  onMouseLeave={() => setShowTransferHint(false)}
-                  onFocus={() => !isMatured && setShowTransferHint(true)}
-                  onBlur={() => setShowTransferHint(false)}
-                  onClick={() => {
-                    if (isMatured) return
-                    setShowTransferHint(true)
-                    window.setTimeout(() => setShowTransferHint(false), 2800)
-                  }}
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  disabled={loading || refundSubmitting}
+                  onClick={requestRefund}
                 >
-                  {showTransferHint && !isMatured ? (
-                    <div className="rep-transfer-tooltip" role="status">
-                      {transferHint}
-                    </div>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    disabled={!isMatured}
-                    aria-disabled={!isMatured}
-                    onClick={() => {
-                      if (isMatured) {
-                        addToast('Transfer to main account is still under development')
-                      }
-                    }}
-                  >
-                    Transfer to main account
-                  </button>
-                </div>
+                  <RotateCcw size={15} />
+                  {refundSubmitting ? 'Submitting refund…' : 'Request refund'}
+                </button>
+                {userStats.paymentCompleted ? (
+                  <p className="rep-transfer-note">Fully paid projects move toward land title processing.</p>
+                ) : userStats.latestRefundStatus === 'pending' || userStats.latestRefundStatus === 'approved' ? (
+                  <p className="rep-transfer-note">
+                    Refund of {formatUGX(userStats.pendingRefundTotal || 0)} is held. A staff
+                    member will get in touch with you to confirm this request before it is
+                    credited to your Main Account.
+                  </p>
+                ) : refundable > 0 ? (
+                  <p className="rep-transfer-note">
+                    Request a full no-penalty refund of {formatUGX(refundable)} to your Main Account.
+                    Bank details must be complete on your profile.
+                  </p>
+                ) : (
+                  <p className="rep-transfer-note">No refundable amount is currently available.</p>
+                )}
               </section>
             ) : null}
           </>

@@ -54,6 +54,18 @@ export function flattenApiErrors(data) {
     .join(' ')
 }
 
+function looksLikeHtml(value) {
+  if (typeof value !== 'string') return false
+  const text = value.trim().toLowerCase()
+  return (
+    text.startsWith('<!doctype') ||
+    text.startsWith('<html') ||
+    text.includes('<body') ||
+    text.includes('traceback (most recent call last)') ||
+    text.includes('django.core.files.storage')
+  )
+}
+
 function extractErrorMessage(data, status, path) {
   const isApiPath = String(path || '').includes('/api')
   if (status === 404 && isApiPath) {
@@ -61,15 +73,25 @@ function extractErrorMessage(data, status, path) {
   }
 
   if (typeof data === 'string' && data.trim()) {
-    // Avoid dumping raw HTML pages into the UI.
-    if (data.trim().startsWith('<')) {
+    // Avoid dumping raw HTML / Django DEBUG pages into the UI.
+    if (looksLikeHtml(data) || data.trim().startsWith('<')) {
+      if (status >= 500) {
+        return 'The server could not process this request. Please try again shortly.'
+      }
       return `Request failed with status ${status}. Please confirm the backend API is reachable.`
     }
     return data.trim()
   }
 
   const fromBody = flattenApiErrors(data)
-  if (fromBody) return fromBody
+  if (fromBody) {
+    if (looksLikeHtml(fromBody)) {
+      return status >= 500
+        ? 'The server could not process this request. Please try again shortly.'
+        : `Request failed with status ${status}.`
+    }
+    return fromBody
+  }
 
   if (status === 401) {
     return 'Invalid username or password. Please check your credentials and try again.'

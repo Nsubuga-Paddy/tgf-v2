@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Award,
   BriefcaseBusiness,
@@ -8,11 +9,14 @@ import {
   Layers3,
   ShoppingCart,
   Star,
+  Wallet,
 } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 import { useMember } from '../context/MemberContext'
 import { formatUGX } from '../utils/format'
 
 export default function PortfolioSummary() {
+  const { authFetch } = useAuth()
   const {
     totals,
     myProjects,
@@ -21,12 +25,50 @@ export default function PortfolioSummary() {
     pendingRequests,
     isShareholder,
     addToast,
+    reloadDashboard,
   } = useMember()
+  const [claiming, setClaiming] = useState(false)
   const sharesLabel = shareholding.sharesHeldDisplay || String(shareholding.sharesHeld || 0)
   const eligibleLabel =
     shareholding.dividendEligibleDisplay || String(shareholding.dividendEligible || 0)
   const memberSinceLabel = shareholding.yearJoined || shareholding.memberSince || '—'
   const certificateLabel = shareholding.certificateStatus || 'Not issued'
+  const earnedDividend = Number(shareholding.expectedDividend || 0)
+  const canClaim = Boolean(shareholding.canClaimDividend)
+  const claimPending = Boolean(shareholding.dividendClaimPending)
+  const electionOpen = Boolean(shareholding.electionOpen)
+  const claimBlockMessage =
+    shareholding.dividendClaimBlockMessage ||
+    (!electionOpen
+      ? 'Dividends are not ready for claim.'
+      : claimPending
+        ? 'Your dividend claim is already awaiting administrator approval.'
+        : 'You do not have claimable dividends right now.')
+
+  const handleClaimDividends = async () => {
+    if (claiming) return
+    if (!canClaim) {
+      addToast(claimBlockMessage)
+      return
+    }
+
+    setClaiming(true)
+    try {
+      const payload = await authFetch('/api/shareholding/claim-dividend/', {
+        method: 'POST',
+        body: {},
+      })
+      addToast(
+        payload.detail ||
+          'Dividend claim submitted. After approval, the amount will be credited to your Main Account.',
+      )
+      await reloadDashboard({ silent: true })
+    } catch (err) {
+      addToast(err.message || 'Could not submit dividend claim.')
+    } finally {
+      setClaiming(false)
+    }
+  }
 
   return (
     <>
@@ -73,7 +115,7 @@ export default function PortfolioSummary() {
             <div className="k">Pending requests</div>
           </div>
           <div className="v">{pendingRequests.length}</div>
-          <div className="h">{formatUGX(mainAccount.pendingWithdrawal)} withheld</div>
+          <div className="h">{formatUGX(totals.pendingWithheld || mainAccount.pendingWithdrawal)} withheld</div>
         </article>
       </section>
 
@@ -125,22 +167,38 @@ export default function PortfolioSummary() {
                     <span className="cur"> shares</span>
                   </div>
                 </div>
-                <div className="eq-metric">
-                  <div className="lbl">Expected dividend</div>
-                  <div className="val accent">{formatUGX(shareholding.expectedDividend)}</div>
+                <div className="eq-metric eq-metric-claim">
+                  <div className="lbl">Earned dividends</div>
+                  <div className="eq-claim-row">
+                    <div className="val accent">{formatUGX(earnedDividend)}</div>
+                    <button
+                      type="button"
+                      className={`btn-claim-dividend${canClaim ? '' : ' is-muted'}`}
+                      onClick={handleClaimDividends}
+                      disabled={claiming}
+                      title={
+                        canClaim
+                          ? 'Transfer earned dividends to Main Account'
+                          : claimBlockMessage
+                      }
+                    >
+                      <Wallet size={14} />
+                      {claiming ? 'Claiming…' : claimPending ? 'Claim pending' : 'Claim'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <div className="equity-foot">
                 <div className="note">
                   <Info size={15} />
-                  {shareholding.electionOpen
-                    ? shareholding.electionDeadline
-                      ? `Dividend election is open until ${shareholding.electionDeadline}.`
-                      : 'Dividend election is currently open.'
-                    : shareholding.dividendRate
-                      ? `Current dividend rate: ${shareholding.dividendRate}`
-                      : 'Dividend details are based on your registered shareholding record.'}
+                  {claimPending
+                    ? 'Your dividend claim is awaiting approval. Once approved it will appear on your Main Account for withdrawal.'
+                    : !electionOpen
+                      ? 'Dividends are not ready for claim.'
+                      : canClaim
+                        ? 'Claim earned dividends to move them to your Main Account for withdrawal.'
+                        : claimBlockMessage}
                 </div>
                 <div className="equity-actions">
                   <button

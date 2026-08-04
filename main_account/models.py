@@ -97,10 +97,12 @@ class MainAccountWithdrawal(models.Model):
     STATUS_PENDING = "pending"
     STATUS_APPROVED = "approved"
     STATUS_REJECTED = "rejected"
+    STATUS_REVERSED = "reversed"
     STATUS_CHOICES = [
         (STATUS_PENDING, "Pending"),
         (STATUS_APPROVED, "Approved"),
         (STATUS_REJECTED, "Rejected"),
+        (STATUS_REVERSED, "Reversed"),
     ]
 
     PAYOUT_MOBILE_MONEY = "mobile_money"
@@ -139,6 +141,14 @@ class MainAccountWithdrawal(models.Model):
         blank=True,
         related_name="withdrawal",
     )
+    reversal_transaction = models.OneToOneField(
+        MainAccountTransaction,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reversed_withdrawal",
+        help_text="Credit transaction posted when an approved withdrawal is reversed.",
+    )
     processed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -146,9 +156,17 @@ class MainAccountWithdrawal(models.Model):
         blank=True,
         related_name="processed_main_account_withdrawals",
     )
+    reversed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reversed_main_account_withdrawals",
+    )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     processed_at = models.DateTimeField(null=True, blank=True)
+    reversed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

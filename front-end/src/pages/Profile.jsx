@@ -167,7 +167,7 @@ export default function Profile() {
       rows.push({ label: 'Dividend rate', value: sh.dividendRate })
     }
     rows.push({
-      label: "This cycle's dividend",
+      label: 'Earned dividends',
       value: formatUGX(sh.expectedDividend || 0),
       tip: 'How dividends work',
     })

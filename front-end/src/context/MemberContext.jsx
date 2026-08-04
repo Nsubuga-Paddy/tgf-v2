@@ -51,11 +51,19 @@ const EMPTY_SHAREHOLDING = {
   legacyValuePerShare: 0,
   totalDividendsEarned: 0,
   issuancePeriodName: '',
+  canClaimDividend: false,
+  claimableDividend: 0,
+  dividendClaimPending: false,
+  dividendClaimStatus: '',
+  dividendClaimStatusDisplay: '',
+  dividendClaimBlockReason: '',
+  dividendClaimBlockMessage: '',
 }
 
 const EMPTY_TOTALS = {
   totalPortfolio: 0,
   invested: 0,
+  pendingWithheld: 0,
 }
 
 export function MemberProvider({ children }) {
@@ -115,6 +123,7 @@ export function MemberProvider({ children }) {
   const isShareholder = Boolean(member.isShareholder)
   const myProjects = dashboard?.myProjects || []
   const pendingRequestsFromApi = dashboard?.pendingRequests || []
+  const actionRequests = dashboard?.actionRequests || []
   const transactions = dashboard?.transactions || []
   const totals = dashboard?.totals || EMPTY_TOTALS
   const profile = dashboard?.profile || null
@@ -126,8 +135,17 @@ export function MemberProvider({ children }) {
         id: `access-${p.id}`,
         label: `Project access · ${p.name}`,
         detail: 'Awaiting review',
+        project: 'Platform',
+        status: 'pending',
+        statusDisplay: 'Pending',
+        tone: 'coop',
       }))
-    return [...pendingRequestsFromApi, ...accessPending]
+    // Avoid double-counting access requests already present from the API list.
+    const apiIds = new Set(pendingRequestsFromApi.map((item) => item.id))
+    return [
+      ...pendingRequestsFromApi,
+      ...accessPending.filter((item) => !apiIds.has(item.id)),
+    ]
   }, [otherProjects, pendingRequestsFromApi])
 
   const requestAccess = useCallback(
@@ -196,6 +214,7 @@ export function MemberProvider({ children }) {
       hasMaturedProjects: false,
       otherProjects,
       pendingRequests,
+      actionRequests,
       transactions,
       totals,
       profile,
@@ -223,6 +242,7 @@ export function MemberProvider({ children }) {
       myProjects,
       otherProjects,
       pendingRequests,
+      actionRequests,
       transactions,
       totals,
       profile,

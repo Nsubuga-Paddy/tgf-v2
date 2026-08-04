@@ -283,6 +283,7 @@ def serialize_shareholding_from_dashboard(ctx: dict) -> dict:
         is_shareholder=is_shareholder,
         election_open=bool(ctx.get("coop_election_open")),
         display_state="full" if is_shareholder else "no_access",
+        claim_state=ctx.get("coop_dividend_claim") or {},
     )
 
 
@@ -292,12 +293,14 @@ def serialize_shareholding_summary(
     is_shareholder: bool,
     election_open: bool = False,
     display_state: str = "no_access",
+    claim_state: dict | None = None,
 ) -> dict:
     """
     Align with cooperative_shareholding.services.build_shareholding_summary keys
     used by the Django dashboard/profile templates.
     """
     summary = summary or {}
+    claim_state = claim_state or {}
     rate_pct = summary.get("dividend_rate_percent")
     if rate_pct is None and summary.get("dividend_rate") is not None:
         try:
@@ -339,6 +342,13 @@ def serialize_shareholding_summary(
         "legacyValuePerShare": money(summary.get("legacy_value_per_share")),
         "totalDividendsEarned": 0,
         "issuancePeriodName": summary.get("issuance_period_name") or "",
+        "canClaimDividend": bool(claim_state.get("can_claim")),
+        "claimableDividend": money(claim_state.get("claimable_dividend")),
+        "dividendClaimPending": bool(claim_state.get("claim_pending")),
+        "dividendClaimStatus": claim_state.get("claim_status") or "",
+        "dividendClaimStatusDisplay": claim_state.get("claim_status_display") or "",
+        "dividendClaimBlockReason": claim_state.get("block_reason") or "",
+        "dividendClaimBlockMessage": claim_state.get("block_message") or "",
     }
 
 
@@ -456,6 +466,7 @@ def build_action_requests(profile) -> list[dict]:
     for r in profile.user.realestate_action_requests.all().order_by("-created_at"):
         type_map = {
             RealEstateProjectActionRequest.ACTION_WITHDRAW: "Withdraw from Real Estate",
+            RealEstateProjectActionRequest.ACTION_REFUND: "Refund to Main Account",
             RealEstateProjectActionRequest.ACTION_TRANSFER_GWC: "Transfer to GWC",
             RealEstateProjectActionRequest.ACTION_TRANSFER_NAMAYUMBA: "Transfer to Namayumba estate",
         }
@@ -528,6 +539,7 @@ def build_profile_shareholding(profile) -> dict:
         from cooperative_shareholding.services import (
             build_shareholding_summary,
             cooperative_display_state,
+            dividend_claim_state,
         )
     except Exception:
         return serialize_shareholding_summary(
@@ -554,7 +566,123 @@ def build_profile_shareholding(profile) -> dict:
         is_shareholder=True,
         election_open=bool(getattr(holding, "dividend_election_open", False)),
         display_state="full",
+        claim_state=dividend_claim_state(holding),
     )
+
+
+def _missing_dividend_claim_profile_fields(profile) -> list[str]:
+    missing = []
+    if not profile.whatsapp_number:
+        missing.append("Phone Number")
+    if not profile.national_id:
+        missing.append("National ID")
+    bank_ok = all(
+        [
+            (profile.bank_name or "").strip(),
+            (profile.bank_account_number or "").strip(),
+            (profile.bank_account_name or "").strip(),
+        ]
+    )
+    if not bank_ok:
+        missing.append("Bank Account Details")
+    return missing
+
+
+class ClaimDividendAPIView(APIView):
+    """Claim earned cooperative dividends to Main Account (pending admin approval)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from cooperative_shareholding.services import (
+            PROJECT_NAME,
+            claim_dividend_to_main_account,
+            cooperative_display_state,
+        )
+
+        profile = request.user.profile
+        if not profile.projects.filter(name=PROJECT_NAME).exists():
+            return Response(
+                {"detail": "You do not have access to Cooperative Shareholding."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        missing = _missing_dividend_claim_profile_fields(profile)
+        if missing:
+            return Response(
+                {
+                    "detail": (
+                        "Please complete your profile before claiming dividends: "
+                        + ", ".join(missing)
+                        + "."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            holding = request.user.cooperative_shareholding
+        except Exception:
+            holding = None
+        if holding is None or cooperative_display_state(profile, holding) != "full":
+            return Response(
+                {"detail": "Your shareholding record is not available yet."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            submission = claim_dividend_to_main_account(
+                holding,
+                member_notes=(request.data.get("notes") or "").strip(),
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response(
+                {
+                    "detail": (
+                        "Could not submit the dividend claim right now. Please try again shortly."
+                    )
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(
+            {
+                "detail": (
+                    "Dividend claim submitted. After approval, the amount will be credited "
+                    "to your Main Account so you can request a withdrawal."
+                ),
+                "request": {
+                    "id": submission.pk,
+                    "amount": money(submission.total_dividend),
+                    "status": submission.status,
+                    "statusDisplay": submission.get_status_display(),
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+def _serialize_dashboard_pending_requests(profile) -> list[dict]:
+    """Real pending action items for the home dashboard (not placeholder stubs)."""
+    rows = []
+    for item in build_action_requests(profile):
+        if (item.get("status") or "").lower() != "pending":
+            continue
+        rows.append(
+            {
+                "id": item["id"],
+                "label": item.get("typeLabel") or "Pending request",
+                "detail": item.get("detail") or "",
+                "project": item.get("project") or "",
+                "status": item.get("status") or "pending",
+                "statusDisplay": item.get("statusDisplay") or "Pending",
+                "tone": item.get("tone") or "coop",
+                "createdAt": item.get("createdAt") or "",
+            }
+        )
+    return rows
 
 
 class DashboardAPIView(APIView):
@@ -592,14 +720,16 @@ class DashboardAPIView(APIView):
             "shareholding": shareholding,
             "myProjects": [serialize_project_card(card) for card in ctx.get("my_projects", [])],
             "otherProjects": [serialize_discover(project) for project in ctx.get("discover_projects", [])],
-            "pendingRequests": [
-                {"id": f"pending-{i}", "label": "Pending request", "detail": ""}
-                for i in range(int(ctx.get("pending_count") or 0))
-            ],
+            "pendingRequests": _serialize_dashboard_pending_requests(request.user.profile),
+            "actionRequests": [
+                item
+                for item in build_action_requests(request.user.profile)
+            ][:12],
             "transactions": [serialize_transaction(txn) for txn in ctx.get("transactions", [])],
             "totals": {
                 "totalPortfolio": money(ctx.get("total_portfolio")),
                 "invested": money(ctx.get("total_invested")),
+                "pendingWithheld": money(ctx.get("pending_withheld")),
             },
             "profile": serialize_profile(request.user),
         }
@@ -1237,7 +1367,8 @@ def build_rep_detail_payload(user, project) -> dict:
     """Mirror realestate_projects.views.project_detail."""
     from django.db.models import Sum
 
-    from realestate_projects.models import RealEstateProjectTransaction
+    from realestate_projects.models import RealEstateProjectActionRequest, RealEstateProjectTransaction
+    from realestate_projects.services import pending_refund_total, refundable_amount
 
     profile = user.profile
     user_has_access = project.allowed_members.filter(pk=user.pk).exists()
@@ -1290,6 +1421,57 @@ def build_rep_detail_payload(user, project) -> dict:
     user_payment_completed = user_transactions.filter(
         payment_status=RealEstateProjectTransaction.PAYMENT_STATUS_FULL
     ).exists()
+
+    # Refund metadata must never block payment/transaction payload.
+    user_refundable_amount = Decimal("0")
+    user_pending_refund_total = Decimal("0")
+    latest_refund_request = None
+    if user_has_access:
+        try:
+            user_refundable_amount = refundable_amount(user, project)
+            user_pending_refund_total = pending_refund_total(user, project)
+            latest_refund_request = (
+                RealEstateProjectActionRequest.objects.defer(
+                    "main_account_transaction",
+                    "realestate_transaction",
+                    "processed_by",
+                )
+                .filter(
+                    project=project,
+                    user=user,
+                    action_type=RealEstateProjectActionRequest.ACTION_REFUND,
+                )
+                .order_by("-created_at")
+                .first()
+            )
+        except Exception:
+            # Fall back to paid total so members still see position + refund option.
+            user_refundable_amount = user_total_paid if user_total_paid > 0 else Decimal("0")
+            user_pending_refund_total = Decimal("0")
+            latest_refund_request = None
+
+    if user_payment_completed:
+        member_project_status = "title_processing"
+        member_project_status_label = "Title processing"
+    elif latest_refund_request and latest_refund_request.status == RealEstateProjectActionRequest.STATUS_PROCESSED:
+        member_project_status = "refund_credited"
+        member_project_status_label = "Refund credited"
+    elif latest_refund_request and latest_refund_request.status in {
+        RealEstateProjectActionRequest.STATUS_PENDING,
+        RealEstateProjectActionRequest.STATUS_APPROVED,
+    }:
+        member_project_status = "refund_requested"
+        member_project_status_label = (
+            "Refund approved — awaiting Main Account credit"
+            if latest_refund_request.status == RealEstateProjectActionRequest.STATUS_APPROVED
+            else "Refund held — awaiting approval"
+        )
+    elif user_total_paid > 0:
+        member_project_status = "partial_payment"
+        member_project_status_label = "Partial payment"
+    else:
+        member_project_status = "no_payments"
+        member_project_status_label = "No payments yet"
 
     vendor = project.vendor_total_amount
     ops = project.operational_costs
@@ -1350,6 +1532,14 @@ def build_rep_detail_payload(user, project) -> dict:
             if user_pending_balance is not None
             else None,
             "paymentCompleted": bool(user_payment_completed),
+            "refundableAmount": money(user_refundable_amount),
+            "pendingRefundTotal": money(user_pending_refund_total),
+            "projectStatus": member_project_status,
+            "projectStatusLabel": member_project_status_label,
+            "latestRefundStatus": latest_refund_request.status if latest_refund_request else "",
+            "latestRefundStatusDisplay": latest_refund_request.get_status_display()
+            if latest_refund_request
+            else "",
         },
         "transactions": txn_rows,
     }
@@ -1384,7 +1574,67 @@ class RepDetailAPIView(APIView):
             project = RealEstateProject.objects.get(pk=project_id)
         except (RealEstateProject.DoesNotExist, ValueError, TypeError):
             return Response({"detail": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
-        return Response(build_rep_detail_payload(request.user, project))
+        try:
+            return Response(build_rep_detail_payload(request.user, project))
+        except Exception:
+            return Response(
+                {
+                    "detail": "Could not load this Real Estate project right now. Please try again shortly.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class RepRefundRequestAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, project_id):
+        from realestate_projects.models import RealEstateProject
+        from realestate_projects.services import create_refund_request
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_REP):
+            return Response(
+                {"detail": "You do not have access to Real Estate Projects."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            project = RealEstateProject.objects.get(pk=project_id)
+        except (RealEstateProject.DoesNotExist, ValueError, TypeError):
+            return Response({"detail": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            refund_request = create_refund_request(
+                request.user,
+                project,
+                amount=request.data.get("amount"),
+                reason=(request.data.get("reason") or "").strip(),
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response(
+                {
+                    "detail": "Could not submit the refund request right now. Please try again shortly.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(
+            {
+                "detail": (
+                    "Refund request submitted. A staff member will get in touch with you "
+                    "to confirm this request before it is processed."
+                ),
+                "request": {
+                    "id": refund_request.pk,
+                    "amount": money(refund_request.amount),
+                    "status": refund_request.status,
+                    "statusDisplay": refund_request.get_status_display(),
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class ProjectAccessRequestAPIView(APIView):

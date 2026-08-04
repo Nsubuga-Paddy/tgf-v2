@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
+from django.db.models import Sum
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
@@ -78,8 +79,27 @@ def build_member_dashboard(user) -> dict:
     pending_access = profile.project_access_requests.filter(
         status=ProjectAccessRequest.STATUS_PENDING
     ).count()
-    ctx["pending_count"] = pending_withdrawals + pending_transfers + pending_access
-    ctx["pending_withheld"] = ctx["main_pending_withdrawal"]
+    pending_rep = 0
+    pending_rep_amount = ZERO
+    try:
+        from realestate_projects.models import RealEstateProjectActionRequest
+
+        rep_pending_qs = RealEstateProjectActionRequest.objects.filter(
+            user=user,
+            status=RealEstateProjectActionRequest.STATUS_PENDING,
+        )
+        pending_rep = rep_pending_qs.count()
+        pending_rep_amount = rep_pending_qs.aggregate(t=Sum("amount"))["t"] or ZERO
+    except Exception:
+        pending_rep = 0
+        pending_rep_amount = ZERO
+
+    ctx["pending_count"] = (
+        pending_withdrawals + pending_transfers + pending_access + pending_rep
+    )
+    ctx["pending_withheld"] = ctx["main_pending_withdrawal"] + pending_rep_amount
+    ctx["pending_rep_count"] = pending_rep
+    ctx["pending_rep_amount"] = pending_rep_amount
 
     # ---- Discover ----
     ctx["discover_projects"] = _build_discover(profile)
@@ -104,6 +124,8 @@ def _empty_financials() -> dict:
         "total_portfolio": ZERO,
         "pending_count": 0,
         "pending_withheld": ZERO,
+        "pending_rep_count": 0,
+        "pending_rep_amount": ZERO,
         "discover_projects": [],
         "transactions": [],
     }
@@ -226,24 +248,61 @@ def _build_my_projects(user, profile) -> list[dict]:
         except Exception:
             pass
 
-    # ---- Real Estate Projects (per allowed project) ----
+    # ---- Real Estate Projects (single portfolio card) ----
     try:
         from realestate_projects.models import RealEstateProject
-        for project in RealEstateProject.objects.filter(allowed_members=user).distinct():
-            bal = _rep_balances(user, project)
+        projects = list(RealEstateProject.objects.filter(allowed_members=user).distinct())
+        if projects:
+            total_gross = ZERO
+            total_withheld = ZERO
+            total_available = ZERO
+            running_count = 0
+            closed_count = 0
+            upcoming_count = 0
+            for project in projects:
+                status = getattr(project, "status", "")
+                if status == "running":
+                    running_count += 1
+                elif status == "closed":
+                    closed_count += 1
+                elif status == "upcoming":
+                    upcoming_count += 1
+                bal = _rep_balances(user, project)
+                total_gross += bal["gross"]
+                total_withheld += bal["withheld"]
+                total_available += bal["available"]
+
+            status_label = "Active" if running_count else "Closed" if closed_count else "Upcoming"
+            cycle_bits = []
+            if running_count:
+                cycle_bits.append(f"{running_count} running")
+            if closed_count:
+                cycle_bits.append(f"{closed_count} closed")
+            if upcoming_count:
+                cycle_bits.append(f"{upcoming_count} upcoming")
+            cycle_line = " · ".join(cycle_bits) or f"{len(projects)} project(s)"
+
             cards.append(_card(
-                f"Real Estate · {project.name}", "fa-city",
-                invested=bal["gross"],
-                cycle_line=getattr(project, "location", "") or "Real estate",
+                "Real Estate Projects", "fa-city",
+                invested=total_gross,
+                status_tag=status_label,
+                status_class="st-active" if running_count else "st-matured" if closed_count else "st-locked",
+                cycle_line=cycle_line,
                 url=_safe_reverse("realestate_projects:rep"),
-                card_id=f"rep-{project.pk}",
+                card_id="rep",
                 stats=[
-                    {"label": "Total contributed", "value": bal["gross"], "cls": "", "badge": ""},
-                    {"label": "Withheld", "value": bal["withheld"], "cls": "", "badge": ""},
-                    {"label": "Available (transferable)", "value": bal["available"], "cls": "green", "badge": ""},
+                    {
+                        "label": "Projects",
+                        "value": f"{len(projects)} project{'s' if len(projects) != 1 else ''}",
+                        "cls": "",
+                        "badge": "",
+                        "raw": True,
+                    },
+                    {"label": "Total contributed", "value": total_gross, "cls": "", "badge": ""},
+                    {"label": "Withheld", "value": total_withheld, "cls": "", "badge": ""},
+                    {"label": "Refundable", "value": total_available, "cls": "green", "badge": ""},
                 ],
-                transfer=({"label": f"Real Estate · {project.name}", "suggested": bal["available"]}
-                          if bal["available"] > ZERO else None),
+                transfer=None,
             ))
     except Exception:
         pass
@@ -269,16 +328,19 @@ def _rep_balances(user, project) -> dict:
                 gross += txn.amount
             elif txn.type == RealEstateProjectTransaction.TYPE_REFUND:
                 gross -= txn.amount
-        withheld = RealEstateProjectActionRequest.objects.filter(
-            user=user, project=project, status=RealEstateProjectActionRequest.STATUS_PENDING
-        ).aggregate(t=Sum("amount"))["t"] or ZERO
-        deducted = RealEstateProjectActionRequest.objects.filter(
-            user=user, project=project,
+        withheld = RealEstateProjectActionRequest.objects.defer(
+            "main_account_transaction",
+            "realestate_transaction",
+            "processed_by",
+        ).filter(
+            user=user,
+            project=project,
             status__in=[
+                RealEstateProjectActionRequest.STATUS_PENDING,
                 RealEstateProjectActionRequest.STATUS_APPROVED,
-                RealEstateProjectActionRequest.STATUS_PROCESSED,
             ],
         ).aggregate(t=Sum("amount"))["t"] or ZERO
+        deducted = ZERO
         gross = gross if gross > ZERO else ZERO
         out.update({
             "gross": gross,
@@ -296,6 +358,7 @@ def _build_shareholding(profile) -> dict:
         from cooperative_shareholding.services import (
             build_shareholding_summary,
             cooperative_display_state,
+            dividend_claim_state,
         )
     except Exception:
         return {"is_shareholder": False, "coop_portfolio_value": ZERO, "coop_summary": None}
@@ -316,6 +379,7 @@ def _build_shareholding(profile) -> dict:
                 "coop_portfolio_value": summary.get("portfolio_value") or ZERO,
                 "coop_year_joined": summary.get("year_joined"),
                 "coop_election_open": holding.dividend_election_open,
+                "coop_dividend_claim": dividend_claim_state(holding),
             }
         except Exception:
             pass

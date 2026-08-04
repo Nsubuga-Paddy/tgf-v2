@@ -329,6 +329,7 @@ class DividendChoiceRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
             "Account number",
             "Total dividend (UGX)",
             "Cash (UGX)",
+            "Main Account (UGX)",
             "MCS shares (UGX)",
             "Savings (UGX)",
             "Allocation summary",
@@ -354,6 +355,7 @@ class DividendChoiceRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
                     profile.account_number if profile else "",
                     f"{sub.total_dividend:,.0f}",
                     f"{amounts[DividendAllocationLine.ActionType.CASH]:,.0f}",
+                    f"{amounts[DividendAllocationLine.ActionType.MAIN_ACCOUNT]:,.0f}",
                     f"{amounts[DividendAllocationLine.ActionType.MCS_SHARES]:,.0f}",
                     f"{amounts[DividendAllocationLine.ActionType.SAVINGS]:,.0f}",
                     sub.allocation_summary,
@@ -485,6 +487,6 @@ class DividendChoiceRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
             self.message_user(
                 request,
-                "Dividend disbursements recorded for the member. MCS reinvestments added to share acquisitions; cash/savings show on their dividend statement.",
+                "Dividend disbursements recorded for the member. Main Account credits and MCS reinvestments posted; cash/savings show on their dividend statement.",
                 level=admin_messages.SUCCESS,
             )

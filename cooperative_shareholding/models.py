@@ -333,6 +333,7 @@ class DividendChoiceRequest(models.Model):
 class DividendAllocationLine(models.Model):
     class ActionType(models.TextChoices):
         CASH = "cash", "Cash (MoMo / bank)"
+        MAIN_ACCOUNT = "main_account", "Main Account (for withdrawal)"
         MCS_SHARES = "mcs_shares", "MCS cooperative shares (UGX 1M/share)"
         SAVINGS = "savings", "MCS Fixed Savings (7.5% p.a.)"
 
@@ -363,6 +364,7 @@ class DividendDisbursement(models.Model):
 
     class FulfillmentType(models.TextChoices):
         CASH_PAID = "cash_paid", "Cash paid (MoMo / bank)"
+        MAIN_ACCOUNT_CREDIT = "main_account_credit", "Credited to Main Account"
         MCS_REINVEST = "mcs_reinvest", "Reinvested in MCS shares"
         SAVINGS_DEPOSIT = "savings_deposit", "Fixed / compulsory deposit"
 

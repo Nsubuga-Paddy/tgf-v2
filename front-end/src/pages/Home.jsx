@@ -3,6 +3,7 @@ import BalanceHero from '../components/BalanceHero'
 import MaturedProjects from '../components/MaturedProjects'
 import MyProjects from '../components/MyProjects'
 import OtherProjects from '../components/OtherProjects'
+import PendingActionRequests from '../components/PendingActionRequests'
 import PortfolioSummary from '../components/PortfolioSummary'
 
 export default function Home() {
@@ -10,6 +11,7 @@ export default function Home() {
     <AppShell title="Home">
       <BalanceHero />
       <PortfolioSummary />
+      <PendingActionRequests />
       <MaturedProjects />
       <MyProjects />
       <OtherProjects />

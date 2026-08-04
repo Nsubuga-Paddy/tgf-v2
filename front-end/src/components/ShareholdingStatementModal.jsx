@@ -76,7 +76,7 @@ export default function ShareholdingStatementModal({ open, onClose }) {
               </span>
             </div>
             <div className="mrow">
-              <span className="k">Expected dividend</span>
+              <span className="k">Earned dividends</span>
               <span className="v pos">{formatUGX(shareholding.expectedDividend)}</span>
             </div>
             {shareholding.dividendRate ? (

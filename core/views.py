@@ -27,6 +27,7 @@ from realestate_projects.models import (
     RealEstateProjectTransaction,
     RealEstateProjectActionRequest,
 )
+from realestate_projects.services import create_refund_request
 from accounts.decorators import verified_required
 from decimal import Decimal
 
@@ -219,21 +220,14 @@ class ProfileView(TemplateView):
             RealEstateProjectActionRequest.objects.filter(
                 user=user,
                 project=project,
-                status=RealEstateProjectActionRequest.STATUS_PENDING,
-            ).aggregate(total=Sum("amount"))["total"]
-            or Decimal("0")
-        )
-        approved_deducted = (
-            RealEstateProjectActionRequest.objects.filter(
-                user=user,
-                project=project,
                 status__in=[
+                    RealEstateProjectActionRequest.STATUS_PENDING,
                     RealEstateProjectActionRequest.STATUS_APPROVED,
-                    RealEstateProjectActionRequest.STATUS_PROCESSED,
                 ],
             ).aggregate(total=Sum("amount"))["total"]
             or Decimal("0")
         )
+        approved_deducted = Decimal("0")
 
         available_amount = gross_amount - pending_withheld - approved_deducted
         if available_amount < 0:
@@ -575,11 +569,13 @@ class ProfileView(TemplateView):
             for r in profile.user.realestate_action_requests.all().order_by('-created_at'):
                 type_map = {
                     RealEstateProjectActionRequest.ACTION_WITHDRAW: 'Withdraw from Real Estate',
+                    RealEstateProjectActionRequest.ACTION_REFUND: 'Refund to Main Account',
                     RealEstateProjectActionRequest.ACTION_TRANSFER_GWC: 'Transfer to GWC',
                     RealEstateProjectActionRequest.ACTION_TRANSFER_NAMAYUMBA: 'Transfer to Namayumba estate',
                 }
                 icon_map = {
                     RealEstateProjectActionRequest.ACTION_WITHDRAW: 'fa-money-bill-wave',
+                    RealEstateProjectActionRequest.ACTION_REFUND: 'fa-undo',
                     RealEstateProjectActionRequest.ACTION_TRANSFER_GWC: 'fa-users',
                     RealEstateProjectActionRequest.ACTION_TRANSFER_NAMAYUMBA: 'fa-building',
                 }
@@ -702,6 +698,8 @@ class ProfileView(TemplateView):
             return self.handle_cgf_action(request, 'transfer')
         elif action == 'rep_withdraw':
             return self.handle_realestate_action(request, RealEstateProjectActionRequest.ACTION_WITHDRAW)
+        elif action == 'rep_refund':
+            return self.handle_realestate_action(request, RealEstateProjectActionRequest.ACTION_REFUND)
         elif action == 'rep_transfer_gwc':
             return self.handle_realestate_action(request, RealEstateProjectActionRequest.ACTION_TRANSFER_GWC)
         elif action == 'rep_transfer_namayumba':
@@ -926,9 +924,10 @@ class ProfileView(TemplateView):
         """Handle real estate project action requests (withdraw, transfer to GWC/Namayumba)."""
         user = request.user
 
-        bank_guard = self._require_bank_details_for_request(request)
-        if bank_guard:
-            return bank_guard
+        if action_type != RealEstateProjectActionRequest.ACTION_REFUND:
+            bank_guard = self._require_bank_details_for_request(request)
+            if bank_guard:
+                return bank_guard
 
         try:
             project_id = int(request.POST.get("rep_project_id", "0") or 0)
@@ -957,6 +956,19 @@ class ProfileView(TemplateView):
         if amount <= 0:
             messages.error(request, "Please enter a positive amount.")
             return redirect("profile")
+
+        if action_type == RealEstateProjectActionRequest.ACTION_REFUND:
+            try:
+                create_refund_request(
+                    user,
+                    project,
+                    amount=amount,
+                    reason=request.POST.get("rep_notes", ""),
+                )
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return redirect("profile")
+            return redirect(f"{reverse('profile')}?action=rep_request_success&type={action_type}")
 
         balances = self._get_realestate_project_balances(user, project)
         available = balances["available_amount"]
