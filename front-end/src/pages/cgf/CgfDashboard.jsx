@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
+  ArrowLeftRight,
   Baby,
   Clock,
   Info,
@@ -26,6 +27,11 @@ const EMPTY_SUMMARY = {
   totalBalance: 0,
   totalExpectedKids: 0,
   nextMaturityDate: null,
+  canTransferMatured: false,
+  maturedTransferAmount: 0,
+  maturedCycleCount: 0,
+  maturedGoats: 0,
+  maturedKids: 0,
 }
 
 function Badge({ tone, children }) {
@@ -34,39 +40,65 @@ function Badge({ tone, children }) {
 
 export default function CgfDashboard() {
   const { authFetch } = useAuth()
-  const { member, addToast } = useMember()
+  const { member, addToast, reloadDashboard } = useMember()
   const [summary, setSummary] = useState(EMPTY_SUMMARY)
   const [farmAccounts, setFarmAccounts] = useState([])
   const [purchases, setPurchases] = useState([])
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [transferring, setTransferring] = useState(false)
 
-  useEffect(() => {
-    let alive = true
+  const applyPayload = useCallback((payload) => {
+    setSummary({ ...EMPTY_SUMMARY, ...(payload.member || {}) })
+    setFarmAccounts(payload.farmAccounts || [])
+    setPurchases(payload.purchases || [])
+    setPayments((payload.payments || []).slice(0, 10))
+  }, [])
+
+  const loadCgf = useCallback(async () => {
     setLoading(true)
     setError('')
-    authFetch('/api/projects/cgf/')
-      .then((payload) => {
-        if (!alive) return
-        setSummary({ ...EMPTY_SUMMARY, ...(payload.member || {}) })
-        setFarmAccounts(payload.farmAccounts || [])
-        setPurchases(payload.purchases || [])
-        setPayments((payload.payments || []).slice(0, 10))
-      })
-      .catch((err) => {
-        if (!alive) return
-        const message = err.message || 'Could not load CGF dashboard.'
-        setError(message)
-        addToast(message)
-      })
-      .finally(() => {
-        if (alive) setLoading(false)
-      })
-    return () => {
-      alive = false
+    try {
+      const payload = await authFetch('/api/projects/cgf/')
+      applyPayload(payload)
+    } catch (err) {
+      const message = err.message || 'Could not load CGF dashboard.'
+      setError(message)
+      addToast(message)
+    } finally {
+      setLoading(false)
     }
-  }, [authFetch, addToast])
+  }, [authFetch, addToast, applyPayload])
+
+  useEffect(() => {
+    loadCgf()
+  }, [loadCgf])
+
+  const handleTransferToMain = async (farmId = null) => {
+    if (transferring) return
+    setTransferring(farmId || 'all')
+    try {
+      const payload = await authFetch('/api/projects/cgf/transfer-to-main/', {
+        method: 'POST',
+        body: farmId ? { farmId } : {},
+      })
+      addToast(
+        payload.detail ||
+          'Matured CGF value was credited to your Main Account.',
+      )
+      if (payload.dashboard) {
+        applyPayload(payload.dashboard)
+      } else {
+        await loadCgf()
+      }
+      await reloadDashboard({ silent: true })
+    } catch (err) {
+      addToast(err.message || 'Could not transfer matured CGF funds.')
+    } finally {
+      setTransferring(false)
+    }
+  }
 
   const accountNumber = summary.accountNumber || member.accountNumber || '—'
 
@@ -77,8 +109,18 @@ export default function CgfDashboard() {
           <h2>Welcome back, {member.firstName}!</h2>
           <p>Track your investment progress and manage your goat farm efficiently</p>
           <div className="cgf-account-row">
-            <span>Account Number</span>
-            <strong>{accountNumber}</strong>
+            <div className="cgf-account-left">
+              <span>Account Number</span>
+              <strong>{accountNumber}</strong>
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline cgf-purchase-btn"
+              onClick={() => addToast('Purchase package is still under development')}
+            >
+              <ShoppingCart size={15} />
+              Purchase package
+            </button>
           </div>
         </div>
       </section>
@@ -142,11 +184,17 @@ export default function CgfDashboard() {
                     <th>Expected Kids</th>
                     <th>Next Kidding Date</th>
                     <th>Account Created</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {farmAccounts.map((account) => {
                     const kidding = kiddingFromCreated(account.createdAt)
+                    const cycleComplete = Boolean(
+                      account.canTransfer || account.isCycleComplete,
+                    )
+                    const showTransfer = Boolean(account.canTransfer)
+                    const busy = transferring === account.farmId || transferring === 'all'
                     return (
                       <tr key={account.id}>
                         <td>
@@ -169,7 +217,13 @@ export default function CgfDashboard() {
                         <td>
                           <b>{kidding.dateLabel}</b>
                           <br />
-                          <small className={`cgf-tone-${kidding.tone}`}>{kidding.statusLabel}</small>
+                          <small className={`cgf-tone-${kidding.tone}`}>
+                            {cycleComplete && account.canTransfer
+                              ? 'Cycle complete · ready to transfer'
+                              : cycleComplete && !account.canTransfer
+                                ? 'Cycle complete'
+                                : kidding.statusLabel}
+                          </small>
                         </td>
                         <td>
                           {new Date(account.createdAt).toLocaleDateString('en-US', {
@@ -177,6 +231,22 @@ export default function CgfDashboard() {
                             month: 'short',
                             day: 'numeric',
                           })}
+                        </td>
+                        <td className="cgf-row-action">
+                          {showTransfer ? (
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleTransferToMain(account.farmId)}
+                              disabled={Boolean(transferring)}
+                              title={`Transfer ${formatUGX(account.transferAmount)} to Main Account`}
+                            >
+                              <ArrowLeftRight size={14} />
+                              {busy ? 'Transferring…' : 'Transfer to Main Account'}
+                            </button>
+                          ) : (
+                            <span className="cgf-action-placeholder">—</span>
+                          )}
                         </td>
                       </tr>
                     )

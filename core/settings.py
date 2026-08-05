@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 from decouple import config, Csv
 import dj_database_url
@@ -206,6 +207,10 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
+    # Short access token; SPA refreshes transparently until idle/absolute limits hit.
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    # Hard cap: even with activity, member must re-login within 12 hours.
+    "REFRESH_TOKEN_LIFETIME": timedelta(hours=12),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,

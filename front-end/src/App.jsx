@@ -13,6 +13,7 @@ import ResetPassword from './pages/ResetPassword'
 import CgfDashboard from './pages/cgf/CgfDashboard'
 import CgfInvestment from './pages/cgf/CgfInvestment'
 import CgfTransactions from './pages/cgf/CgfTransactions'
+import SessionTimeoutBanner from './components/SessionTimeoutBanner'
 import { useAuth } from './context/AuthContext'
 import GenerationalWealth from './pages/GenerationalWealth'
 import Savings52Challenge from './pages/Savings52Challenge'
@@ -33,9 +34,17 @@ function GuestOnly({ children }) {
   return <Navigate to="/" replace />
 }
 
+function AuthenticatedOverlays() {
+  const { isAuthenticated } = useAuth()
+  if (!isAuthenticated) return null
+  return <SessionTimeoutBanner />
+}
+
 export default function App() {
   return (
-    <Routes>
+    <>
+      <AuthenticatedOverlays />
+      <Routes>
       <Route path="/" element={<RequireAuth><Home /></RequireAuth>} />
       <Route path="/protection" element={<RequireAuth><ProtectionBenefits /></RequireAuth>} />
       <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
@@ -61,5 +70,6 @@ export default function App() {
       <Route path="/help" element={<HelpCenter />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   )
 }

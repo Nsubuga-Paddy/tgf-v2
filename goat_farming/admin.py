@@ -321,10 +321,12 @@ class CGFActionRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
     goats_remaining_display.short_description = 'Goats remaining'
 
     def cash_value_display(self, obj):
-        if obj.request_type == 'sell_cash_out' and obj.goats_count:
+        if obj.request_type in ('sell_cash_out', 'transfer_to_main') and (
+            obj.amount is not None or obj.goats_count
+        ):
             return f'UGX {obj.cash_value:,.0f}'
         return '—'
-    cash_value_display.short_description = 'Cash Value (Sell)'
+    cash_value_display.short_description = 'Cash / Transfer Value'
 
     def notes_preview(self, obj):
         if obj.notes:

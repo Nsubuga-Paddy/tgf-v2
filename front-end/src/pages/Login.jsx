@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff, Moon, Sun } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import {
+  SESSION_TIMEOUT_MESSAGE,
+  SESSION_TIMEOUT_REASON,
+} from '../lib/sessionPolicy'
 import mcsLogo from '../../mcs-logo2.png'
 
 const INITIAL = {
@@ -19,6 +23,7 @@ function validate(form) {
 
 export default function Login() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { login, isAuthenticated, user } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const [form, setForm] = useState(INITIAL)
@@ -27,6 +32,15 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(null)
   const [submitError, setSubmitError] = useState('')
+  const [timeoutNotice, setTimeoutNotice] = useState('')
+
+  useEffect(() => {
+    if (searchParams.get('reason') !== SESSION_TIMEOUT_REASON) return
+    setTimeoutNotice(SESSION_TIMEOUT_MESSAGE)
+    const next = new URLSearchParams(searchParams)
+    next.delete('reason')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -54,6 +68,7 @@ export default function Login() {
     setSubmitting(true)
     setSubmitError('')
     setSuccess(null)
+    setTimeoutNotice('')
     try {
       const session = await login({
         username: form.username.trim(),
@@ -94,6 +109,11 @@ export default function Login() {
         </header>
 
         <div className="auth-card-body">
+          {timeoutNotice ? (
+            <div className="auth-alert warning" role="status">
+              {timeoutNotice}
+            </div>
+          ) : null}
           {success ? (
             <div className="auth-alert success" role="status">
               {success}

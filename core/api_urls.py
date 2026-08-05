@@ -2,6 +2,7 @@ from django.urls import path
 
 from .api_views import (
     CgfAPIView,
+    CgfTransferToMainAPIView,
     ClaimDividendAPIView,
     DashboardAPIView,
     GwcAPIView,
@@ -41,6 +42,11 @@ urlpatterns = [
     ),
     path("projects/52wsc/", Savings52APIView.as_view(), name="api_projects_52wsc"),
     path("projects/cgf/", CgfAPIView.as_view(), name="api_projects_cgf"),
+    path(
+        "projects/cgf/transfer-to-main/",
+        CgfTransferToMainAPIView.as_view(),
+        name="api_projects_cgf_transfer_to_main",
+    ),
     path("projects/gwc/", GwcAPIView.as_view(), name="api_projects_gwc"),
     path("projects/rep/", RepListAPIView.as_view(), name="api_projects_rep"),
     path(

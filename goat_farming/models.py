@@ -166,6 +166,19 @@ class PackagePurchase(models.Model):
     
     purchase_date = models.DateTimeField(default=timezone.now, help_text="Purchase date (editable for backdating existing data)")
     notes = models.TextField(blank=True)
+    settled_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this matured cycle was transferred/settled to Main Account (or otherwise closed).",
+    )
+    settlement_action = models.ForeignKey(
+        "CGFActionRequest",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="settled_purchases",
+        help_text="CGF action that settled this purchase to Main Account.",
+    )
 
     class Meta:
         ordering = ['-purchase_date']
@@ -279,6 +292,7 @@ class CGFActionRequest(models.Model):
         ('sell_cash_out', 'Sell & Cash Out'),
         ('take_goats', 'Take Goats'),
         ('transfer', 'Transfer (Breeding → Commercial)'),
+        ('transfer_to_main', 'Transfer to Main Account'),
     ]
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -310,6 +324,21 @@ class CGFActionRequest(models.Model):
         blank=True,
         help_text="Number of goats for this action (sell, take, or transfer)"
     )
+    amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Amount credited to Main Account for transfer_to_main actions.",
+    )
+    main_account_transaction = models.OneToOneField(
+        "main_account.MainAccountTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cgf_action_request",
+        help_text="Main Account credit posted when matured CGF value is transferred.",
+    )
     notes = models.TextField(blank=True, null=True, help_text="User notes or additional details")
     status = models.CharField(
         max_length=20,
@@ -331,9 +360,11 @@ class CGFActionRequest(models.Model):
 
     @property
     def cash_value(self):
-        """UGX value when selling goats (goats_count × price per goat). Used for sell_cash_out requests."""
+        """UGX value for cash-out / main-account transfer actions."""
+        if self.amount is not None:
+            return self.amount
         count = self.goats_count or 0
-        return count * 400000  # UGX per goat
+        return Decimal(count) * CGF_CASHOUT_PRICE_PER_GOAT
 
 
 # Initialize default data

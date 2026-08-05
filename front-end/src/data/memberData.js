@@ -178,22 +178,11 @@ export const PROJECT_TAKE_ACTIONS = {
   ],
   cgf: [
     {
-      id: 'sell-cashout',
-      label: 'Sell & Cash Out',
-      description: 'Sell goats from a completed 14-month cycle and cash out',
-      icon: 'cash',
-    },
-    {
-      id: 'take-goats',
-      label: 'Take Goats',
-      description: 'Collect your goats after a completed breeding cycle',
-      icon: 'truck',
-    },
-    {
-      id: 'transfer-breeding',
-      label: 'Transfer (Breeding → Commercial)',
-      description: 'Move goats from breeding into commercial holdings',
-      icon: 'exchange',
+      id: 'transfer-main',
+      label: 'Transfer money to main account for withdrawal',
+      description:
+        'Cash out the matured portion and credit your Main Account so you can withdraw',
+      icon: 'transfer',
     },
   ],
   rep: [
@@ -256,7 +245,7 @@ export const MATURED_PROJECTS = [
     principal: 1_800_000,
     earnings: 0,
     availableAmount: 1_800_000,
-    nextBestAction: 'Sell & cash out, take goats, or transfer breeding to commercial',
+    nextBestAction: 'Transfer money to main account for withdrawal',
   },
 ]
 

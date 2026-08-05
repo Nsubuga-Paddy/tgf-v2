@@ -1,5 +1,4 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 
 from .api_views import (
     MobileLogoutView,
@@ -7,6 +6,7 @@ from .api_views import (
     MobilePasswordResetRequestView,
     MobileSignupView,
     MobileTokenObtainPairView,
+    MobileTokenRefreshView,
 )
 
 urlpatterns = [
@@ -25,7 +25,7 @@ urlpatterns = [
     path("auth/signup/", MobileSignupView.as_view(), name="mobile_signup"),
     path(
         "auth/token/refresh/",
-        TokenRefreshView.as_view(),
+        MobileTokenRefreshView.as_view(),
         name="mobile_token_refresh",
     ),
 ]

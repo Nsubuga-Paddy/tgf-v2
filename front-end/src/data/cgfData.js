@@ -173,6 +173,7 @@ export function kiddingFromCreated(createdAtIso, asOf = new Date()) {
 }
 
 export function purchaseStatusBadge(status) {
+  if (status === 'settled') return 'info'
   if (status === 'allocated') return 'success'
   if (status === 'paid') return 'info'
   if (status === 'partial') return 'warning'
@@ -180,6 +181,25 @@ export function purchaseStatusBadge(status) {
 }
 
 export function transactionFromPayment(payment) {
+  if (payment.entryType === 'transfer_to_main') {
+    return {
+      id: payment.id,
+      date: payment.paymentDate,
+      receiptNo: payment.receiptNumber,
+      type: 'Transfer to Main Account',
+      typeTone: 'info',
+      description: payment.notes || `Matured CGF settlement - ${payment.farmName}`,
+      amount: payment.amount,
+      status: 'Completed',
+      statusTone: 'success',
+      paymentMethod: payment.paymentMethod,
+      notes: payment.notes,
+      processedBy: payment.processedBy,
+      processedDate: payment.processedDate,
+      reference: payment.receiptNumber,
+    }
+  }
+
   let status = 'Pending'
   let statusTone = 'info'
   if (payment.purchaseStatus === 'allocated' || payment.purchaseStatus === 'paid') {

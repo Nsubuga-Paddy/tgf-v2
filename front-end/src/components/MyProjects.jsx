@@ -54,7 +54,9 @@ export default function MyProjects() {
                   <b>{project.name}</b>
                   <span>{project.cycleLine}</span>
                 </div>
-                <span className="status-tag">{project.status}</span>
+                <span className={`status-tag ${project.statusClass || 'st-active'}`}>
+                  {project.status}
+                </span>
               </div>
 
               <div className="pcard-amount">

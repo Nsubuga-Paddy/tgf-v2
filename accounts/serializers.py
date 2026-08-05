@@ -2,17 +2,26 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.tokens import default_token_generator
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
+from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.serializers import (
+    TokenObtainPairSerializer,
+    TokenRefreshSerializer,
+)
 
 from .forms import CustomUserCreationForm
 from .models import UserProfile
 
 User = get_user_model()
+
+SESSION_TIMEOUT_DETAIL = (
+    "Your session timed out for security. Please sign in again."
+)
 
 
 class MobileTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -78,7 +87,30 @@ class MobileTokenObtainPairSerializer(TokenObtainPairSerializer):
             token["is_verified"] = user.profile.is_verified
         except UserProfile.DoesNotExist:
             token["is_verified"] = False
+        # Absolute session bound — preserved across refresh rotation.
+        token["session_started"] = int(timezone.now().timestamp())
         return token
+
+
+class MobileTokenRefreshSerializer(TokenRefreshSerializer):
+    """Refresh tokens, but reject sessions older than REFRESH_TOKEN_LIFETIME."""
+
+    def validate(self, attrs):
+        try:
+            incoming = RefreshToken(attrs["refresh"])
+        except TokenError as exc:
+            raise AuthenticationFailed(detail=SESSION_TIMEOUT_DETAIL) from exc
+
+        # Bound the whole login session (rotation alone would otherwise extend forever).
+        session_started = incoming.get("session_started", incoming.get("iat"))
+        max_age = api_settings.REFRESH_TOKEN_LIFETIME.total_seconds()
+        if session_started is not None:
+            age = timezone.now().timestamp() - float(session_started)
+            if age > max_age:
+                raise AuthenticationFailed(detail=SESSION_TIMEOUT_DETAIL)
+
+        # In-place rotation keeps custom claims such as session_started.
+        return super().validate(attrs)
 
 
 class MobileSignupSerializer(serializers.Serializer):

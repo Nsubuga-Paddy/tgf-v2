@@ -6,6 +6,7 @@ import {
   FolderOpen,
   LayoutGrid,
   Banknote,
+  RefreshCw,
   Sparkles,
   Truck,
   Users,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { PROJECT_TAKE_ACTIONS } from '../data/memberData'
+import { useAuth } from '../context/AuthContext'
 import { useMember } from '../context/MemberContext'
 import { formatUGX } from '../utils/format'
 import ProjectIcon from './ProjectIcon'
@@ -26,12 +28,15 @@ const ACTION_ICONS = {
   truck: Truck,
   exchange: ArrowLeftRight,
   building: Building2,
+  retain: RefreshCw,
 }
 
 export default function MaturedProjects() {
   const navigate = useNavigate()
-  const { maturedProjects, addToast } = useMember()
+  const { authFetch } = useAuth()
+  const { maturedProjects, addToast, reloadDashboard } = useMember()
   const [actionProject, setActionProject] = useState(null)
+  const [transferring, setTransferring] = useState(false)
 
   const openProject = (project) => {
     if (project.projectId === '52wsc') {
@@ -63,11 +68,31 @@ export default function MaturedProjects() {
     : actionProject?.projectId
   const takeActions = actionProject ? PROJECT_TAKE_ACTIONS[actionKey] || [] : []
 
-  const runAction = (action) => {
-    if (!actionProject) return
+  const runAction = async (action) => {
+    if (!actionProject || transferring) return
     if (action.id === 'open-gwc') {
       setActionProject(null)
       navigate('/projects/gwc')
+      return
+    }
+    if (actionProject.projectId === 'cgf' && action.id === 'transfer-main') {
+      setTransferring(true)
+      try {
+        const payload = await authFetch('/api/projects/cgf/transfer-to-main/', {
+          method: 'POST',
+          body: {},
+        })
+        addToast(
+          payload.detail ||
+            'Matured CGF value was credited to your Main Account.',
+        )
+        setActionProject(null)
+        await reloadDashboard({ silent: true })
+      } catch (err) {
+        addToast(err.message || 'Could not transfer matured CGF funds.')
+      } finally {
+        setTransferring(false)
+      }
       return
     }
     addToast(`${action.label} is still under development`)
@@ -186,8 +211,9 @@ export default function MaturedProjects() {
             </div>
             <div className="take-action-body">
               <p className="take-action-lead">
-                Choose what to do with this matured cycle. Cash leaves MCS only from your main
-                account after a transfer.
+                {actionProject.projectId === 'cgf'
+                  ? 'Transfer the matured CGF value to your Main Account. You can then request a withdrawal from Main Account.'
+                  : 'Choose what to do with this matured cycle. Cash leaves MCS only from your main account after a transfer.'}
               </p>
               {takeActions.length === 0 ? (
                 <p className="take-action-empty">No actions configured for this project yet.</p>
@@ -201,13 +227,22 @@ export default function MaturedProjects() {
                           type="button"
                           className="take-action-option"
                           onClick={() => runAction(action)}
+                          disabled={transferring}
                         >
                           <span className="take-action-option-icon">
                             <Icon size={18} />
                           </span>
                           <span className="take-action-option-copy">
-                            <b>{action.label}</b>
-                            <small>{action.description}</small>
+                            <b>
+                              {transferring && action.id === 'transfer-main'
+                                ? 'Transferring…'
+                                : action.label}
+                            </b>
+                            <small>
+                              {actionProject.projectId === 'cgf' && actionProject.availableAmount
+                                ? `${action.description} · Available ${formatUGX(actionProject.availableAmount)}`
+                                : action.description}
+                            </small>
                           </span>
                         </button>
                       </li>

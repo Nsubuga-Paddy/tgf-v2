@@ -122,11 +122,13 @@ export function MemberProvider({ children }) {
   const shareholding = dashboard?.shareholding || EMPTY_SHAREHOLDING
   const isShareholder = Boolean(member.isShareholder)
   const myProjects = dashboard?.myProjects || []
+  const maturedProjects = dashboard?.maturedProjects || []
   const pendingRequestsFromApi = dashboard?.pendingRequests || []
   const actionRequests = dashboard?.actionRequests || []
   const transactions = dashboard?.transactions || []
   const totals = dashboard?.totals || EMPTY_TOTALS
   const profile = dashboard?.profile || null
+  const hasMaturedProjects = maturedProjects.length > 0
 
   const pendingRequests = useMemo(() => {
     const accessPending = otherProjects
@@ -210,8 +212,8 @@ export function MemberProvider({ children }) {
       bereavementSubscribed,
       retirementSubscribed,
       myProjects,
-      maturedProjects: [],
-      hasMaturedProjects: false,
+      maturedProjects,
+      hasMaturedProjects,
       otherProjects,
       pendingRequests,
       actionRequests,
@@ -240,6 +242,8 @@ export function MemberProvider({ children }) {
       retirementSubscribed,
       shareholding,
       myProjects,
+      maturedProjects,
+      hasMaturedProjects,
       otherProjects,
       pendingRequests,
       actionRequests,

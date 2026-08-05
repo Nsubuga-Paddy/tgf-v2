@@ -159,6 +159,7 @@ def short_name(name: str) -> str:
 
 def serialize_project_card(card: dict) -> dict:
     progress = card.get("progress") or {}
+    status_class = card.get("status_class") or "st-active"
     return {
         "id": card.get("card_id") or project_id(card.get("name")),
         "name": card.get("name") or "Project",
@@ -166,6 +167,7 @@ def serialize_project_card(card: dict) -> dict:
         "icon": frontend_icon(card.get("icon")),
         "invested": money(card.get("invested")),
         "status": card.get("status_tag") or "Active",
+        "statusClass": status_class,
         "cycleLine": card.get("cycle_line") or "",
         "progress": int(progress.get("pct") or 0),
         "stats": [
@@ -175,6 +177,24 @@ def serialize_project_card(card: dict) -> dict:
             }
             for stat in card.get("stats", [])
         ],
+    }
+
+
+def serialize_matured_project(card: dict) -> dict:
+    return {
+        "id": card.get("id") or f"matured-{card.get('project_id') or 'project'}",
+        "projectId": card.get("project_id") or "",
+        "name": card.get("name") or "Project",
+        "shortName": card.get("short_name") or short_name(card.get("name")),
+        "icon": frontend_icon(card.get("icon")),
+        "maturedOn": card.get("matured_on") or "",
+        "cycleLine": card.get("cycle_line") or "",
+        "principal": money(card.get("principal")),
+        "earnings": money(card.get("earnings")),
+        "availableAmount": money(card.get("available_amount")),
+        "nextBestAction": card.get("next_best_action") or "",
+        "maturedGoats": int(card.get("matured_goats") or 0),
+        "maturedKids": int(card.get("matured_kids") or 0),
     }
 
 
@@ -467,6 +487,7 @@ def build_action_requests(profile) -> list[dict]:
             "sell_cash_out": "Sell & Cash Out",
             "take_goats": "Take Goats",
             "transfer": "Transfer",
+            "transfer_to_main": "Transfer to Main Account",
         }
         add(
             req_id=f"cgf-{r.pk}",
@@ -735,6 +756,9 @@ class DashboardAPIView(APIView):
             "shareholding": shareholding,
             "myProjects": [serialize_project_card(card) for card in ctx.get("my_projects", [])],
             "otherProjects": [serialize_discover(project) for project in ctx.get("discover_projects", [])],
+            "maturedProjects": [
+                serialize_matured_project(card) for card in ctx.get("matured_projects", [])
+            ],
             "pendingRequests": _serialize_dashboard_pending_requests(request.user.profile),
             "actionRequests": [
                 item
@@ -1063,13 +1087,20 @@ def build_cgf_member_payload(profile) -> dict:
     )
     effective_kids_per_goat = (package_based_total / total_goats) if total_goats else 0
 
+    # Next upcoming maturity among farm accounts that are not yet mature.
     next_maturity_date = None
-    if user_farm_accounts.exists():
-        earliest_account = user_farm_accounts.order_by("created_at").first()
-        if earliest_account:
-            maturity_date = earliest_account.created_at + timedelta(days=425)
-            if maturity_date > timezone.now():
-                next_maturity_date = maturity_date
+    now = timezone.now()
+    for account in user_farm_accounts.order_by("created_at"):
+        if not account.created_at:
+            continue
+        maturity_date = account.created_at + timedelta(days=425)
+        if maturity_date > now:
+            next_maturity_date = maturity_date
+            break
+
+    from goat_farming.services import farm_maturity_flags, matured_transfer_preview
+
+    maturity_by_farm = farm_maturity_flags(profile)
 
     farm_accounts = []
     total_expected_kids = 0
@@ -1081,19 +1112,28 @@ def build_cgf_member_payload(profile) -> dict:
         )
         total_expected_kids += resolved_kids
         created_local = to_cooperative_datetime(account.created_at)
+        farm_flags = maturity_by_farm.get(account.farm_id) or {}
         farm_accounts.append(
             {
                 "id": f"fa-{account.pk}",
+                "farmId": account.farm_id,
                 "farmName": account.farm.name,
                 "farmLocation": account.farm.location or "",
                 "currentGoats": int(account.current_goats or 0),
                 "expectedKids": int(resolved_kids),
                 "createdAt": created_local.date().isoformat(),
+                "isCycleComplete": bool(farm_flags.get("is_cycle_complete")),
+                "canTransfer": bool(farm_flags.get("can_transfer")),
+                "transferAmount": money(farm_flags.get("transfer_amount") or 0),
+                "maturedCycleCount": int(farm_flags.get("matured_count") or 0),
             }
         )
 
     purchases = []
     for purchase in package_purchases:
+        status_label = purchase.get_status_display()
+        if purchase.settled_at:
+            status_label = "Transferred to Main Account"
         purchases.append(
             {
                 "id": purchase.pk,
@@ -1102,14 +1142,15 @@ def build_cgf_member_payload(profile) -> dict:
                 "totalAmount": money(purchase.total_amount),
                 "amountPaid": money(purchase.amount_paid),
                 "balanceDue": money(purchase.balance_due),
-                "status": purchase.status,
-                "statusLabel": purchase.get_status_display(),
+                "status": "settled" if purchase.settled_at else purchase.status,
+                "statusLabel": status_label,
                 "goatsAllocated": int(purchase.goats_allocated or 0),
                 "goatCount": int(purchase.package.goat_count if purchase.package else 0),
                 "kidsPerGoat": int(
                     getattr(purchase.package, "kids_per_goat", 2) if purchase.package else 2
                 ),
                 "purchaseDate": date_label(purchase.purchase_date),
+                "settledAt": date_label(purchase.settled_at) if purchase.settled_at else "",
             }
         )
 
@@ -1125,7 +1166,7 @@ def build_cgf_member_payload(profile) -> dict:
         farm_name = purchase.farm.name if purchase and purchase.farm else "-"
         payments.append(
             {
-                "id": payment.pk,
+                "id": f"pay-{payment.pk}",
                 "paymentDate": date_label(payment.payment_date),
                 "receiptNumber": payment.receipt_number or "-",
                 "amount": money(payment.amount),
@@ -1136,13 +1177,50 @@ def build_cgf_member_payload(profile) -> dict:
                 "notes": payment.notes or "",
                 "processedBy": "System",
                 "processedDate": date_label(payment.created_at),
+                "entryType": "payment",
             }
         )
+
+    # Audit trail rows for matured CGF transfers to Main Account.
+    from goat_farming.models import CGFActionRequest
+
+    for action in (
+        CGFActionRequest.objects.filter(
+            user_profile=profile,
+            request_type="transfer_to_main",
+            status="processed",
+        )
+        .select_related("farm", "main_account_transaction")
+        .order_by("-processed_at", "-created_at")
+    ):
+        ref = ""
+        if action.main_account_transaction_id:
+            ref = action.main_account_transaction.reference
+        payments.append(
+            {
+                "id": f"cgf-xfer-{action.pk}",
+                "paymentDate": date_label(action.processed_at or action.created_at),
+                "receiptNumber": ref or f"CGF-TRF-{action.pk}",
+                "amount": money(action.amount or action.cash_value),
+                "paymentMethod": "Main Account credit",
+                "packageName": "Matured cycle settlement",
+                "farmName": action.farm.name if action.farm_id else "All farms",
+                "purchaseStatus": "allocated",
+                "notes": action.notes or "Transferred matured CGF value to Main Account",
+                "processedBy": "Member",
+                "processedDate": date_label(action.processed_at or action.created_at),
+                "entryType": "transfer_to_main",
+            }
+        )
+
+    payments.sort(key=lambda row: row.get("paymentDate") or "", reverse=True)
 
     # Match goat_farming.views.transactions_page totals (sum of payments vs package totals)
     total_investments = all_payments.aggregate(total=Sum("amount"))["total"] or 0
     investment_count = all_payments.count()
     total_pending_amount = total_invested - total_investments
+
+    transfer_preview = matured_transfer_preview(profile)
 
     return {
         "member": {
@@ -1159,6 +1237,11 @@ def build_cgf_member_payload(profile) -> dict:
             "investmentCount": int(investment_count),
             "totalPackageAmounts": money(total_invested),
             "totalPendingAmount": money(max(total_pending_amount, 0)),
+            "canTransferMatured": bool(transfer_preview["can_transfer"]),
+            "maturedTransferAmount": money(transfer_preview["available"]),
+            "maturedCycleCount": int(transfer_preview["matured_count"]),
+            "maturedGoats": int(transfer_preview["matured_goats"]),
+            "maturedKids": int(transfer_preview["matured_kids"]),
         },
         "farmAccounts": farm_accounts,
         "purchases": purchases,
@@ -1177,6 +1260,70 @@ class CgfAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         return Response(build_cgf_member_payload(profile))
+
+
+class CgfTransferToMainAPIView(APIView):
+    """Credit Main Account with matured CGF cycle value and write audit trails."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from goat_farming.services import transfer_matured_cgf_to_main
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_CGF):
+            return Response(
+                {"detail": "You do not have access to Commercial Goat Farming."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        farm_id = request.data.get("farmId")
+        if farm_id in ("", None):
+            farm_id = None
+        else:
+            try:
+                farm_id = int(farm_id)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "Invalid farm selection."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        try:
+            action = transfer_matured_cgf_to_main(
+                profile,
+                actor=request.user,
+                notes=(request.data.get("notes") or "").strip(),
+                farm_id=farm_id,
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response(
+                {
+                    "detail": (
+                        "Could not transfer matured CGF funds right now. Please try again shortly."
+                    )
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(
+            {
+                "detail": (
+                    "Matured CGF value was credited to your Main Account. "
+                    "You can now request a withdrawal from Main Account."
+                ),
+                "amount": money(action.amount),
+                "actionId": action.pk,
+                "mainAccountReference": (
+                    action.main_account_transaction.reference
+                    if action.main_account_transaction_id
+                    else ""
+                ),
+                "dashboard": build_cgf_member_payload(profile),
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 def build_gwc_member_payload(user) -> dict:

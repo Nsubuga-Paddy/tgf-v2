@@ -104,6 +104,9 @@ def build_member_dashboard(user) -> dict:
     # ---- Discover ----
     ctx["discover_projects"] = _build_discover(profile)
 
+    # ---- Matured projects (aggregated cards for the home dashboard) ----
+    ctx["matured_projects"] = _build_matured_projects(profile, ctx.get("my_projects") or [])
+
     # ---- History (recent ledger) ----
     ctx["transactions"] = ledger.recent_transactions(profile, limit=50)
 
@@ -127,8 +130,133 @@ def _empty_financials() -> dict:
         "pending_rep_count": 0,
         "pending_rep_amount": ZERO,
         "discover_projects": [],
+        "matured_projects": [],
         "transactions": [],
     }
+
+
+CGF_CYCLE_DAYS = 425
+
+
+def _cgf_maturity_summary(profile) -> dict:
+    """Summarise matured vs still-active CGF package cycles for one member."""
+    from datetime import timedelta
+
+    from goat_farming.models import CGF_CASHOUT_PRICE_PER_GOAT, PackagePurchase, UserFarmAccount
+
+    cutoff = timezone.now() - timedelta(days=CGF_CYCLE_DAYS)
+    # Settled cycles were already transferred to Main Account — exclude them.
+    allocated = list(
+        PackagePurchase.objects.filter(
+            user=profile,
+            status="allocated",
+            settled_at__isnull=True,
+        )
+        .select_related("package", "farm")
+        .order_by("purchase_date", "pk")
+    )
+    matured = [
+        p for p in allocated if p.purchase_date and p.purchase_date <= cutoff
+    ]
+    active = [
+        p for p in allocated if not p.purchase_date or p.purchase_date > cutoff
+    ]
+
+    matured_goats = sum(int(p.goats_allocated or 0) for p in matured)
+    matured_kids = sum(
+        int(p.goats_allocated or 0) * int(getattr(p.package, "kids_per_goat", 2) or 2)
+        for p in matured
+    )
+    principal = sum((p.amount_paid or p.total_amount or ZERO) for p in matured)
+    if not isinstance(principal, Decimal):
+        principal = Decimal(str(principal or 0))
+    available = Decimal(matured_goats + matured_kids) * CGF_CASHOUT_PRICE_PER_GOAT
+    earnings = available - principal
+    if earnings < ZERO:
+        earnings = ZERO
+
+    earliest = None
+    if matured:
+        dates = [p.purchase_date for p in matured if p.purchase_date]
+        if dates:
+            earliest_purchase = min(dates)
+            earliest = earliest_purchase + timedelta(days=CGF_CYCLE_DAYS)
+
+    total_goats = (
+        UserFarmAccount.objects.filter(user=profile, is_active=True).aggregate(
+            t=Sum("current_goats")
+        )["t"]
+        or 0
+    )
+    invested = PackagePurchase.objects.filter(user=profile).aggregate(t=Sum("total_amount"))[
+        "t"
+    ] or ZERO
+
+    return {
+        "matured_count": len(matured),
+        "active_count": len(active),
+        "has_matured": bool(matured),
+        "has_active": bool(active),
+        "matured_goats": matured_goats,
+        "matured_kids": matured_kids,
+        "principal": principal,
+        "earnings": earnings,
+        "available": available,
+        "earliest_matured_at": earliest,
+        "total_goats": int(total_goats or 0),
+        "invested": invested if isinstance(invested, Decimal) else Decimal(str(invested or 0)),
+    }
+
+
+def _build_matured_projects(profile, my_projects: list[dict]) -> list[dict]:
+    """Home-dashboard matured cards. CGF is one aggregated card when any cycle matured."""
+    out: list[dict] = []
+    try:
+        cgf = _cgf_maturity_summary(profile)
+    except Exception:
+        cgf = None
+
+    if cgf and cgf["has_matured"]:
+        matured_n = cgf["matured_count"]
+        active_n = cgf["active_count"]
+        if active_n:
+            cycle_line = (
+                f"{matured_n} matured cycle{'s' if matured_n != 1 else ''} · "
+                f"{active_n} still active"
+            )
+        else:
+            cycle_line = (
+                f"{matured_n} matured 14-month cycle{'s' if matured_n != 1 else ''} ready"
+            )
+        matured_on = ""
+        if cgf["earliest_matured_at"]:
+            dt = cgf["earliest_matured_at"]
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt, timezone.get_default_timezone())
+            matured_on = timezone.localtime(
+                dt, timezone.get_default_timezone()
+            ).strftime("%d %b %Y")
+        out.append(
+            {
+                "id": "matured-cgf",
+                "project_id": "cgf",
+                "name": "Commercial Goat Farming",
+                "short_name": "CGF",
+                "icon": "fa-horse",
+                "matured_on": matured_on,
+                "cycle_line": cycle_line,
+                "principal": cgf["principal"],
+                "earnings": cgf["earnings"],
+                "available_amount": cgf["available"],
+                "next_best_action": "Transfer money to main account for withdrawal",
+                "matured_goats": cgf["matured_goats"],
+                "matured_kids": cgf["matured_kids"],
+            }
+        )
+
+    # Keep room for other projects later (52WSC / GWC) without changing this shape.
+    _ = my_projects
+    return out
 
 
 def _card(name, icon, invested=ZERO, status_tag="Active", status_class="st-active",
@@ -186,29 +314,54 @@ def _build_my_projects(user, profile) -> list[dict]:
     # ---- Commercial Goat Farming ----
     if "Commercial Goat Farming" in names:
         try:
-            from goat_farming.models import UserFarmAccount, PackagePurchase
-            from django.db.models import Sum
-            invested = PackagePurchase.objects.filter(user=profile).aggregate(
-                t=Sum("total_amount"))["t"] or ZERO
-            goats = UserFarmAccount.objects.filter(user=profile, is_active=True).aggregate(
-                t=Sum("current_goats"))["t"] or 0
-            from datetime import timedelta
-            cutoff = timezone.now() - timedelta(days=425)
-            matured = PackagePurchase.objects.filter(
-                user=profile, status="allocated", purchase_date__lte=cutoff
-            ).exists()
+            cgf = _cgf_maturity_summary(profile)
+            matured_n = cgf["matured_count"]
+            active_n = cgf["active_count"]
+            if cgf["has_matured"] and cgf["has_active"]:
+                status_tag = "Partially matured"
+                status_class = "st-mixed"
+                cycle_line = (
+                    f"{matured_n} matured · {active_n} active · 14-month cycles"
+                )
+            elif cgf["has_matured"]:
+                status_tag = "Matured"
+                status_class = "st-matured"
+                cycle_line = (
+                    f"{matured_n} matured 14-month cycle{'s' if matured_n != 1 else ''}"
+                )
+            else:
+                status_tag = "Active"
+                status_class = "st-active"
+                cycle_line = "14-month cycle"
             cards.append(_card(
                 "Commercial Goat Farming", "fa-horse",
-                invested=invested,
-                status_tag="Matured" if matured else "Active",
-                status_class="st-matured" if matured else "st-active",
-                cycle_line="14-month cycle",
+                invested=cgf["invested"],
+                status_tag=status_tag,
+                status_class=status_class,
+                cycle_line=cycle_line,
                 url=_safe_reverse("goat_farming:dashboard"),
                 stats=[
-                    {"label": "Amount invested", "value": invested, "cls": "", "badge": ""},
-                    {"label": "Current goats", "value": f"{goats} goats", "cls": "", "badge": "", "raw": True},
+                    {"label": "Amount invested", "value": cgf["invested"], "cls": "", "badge": ""},
+                    {
+                        "label": "Current goats",
+                        "value": f"{cgf['total_goats']} goats",
+                        "cls": "",
+                        "badge": "",
+                        "raw": True,
+                    },
+                    {
+                        "label": "Matured cycles",
+                        "value": f"{matured_n} of {matured_n + active_n}",
+                        "cls": "",
+                        "badge": "",
+                        "raw": True,
+                    },
                 ],
-                transfer=({"label": "Commercial Goat Farming", "suggested": ZERO} if matured else None),
+                transfer=(
+                    {"label": "Commercial Goat Farming", "suggested": cgf["available"]}
+                    if cgf["has_matured"]
+                    else None
+                ),
             ))
         except Exception:
             pass

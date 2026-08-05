@@ -1377,6 +1377,21 @@ a {
   flex-shrink: 0;
 }
 
+.status-tag.st-active {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.status-tag.st-matured {
+  background: var(--info-bg, #e0f2fe);
+  color: #0369a1;
+}
+
+.status-tag.st-mixed {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
 .pcard-amount {
   margin-top: 0.9rem;
   font-family: var(--display);
@@ -3002,6 +3017,59 @@ a {
   background: #fef2f2;
   color: #b91c1c;
   border: 1px solid #fecaca;
+}
+
+.auth-alert.warning {
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+
+[data-theme='dark'] .auth-alert.warning {
+  background: color-mix(in srgb, #9a3412 22%, transparent);
+  color: #fdba74;
+  border-color: color-mix(in srgb, #fdba74 35%, transparent);
+}
+
+.session-timeout-banner {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: color-mix(in srgb, #0f172a 45%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.session-timeout-card {
+  width: min(100%, 420px);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1.25rem 1.35rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+}
+
+.session-timeout-card h2 {
+  margin: 0 0 0.45rem;
+  font-size: 1.15rem;
+}
+
+.session-timeout-card p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.session-timeout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1.1rem;
 }
 
 .auth-intro {
@@ -5588,8 +5656,16 @@ a {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.65rem;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
   margin-top: 0.85rem;
+}
+
+.cgf-account-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
 }
 
 .cgf-account-row span {
@@ -5607,6 +5683,26 @@ a {
   border-radius: 10px;
   font-size: 0.95rem;
   letter-spacing: 0.04em;
+}
+
+.cgf-purchase-btn {
+  margin-left: auto;
+}
+
+.cgf-row-action {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.cgf-row-action .btn-sm {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.75rem;
+  gap: 0.35rem;
+}
+
+.cgf-action-placeholder {
+  color: var(--ink-faint);
+  font-size: 0.85rem;
 }
 
 .cgf-stats {
@@ -6155,6 +6251,22 @@ a {
   }
 
   .cgf-hero-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cgf-account-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cgf-purchase-btn {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cgf-row-action .btn-sm {
     width: 100%;
     justify-content: center;
   }

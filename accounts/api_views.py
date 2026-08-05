@@ -9,7 +9,7 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .emails import get_site_base_url
 from .serializers import (
@@ -18,6 +18,7 @@ from .serializers import (
     MobilePasswordResetRequestSerializer,
     MobileSignupSerializer,
     MobileTokenObtainPairSerializer,
+    MobileTokenRefreshSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,10 @@ logger = logging.getLogger(__name__)
 
 class MobileTokenObtainPairView(TokenObtainPairView):
     serializer_class = MobileTokenObtainPairSerializer
+
+
+class MobileTokenRefreshView(TokenRefreshView):
+    serializer_class = MobileTokenRefreshSerializer
 
 
 class MobileSignupView(APIView):
