@@ -174,6 +174,65 @@ def _payout_destination(profile, payout_method: str) -> str:
     return f"{bank} · {acct} · {name}"
 
 
+def build_funding_note(profile, *, limit: int = 12) -> str:
+    """
+    Human-readable note of where this member's Main Account was funded from.
+
+    Lists recent project transfers and dividends (credits into Main Account).
+    Stored on withdrawal requests so approvers have context without leaving
+    the withdrawal page.
+    """
+    credits = (
+        MainAccountTransaction.objects.filter(
+            user_profile=profile,
+            direction=MainAccountTransaction.Direction.CREDIT,
+            category__in=[
+                MainAccountTransaction.Category.PROJECT_TRANSFER_IN,
+                MainAccountTransaction.Category.DIVIDEND,
+                MainAccountTransaction.Category.ADMIN_CREDIT,
+            ],
+        )
+        .order_by("-created_at", "-id")[:limit]
+    )
+    if not credits:
+        return (
+            "No project/dividend credits found on this Main Account yet. "
+            "Balance may be from opening balance or adjustments only."
+        )
+
+    lines = [
+        "Main Account funding history (most recent first). "
+        "Withdrawals come from the pooled Main Account balance, not a single project:"
+    ]
+    for tx in credits:
+        when = timezone.localtime(tx.created_at).strftime("%d %b %Y")
+        source = (tx.source_label or tx.get_category_display() or "Credit").strip()
+        desc = (tx.description or "").strip()
+        piece = f"- {when}: {source} · UGX {tx.amount:,.0f}"
+        if desc:
+            piece += f" ({desc[:80]})"
+        lines.append(piece)
+
+    totals = (
+        MainAccountTransaction.objects.filter(
+            user_profile=profile,
+            direction=MainAccountTransaction.Direction.CREDIT,
+            category=MainAccountTransaction.Category.PROJECT_TRANSFER_IN,
+        )
+        .values("source_label")
+        .annotate(total=Sum("amount"))
+        .order_by("-total")
+    )
+    if totals:
+        lines.append("")
+        lines.append("Totals credited from projects (all time):")
+        for row in totals:
+            label = (row["source_label"] or "Project").strip()
+            lines.append(f"- {label}: UGX {_q(row['total']):,.0f}")
+
+    return "\n".join(lines)
+
+
 def create_withdrawal(
     profile,
     amount,
@@ -200,6 +259,7 @@ def create_withdrawal(
         reason=reason,
         payout_method=method,
         payout_destination=destination,
+        funding_note=build_funding_note(profile),
         status=MainAccountWithdrawal.STATUS_PENDING,
     )
 
@@ -288,7 +348,13 @@ def reverse_withdrawal(withdrawal: MainAccountWithdrawal, *, admin=None, admin_n
 
 
 def create_transfer_request(profile, project_label, amount, *, member_notes="") -> ProjectTransferRequest:
-    """Member requests to move matured project funds into the main account."""
+    """
+    Legacy: create a pending project→main transfer request.
+
+    Prefer transfer_from_project() for matured project credits — those are
+    member-initiated and do not require admin approval. Refunds remain on the
+    project apps (e.g. Real Estate) with their own approval workflow.
+    """
     amount = _q(amount)
     if amount <= ZERO:
         raise ValueError("Transfer amount must be positive.")
@@ -303,6 +369,7 @@ def create_transfer_request(profile, project_label, amount, *, member_notes="") 
 
 @transaction.atomic
 def approve_transfer_request(req: ProjectTransferRequest, *, admin=None, admin_notes=""):
+    """Legacy helper for old pending ProjectTransferRequest rows."""
     if req.status != ProjectTransferRequest.STATUS_PENDING:
         raise ValueError("Only pending transfers can be approved.")
     tx = transfer_from_project(
@@ -318,6 +385,7 @@ def approve_transfer_request(req: ProjectTransferRequest, *, admin=None, admin_n
 
 
 def reject_transfer_request(req: ProjectTransferRequest, *, admin=None, admin_notes=""):
+    """Legacy helper for old pending ProjectTransferRequest rows."""
     if req.status != ProjectTransferRequest.STATUS_PENDING:
         raise ValueError("Only pending transfers can be rejected.")
     req.status = ProjectTransferRequest.STATUS_REJECTED

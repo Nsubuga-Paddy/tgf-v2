@@ -20,7 +20,7 @@ from .models import UserProfile
 User = get_user_model()
 
 SESSION_TIMEOUT_DETAIL = (
-    "Your session timed out for security. Please sign in again."
+    "Your session timed out. Please login again."
 )
 
 

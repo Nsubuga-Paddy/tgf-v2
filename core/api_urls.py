@@ -14,6 +14,9 @@ from .api_views import (
     RepRefundRequestAPIView,
     RepListAPIView,
     Savings52APIView,
+    Savings52StartNewCycleAPIView,
+    Savings52TransferAllAPIView,
+    Savings52TransferPotAPIView,
     VerificationPendingAPIView,
 )
 
@@ -41,6 +44,21 @@ urlpatterns = [
         name="api_shareholding_claim_dividend",
     ),
     path("projects/52wsc/", Savings52APIView.as_view(), name="api_projects_52wsc"),
+    path(
+        "projects/52wsc/start-new-cycle/",
+        Savings52StartNewCycleAPIView.as_view(),
+        name="api_projects_52wsc_start_new_cycle",
+    ),
+    path(
+        "projects/52wsc/transfer-all/",
+        Savings52TransferAllAPIView.as_view(),
+        name="api_projects_52wsc_transfer_all",
+    ),
+    path(
+        "projects/52wsc/transfer-pot/",
+        Savings52TransferPotAPIView.as_view(),
+        name="api_projects_52wsc_transfer_pot",
+    ),
     path("projects/cgf/", CgfAPIView.as_view(), name="api_projects_cgf"),
     path(
         "projects/cgf/transfer-to-main/",

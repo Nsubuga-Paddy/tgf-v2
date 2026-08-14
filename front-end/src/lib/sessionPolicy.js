@@ -13,6 +13,6 @@ export const SESSION_ABSOLUTE_MS = 12 * 60 * 60 * 1000
 export const SESSION_ACTIVITY_THROTTLE_MS = 1000
 
 export const SESSION_TIMEOUT_MESSAGE =
-  'Your session timed out for security. Please sign in again.'
+  'Your session timed out. Please login again.'
 
 export const SESSION_TIMEOUT_REASON = 'timeout'

@@ -96,6 +96,15 @@ class SavingsTransaction(models.Model):
 
     date_saved = models.DateTimeField(default=timezone.now)
 
+    cycle = models.ForeignKey(
+        "SavingsCycle",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
+        help_text="Personal 52-week cycle this transaction belongs to",
+    )
+
     # Denormalized / cached values for reporting (keep in sync)
     cumulative_total = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
     fully_covered_weeks = models.JSONField(default=list, blank=True)
@@ -202,52 +211,55 @@ class SavingsTransaction(models.Model):
         # In the future, this could track savings per week or use a different logic
         return Decimal("0.00")
     
+    def _deposit_scope_qs(self, profile):
+        """Deposits in the same personal cycle (preferred) or same calendar year (legacy)."""
+        qs = profile.savings_transactions.filter(transaction_type="deposit")
+        if self.cycle_id:
+            return qs.filter(cycle_id=self.cycle_id)
+        transaction_year = (
+            self.transaction_date.year
+            if getattr(self, "transaction_date", None)
+            else timezone.now().year
+        )
+        return qs.filter(transaction_date__year=transaction_year)
+
     def _get_user_previous_balance(self, profile):
-        """Get the user's previous balance brought forward from previous transactions in the same year"""
+        """Balance brought forward within the personal cycle (or opening BF)."""
         try:
-            # Get the transaction date year to filter by same year
-            transaction_year = self.transaction_date.year if hasattr(self, 'transaction_date') and self.transaction_date else timezone.now().year
-            
-            # Get the most recent transaction from the same year to see what balance was brought forward
-            latest_transaction = profile.savings_transactions.filter(
-                transaction_type='deposit',
-                transaction_date__year=transaction_year
-            ).exclude(pk=self.pk).order_by('-created_at').first()
-            
+            latest_transaction = (
+                self._deposit_scope_qs(profile)
+                .exclude(pk=self.pk)
+                .order_by("-created_at")
+                .first()
+            )
             if latest_transaction and latest_transaction.remaining_balance:
                 return latest_transaction.remaining_balance
-            else:
-                return Decimal("0.00")
+            if self.cycle_id and self.cycle and self.cycle.opening_balance:
+                return self.cycle.opening_balance or Decimal("0.00")
+            return Decimal("0.00")
         except Exception:
             return Decimal("0.00")
     
     def _find_next_week_needing_funding(self, profile):
-        """Find the next week that needs funding based on previous transactions in the same year"""
+        """Find the next week that needs funding in this personal cycle."""
         try:
-            # Get the transaction date year to filter by same year
-            transaction_year = self.transaction_date.year if hasattr(self, 'transaction_date') and self.transaction_date else timezone.now().year
-            
-            # Get all previous transactions from the same year to see which weeks are already covered
-            previous_transactions = profile.savings_transactions.filter(
-                transaction_type='deposit',
-                transaction_date__year=transaction_year
-            ).exclude(pk=self.pk).order_by('created_at')
-            
+            previous_transactions = (
+                self._deposit_scope_qs(profile)
+                .exclude(pk=self.pk)
+                .order_by("created_at")
+            )
+
             covered_weeks = set()
             for transaction in previous_transactions:
                 if transaction.fully_covered_weeks:
                     for week_data in transaction.fully_covered_weeks:
-                        if week_data.get('fully_covered', False):
-                            covered_weeks.add(week_data['week'])
-            
-            # Find the first week that's not fully covered
+                        if week_data.get("fully_covered", False):
+                            covered_weeks.add(week_data["week"])
+
             for week in range(1, 53):
                 if week not in covered_weeks:
                     return week
-            
-            # All weeks are covered
             return 53
-            
         except Exception:
             return 1
     
@@ -327,8 +339,11 @@ class SavingsTransaction(models.Model):
             return Decimal('0')
 
     def save(self, *args, **kwargs):
-        """Override save to automatically calculate covered weeks"""
-        if self.transaction_type == 'deposit':
+        """Override save to attach cycle + calculate covered weeks."""
+        if self.transaction_type == "deposit":
+            from savings_52_weeks.cycle_service import attach_deposit_to_cycle
+
+            attach_deposit_to_cycle(self)
             self.calculate_covered_weeks()
         super().save(*args, **kwargs)
 
@@ -604,6 +619,105 @@ class Investment(models.Model):
             'active_investments': investment_count,
             'average_daily_interest': (daily_interest_total / investment_count) if investment_count > 0 else Decimal("0.00")
         }
+
+
+class SavingsCycle(models.Model):
+    """
+    Personal 52-week challenge cycle.
+
+    Starts on the member's first qualifying deposit (2026+ for the first wave)
+    and matures 52 weeks later. Leftover BF can seed the next cycle or transfer
+    with the matured pot to Main Account.
+    """
+
+    STATUS_ACTIVE = "active"
+    STATUS_AWAITING_DECISION = "awaiting_decision"
+    STATUS_POT_AVAILABLE = "pot_available"
+    STATUS_SETTLED = "settled"
+    STATUS_CHOICES = [
+        (STATUS_ACTIVE, "Active"),
+        (STATUS_AWAITING_DECISION, "Awaiting decision"),
+        (STATUS_POT_AVAILABLE, "Matured pot available"),
+        (STATUS_SETTLED, "Settled"),
+    ]
+
+    user_profile = models.ForeignKey(
+        UserProfile, on_delete=models.CASCADE, related_name="savings_cycles"
+    )
+    cycle_number = models.PositiveIntegerField(default=1)
+    start_date = models.DateField(help_text="Date of first deposit in this cycle")
+    end_date = models.DateField(help_text="start_date + 52 weeks")
+    status = models.CharField(
+        max_length=32, choices=STATUS_CHOICES, default=STATUS_ACTIVE, db_index=True
+    )
+    opening_balance = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal("0.00"),
+        help_text="BF carried in when starting a new cycle",
+    )
+    amount_saved = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal("0.00"),
+        help_text="Snapshot of cycle principal (excludes leftover BF)",
+    )
+    interest_earned = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal("0.00"),
+        help_text="15% annualized interest accrued during the cycle (daily)",
+    )
+    balance_brought_forward = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal("0.00"),
+        help_text="Leftover after week 52 at maturity",
+    )
+    matured_at = models.DateTimeField(null=True, blank=True)
+    settled_at = models.DateTimeField(null=True, blank=True)
+    settlement_action = models.CharField(
+        max_length=32,
+        blank=True,
+        help_text="transfer_all | start_new_cycle | transfer_pot",
+    )
+    main_account_transaction = models.ForeignKey(
+        "main_account.MainAccountTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="savings_cycles",
+    )
+    seeded_next_cycle = models.OneToOneField(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="seeded_from_cycle",
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-start_date", "-cycle_number"]
+        indexes = [
+            models.Index(fields=["user_profile", "status"]),
+            models.Index(fields=["user_profile", "start_date"]),
+        ]
+        unique_together = [("user_profile", "cycle_number")]
+
+    def __str__(self):
+        return (
+            f"{self.user_profile} · Cycle {self.cycle_number} "
+            f"({self.start_date} → {self.end_date}) · {self.status}"
+        )
+
+    @property
+    def label(self) -> str:
+        return f"Cycle {self.cycle_number} - {self.start_date.year}"
+
+    @property
+    def matured_pot(self) -> Decimal:
+        return (self.amount_saved or Decimal("0.00")) + (
+            self.interest_earned or Decimal("0.00")
+        )
+
+    @property
+    def transfer_all_total(self) -> Decimal:
+        return self.matured_pot + (self.balance_brought_forward or Decimal("0.00"))
 
 
 # Note: UserProfile creation is handled by the accounts app signal

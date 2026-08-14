@@ -71,6 +71,11 @@ class RealEstateProjectTransactionAdmin(admin.ModelAdmin):
 
 @admin.register(RealEstateProjectActionRequest)
 class RealEstateProjectActionRequestAdmin(admin.ModelAdmin):
+    """
+    Project-side requests. Refunds require admin approval before Main Account
+    credit. Matured project transfers elsewhere (52WSC/CGF) are member-instant.
+    """
+
     list_display = (
         "project",
         "user_full_name",
@@ -100,6 +105,14 @@ class RealEstateProjectActionRequestAdmin(admin.ModelAdmin):
         "action_reject_refunds",
         "action_reverse_refund_credits",
     )
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["title"] = (
+            "Real Estate action requests — refunds require admin approval "
+            "before Main Account credit"
+        )
+        return super().changelist_view(request, extra_context=extra_context)
     search_fields = (
         "project__name",
         "user__username",

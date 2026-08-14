@@ -254,7 +254,59 @@ def _build_matured_projects(profile, my_projects: list[dict]) -> list[dict]:
             }
         )
 
-    # Keep room for other projects later (52WSC / GWC) without changing this shape.
+    # Matured personal 52WSC cycles awaiting decision or pot transfer.
+    try:
+        from savings_52_weeks.cycle_service import sync_member_cycles
+        from savings_52_weeks.models import SavingsCycle
+
+        sync_member_cycles(profile)
+        wsc_cycle = (
+            SavingsCycle.objects.filter(
+                user_profile=profile,
+                status__in=[
+                    SavingsCycle.STATUS_AWAITING_DECISION,
+                    SavingsCycle.STATUS_POT_AVAILABLE,
+                ],
+            )
+            .order_by("-cycle_number")
+            .first()
+        )
+        if wsc_cycle:
+            principal = wsc_cycle.amount_saved or ZERO
+            earnings = wsc_cycle.interest_earned or ZERO
+            bf = wsc_cycle.balance_brought_forward or ZERO
+            available = principal + earnings + bf
+            matured_on = ""
+            if wsc_cycle.matured_at:
+                matured_on = timezone.localtime(
+                    wsc_cycle.matured_at, timezone.get_default_timezone()
+                ).strftime("%d %b %Y")
+            elif wsc_cycle.end_date:
+                matured_on = wsc_cycle.end_date.strftime("%d %b %Y")
+            out.append(
+                {
+                    "id": f"matured-52wsc-{wsc_cycle.pk}",
+                    "project_id": "52wsc",
+                    "name": "52 Weeks Saving Challenge",
+                    "short_name": "52WSC",
+                    "icon": "fa-piggy-bank",
+                    "matured_on": matured_on,
+                    "cycle_line": (
+                        f"{wsc_cycle.label} · started {wsc_cycle.start_date.strftime('%d %b %Y')}"
+                    ),
+                    "principal": principal,
+                    "earnings": earnings,
+                    "available_amount": available,
+                    "next_best_action": (
+                        "Start a new cycle with BF or transfer everything to Main Account"
+                        if wsc_cycle.status == SavingsCycle.STATUS_AWAITING_DECISION
+                        else "Transfer matured pot (saved + interest) to Main Account"
+                    ),
+                }
+            )
+    except Exception:
+        pass
+
     _ = my_projects
     return out
 
@@ -292,19 +344,36 @@ def _build_my_projects(user, profile) -> list[dict]:
                 )
             except Exception:
                 interest = ZERO
-            week = _week_of_year()
+            from savings_52_weeks.cycle_service import sync_member_cycles
+
+            cycle_info = sync_member_cycles(profile)
+            week = int(cycle_info.get("personalWeek") or _week_of_year())
+            start_label = cycle_info.get("cycleStartDate") or "—"
+            end_label = cycle_info.get("cycleEndDate") or "—"
+            cycle_line = cycle_info.get("cycleLabel") or f"Week {week} of 52"
             cards.append(_card(
                 "52 Weeks Saving Challenge", "fa-piggy-bank",
                 invested=saved,
-                cycle_line=f"Cycle {date.today().year} · Week {week} of 52",
+                status_tag=(
+                    "Matured"
+                    if cycle_info.get("maturedCycle")
+                    else "Active"
+                ),
+                status_class=(
+                    "st-matured" if cycle_info.get("maturedCycle") else "st-active"
+                ),
+                cycle_line=f"{cycle_line} · Week {week} of 52",
                 url=_safe_reverse("savings_52_weeks:member_dashboard"),
                 stats=[
-                    {"label": "Saved this year", "value": saved, "cls": "locked", "badge": "Locked"},
+                    {"label": "Saved this cycle", "value": saved, "cls": "locked", "badge": "Locked"},
                     {"label": "Interest earned", "value": interest, "cls": "green", "badge": ""},
                     {"label": "Matured (transferable)", "value": available, "cls": "green", "badge": ""},
                 ],
-                progress={"pct": int(week / 52 * 100), "left": f"Week {week} / 52",
-                          "right": f"Matures Dec {date.today().year}"},
+                progress={
+                    "pct": int(week / 52 * 100),
+                    "left": f"Week {week} / 52",
+                    "right": f"{start_label} → {end_label}",
+                },
                 transfer=({"label": "52 Weeks Saving Challenge", "suggested": available}
                           if available > ZERO else None),
             ))

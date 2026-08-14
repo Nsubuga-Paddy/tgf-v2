@@ -851,10 +851,12 @@ class ProfileAPIView(APIView):
 
 def build_52wsc_member_payload(profile) -> dict:
     """Reuse the same calculations as savings_52_weeks.views.member_savings."""
+    from savings_52_weeks.cycle_service import sync_member_cycles
     from savings_52_weeks.interest_utils import calculate_unfixed_interest_ytd
     from savings_52_weeks.models import Investment, SavingsTransaction
 
     Investment.check_all_investments_status(user_profile=profile)
+    cycle_info = sync_member_cycles(profile)
 
     all_transactions = profile.savings_transactions.all().order_by(
         "transaction_date", "created_at"
@@ -872,31 +874,6 @@ def build_52wsc_member_payload(profile) -> dict:
             total_gwc += transaction.amount
 
     net_deposits = total_deposits - total_withdrawals - total_gwc
-    current_year = timezone.now().year
-    challenge_progress = SavingsTransaction.get_user_challenge_progress(
-        profile, year=current_year
-    )
-
-    latest_transaction_all_types = (
-        profile.savings_transactions.all().order_by("-created_at").first()
-    )
-    latest_deposit_transaction = profile.savings_transactions.filter(
-        transaction_type="deposit",
-        transaction_date__year=current_year,
-    ).order_by("-created_at").first()
-
-    if latest_transaction_all_types:
-        if latest_transaction_all_types.transaction_type in (
-            "withdrawal",
-            "gwc_contribution",
-        ):
-            balance_brought_forward = Decimal("0.00")
-        else:
-            balance_brought_forward = (
-                latest_transaction_all_types.remaining_balance or Decimal("0.00")
-            )
-    else:
-        balance_brought_forward = Decimal("0.00")
 
     running_total = Decimal("0.00")
     txn_rows = []
@@ -970,30 +947,6 @@ def build_52wsc_member_payload(profile) -> dict:
         else Decimal("0.00")
     )
 
-    current_week = calendar_week_of_year()
-    required_savings = current_week * 10000
-    remaining_weeks = max(52 - current_week, 0)
-
-    current_year_deposits = Decimal("0.00")
-    for t in all_transactions.filter(
-        transaction_date__year=current_year, transaction_type="deposit"
-    ):
-        current_year_deposits += t.amount
-
-    progress_percentage = float(
-        min(
-            (current_year_deposits / TARGET_52WSC * 100) if TARGET_52WSC > 0 else 0,
-            100,
-        )
-    )
-
-    weeks_completed = int(challenge_progress.get("weeks_completed") or 0)
-    total_weeks = int(challenge_progress.get("total_weeks") or 52)
-    next_week_to_cover = (
-        latest_deposit_transaction.next_week if latest_deposit_transaction else 1
-    )
-    cycle_complete = weeks_completed >= total_weeks or next_week_to_cover > total_weeks
-
     investment_list = [
         {
             "id": f"inv-{inv.pk}",
@@ -1010,17 +963,22 @@ def build_52wsc_member_payload(profile) -> dict:
         for inv in investments_qs.order_by("-start_date", "-pk")
     ]
 
+    personal_week = int(cycle_info.get("personalWeek") or 1)
     return {
         "member": {
             "accountNumber": profile.account_number or "",
             "targetAmount": money(TARGET_52WSC),
-            "currentYearDeposits": money(current_year_deposits),
-            "progressPercentage": progress_percentage,
-            "balanceBroughtForward": money(balance_brought_forward),
-            "weeksCompleted": weeks_completed,
-            "nextWeekToCover": next_week_to_cover,
-            "totalWeeks": total_weeks,
-            "cycleComplete": cycle_complete,
+            "currentYearDeposits": int(cycle_info.get("cycleDeposits") or 0),
+            "progressPercentage": float(cycle_info.get("progressPercentage") or 0),
+            "balanceBroughtForward": int(cycle_info.get("balanceBroughtForward") or 0),
+            "weeksCompleted": int(cycle_info.get("weeksCompleted") or 0),
+            "nextWeekToCover": int(cycle_info.get("nextWeekToCover") or 1),
+            "totalWeeks": 52,
+            "cycleComplete": bool(cycle_info.get("cycleComplete")),
+            "cycleStartDate": cycle_info.get("cycleStartDate"),
+            "cycleEndDate": cycle_info.get("cycleEndDate"),
+            "cycleLabel": cycle_info.get("cycleLabel"),
+            "maturedCycle": cycle_info.get("maturedCycle"),
             "fixedSavings": {
                 "totalInvested": money(total_invested),
                 "totalInterestExpected": money(total_interest_expected),
@@ -1031,9 +989,9 @@ def build_52wsc_member_payload(profile) -> dict:
                 else "-",
             },
             "weeklyTarget": {
-                "currentWeek": current_week,
-                "requiredSavings": required_savings,
-                "remainingWeeks": remaining_weeks,
+                "currentWeek": personal_week,
+                "requiredSavings": int(cycle_info.get("requiredSavings") or personal_week * 10000),
+                "remainingWeeks": int(cycle_info.get("remainingWeeks") or max(52 - personal_week, 0)),
             },
         },
         "investments": investment_list,
@@ -1052,6 +1010,97 @@ class Savings52APIView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         return Response(build_52wsc_member_payload(profile))
+
+
+class Savings52StartNewCycleAPIView(APIView):
+    """Seed the next personal cycle with matured balance brought forward."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from savings_52_weeks.cycle_service import start_new_cycle_with_bf
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_52WSC):
+            return Response(
+                {"detail": "You do not have access to the 52 Weeks Saving Challenge."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            new_cycle = start_new_cycle_with_bf(profile, actor=request.user)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "detail": (
+                    f"New cycle started with balance brought forward as opening balance "
+                    f"(Cycle {new_cycle.cycle_number})."
+                ),
+                "dashboard": build_52wsc_member_payload(profile),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class Savings52TransferAllAPIView(APIView):
+    """Transfer matured saved + interest + BF to Main Account."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from savings_52_weeks.cycle_service import transfer_all_to_main
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_52WSC):
+            return Response(
+                {"detail": "You do not have access to the 52 Weeks Saving Challenge."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            cycle = transfer_all_to_main(profile, actor=request.user)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "detail": (
+                    "Matured 52WSC funds (saved + interest + BF) were credited to your "
+                    "Main Account."
+                ),
+                "action": cycle.settlement_action,
+                "dashboard": build_52wsc_member_payload(profile),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class Savings52TransferPotAPIView(APIView):
+    """Transfer matured pot after BF was used to start a new cycle."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from savings_52_weeks.cycle_service import transfer_matured_pot_to_main
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_52WSC):
+            return Response(
+                {"detail": "You do not have access to the 52 Weeks Saving Challenge."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            cycle = transfer_matured_pot_to_main(profile, actor=request.user)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "detail": (
+                    "Matured 52WSC pot (saved + interest) was credited to your Main Account."
+                ),
+                "action": cycle.settlement_action,
+                "dashboard": build_52wsc_member_payload(profile),
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 def build_cgf_member_payload(profile) -> dict:

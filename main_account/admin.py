@@ -5,13 +5,12 @@ from .models import (
     MainAccountTransaction,
     MainAccountWithdrawal,
     ProjectTransferRequest,
+    ProjectTransferToMainAccount,
 )
 from .services import (
-    approve_transfer_request,
     approve_withdrawal,
     credit_member,
     post_transaction,
-    reject_transfer_request,
     reject_withdrawal,
     reverse_withdrawal,
 )
@@ -251,13 +250,14 @@ class MainAccountTransactionAdmin(admin.ModelAdmin):
 class MainAccountWithdrawalAdmin(admin.ModelAdmin):
     list_display = (
         "created_at",
-        "user_profile",
+        "member_full_name",
+        "account_number_display",
         "amount_display",
         "payout_method",
-        "payout_destination",
-        "reason_preview",
+        "phone_display",
+        "bank_summary",
+        "funding_sources_preview",
         "status",
-        "reversal_reference",
         "processed_by",
         "processed_at",
     )
@@ -267,13 +267,22 @@ class MainAccountWithdrawalAdmin(admin.ModelAdmin):
         "user_profile__user__username",
         "user_profile__user__first_name",
         "user_profile__user__last_name",
+        "user_profile__whatsapp_number",
+        "user_profile__bank_account_number",
+        "user_profile__bank_account_name",
         "payout_destination",
+        "funding_note",
         "reason",
     )
     autocomplete_fields = ("user_profile",)
     date_hierarchy = "created_at"
     readonly_fields = (
+        "member_full_name",
+        "account_number_display",
+        "phone_display",
+        "bank_details_display",
         "payout_destination",
+        "funding_note_display",
         "transaction",
         "reversal_transaction",
         "processed_by",
@@ -285,14 +294,39 @@ class MainAccountWithdrawalAdmin(admin.ModelAdmin):
     )
     fieldsets = (
         (
+            "Member & payout details",
+            {
+                "fields": (
+                    "member_full_name",
+                    "account_number_display",
+                    "phone_display",
+                    "bank_details_display",
+                    "payout_method",
+                    "payout_destination",
+                ),
+                "description": (
+                    "Use these details to send the payout. Phone and bank come from the "
+                    "member profile; payout destination is the snapshot chosen at request time."
+                ),
+            },
+        ),
+        (
+            "Where Main Account funds came from",
+            {
+                "fields": ("funding_note_display",),
+                "description": (
+                    "Context only — Main Account is a pooled balance. This note shows "
+                    "project/dividend credits that funded this member's Main Account."
+                ),
+            },
+        ),
+        (
             "Request",
             {
                 "fields": (
                     "user_profile",
                     "amount",
                     "reason",
-                    "payout_method",
-                    "payout_destination",
                     "status",
                 ),
                 "description": (
@@ -324,13 +358,82 @@ class MainAccountWithdrawalAdmin(admin.ModelAdmin):
             },
         ),
     )
-    actions = ("action_approve", "action_reject", "action_reverse")
+    actions = (
+        "action_approve",
+        "action_reject",
+        "action_reverse",
+        "action_refresh_funding_notes",
+    )
 
     def get_queryset(self, request):
         return (
             super()
             .get_queryset(request)
             .select_related("user_profile", "user_profile__user", "processed_by")
+        )
+
+    @admin.display(description="Full name", ordering="user_profile__user__first_name")
+    def member_full_name(self, obj):
+        return obj.user_profile.display_name
+
+    @admin.display(description="Account #", ordering="user_profile__account_number")
+    def account_number_display(self, obj):
+        return obj.user_profile.account_number or "—"
+
+    @admin.display(description="Phone / WhatsApp")
+    def phone_display(self, obj):
+        number = getattr(obj.user_profile, "whatsapp_number", None)
+        return str(number) if number else "—"
+
+    @admin.display(description="Bank")
+    def bank_summary(self, obj):
+        profile = obj.user_profile
+        bank = (profile.bank_name or "").strip()
+        acct = (profile.bank_account_number or "").strip()
+        if not (bank or acct):
+            return "—"
+        return f"{bank} · {acct}".strip(" ·")
+
+    @admin.display(description="Bank details")
+    def bank_details_display(self, obj):
+        from django.utils.html import format_html
+
+        profile = obj.user_profile
+        bank = (profile.bank_name or "").strip()
+        acct = (profile.bank_account_number or "").strip()
+        name = (profile.bank_account_name or "").strip()
+        if not (bank and acct and name):
+            return "Not provided on profile"
+        return format_html(
+            "{}<br>Account: {}<br>Name: {}",
+            bank,
+            acct,
+            name,
+        )
+
+    @admin.display(description="Funding sources")
+    def funding_sources_preview(self, obj):
+        note = (obj.funding_note or "").strip()
+        if not note:
+            return "—"
+        # Prefer the totals section if present
+        for line in note.splitlines():
+            if line.startswith("- ") and ":" in line and "UGX" in line:
+                return line[2:60] + ("…" if len(line) > 62 else "")
+        return note[:60] + ("…" if len(note) > 60 else "")
+
+    @admin.display(description="Funding from projects / credits")
+    def funding_note_display(self, obj):
+        from django.utils.html import format_html
+
+        note = (obj.funding_note or "").strip()
+        if not note:
+            from .services import build_funding_note
+
+            note = build_funding_note(obj.user_profile)
+        return format_html(
+            '<pre style="white-space:pre-wrap;font-family:inherit;margin:0;">{}</pre>',
+            note,
         )
 
     @admin.display(description="Amount", ordering="amount")
@@ -383,6 +486,22 @@ class MainAccountWithdrawalAdmin(admin.ModelAdmin):
         except ValueError as exc:
             self.message_user(request, str(exc), level=messages.ERROR)
 
+    @admin.action(description="Refresh funding notes from Main Account credits")
+    def action_refresh_funding_notes(self, request, queryset):
+        from .services import build_funding_note
+
+        done = 0
+        for wd in queryset.select_related("user_profile"):
+            wd.funding_note = build_funding_note(wd.user_profile)
+            wd.save(update_fields=["funding_note", "updated_at"])
+            done += 1
+        if done:
+            self.message_user(
+                request,
+                f"Updated funding notes on {done} withdrawal request(s).",
+                level=messages.SUCCESS,
+            )
+
     @admin.action(description="Approve selected withdrawals (posts debit to ledger)")
     def action_approve(self, request, queryset):
         done = 0
@@ -425,9 +544,90 @@ class MainAccountWithdrawalAdmin(admin.ModelAdmin):
             )
 
 
+@admin.register(ProjectTransferToMainAccount)
+class ProjectTransferToMainAccountAdmin(admin.ModelAdmin):
+    """
+    Audit view of completed matured-project credits into Main Account.
+
+    No approval workflow — members transfer from matured 52WSC / CGF (etc.)
+    themselves. Refund requests remain under Real Estate admin.
+    """
+
+    list_display = (
+        "created_at",
+        "user_profile",
+        "source_label",
+        "amount_display",
+        "balance_after",
+        "reference",
+        "description_preview",
+        "created_by",
+    )
+    list_filter = ("source_label", "created_at")
+    search_fields = (
+        "user_profile__account_number",
+        "user_profile__user__username",
+        "user_profile__user__first_name",
+        "user_profile__user__last_name",
+        "source_label",
+        "reference",
+        "description",
+    )
+    date_hierarchy = "created_at"
+    ordering = ("-created_at", "-id")
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .filter(
+                direction=MainAccountTransaction.Direction.CREDIT,
+                category=MainAccountTransaction.Category.PROJECT_TRANSFER_IN,
+            )
+            .select_related("user_profile", "user_profile__user", "created_by")
+        )
+
+    def get_readonly_fields(self, request, obj=None):
+        return [f.name for f in self.model._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return True  # allow opening detail (read-only fields)
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["title"] = "Project transfers to main account (completed)"
+        return super().changelist_view(request, extra_context=extra_context)
+
+    @admin.display(description="Amount", ordering="amount")
+    def amount_display(self, obj):
+        return f"UGX {obj.amount:,.0f}"
+
+    @admin.display(description="Description")
+    def description_preview(self, obj):
+        text = (obj.description or "").strip()
+        if not text:
+            return "—"
+        return text[:70] + ("…" if len(text) > 70 else "")
+
+
 @admin.register(ProjectTransferRequest)
 class ProjectTransferRequestAdmin(admin.ModelAdmin):
-    list_display = ("created_at", "user_profile", "project_label", "amount", "status", "processed_by")
+    """Legacy approval queue — retained for history only."""
+
+    list_display = (
+        "created_at",
+        "user_profile",
+        "project_label",
+        "amount",
+        "status",
+        "processed_by",
+    )
     list_filter = ("status", "project_label", "created_at")
     search_fields = (
         "user_profile__account_number",
@@ -437,26 +637,34 @@ class ProjectTransferRequestAdmin(admin.ModelAdmin):
         "project_label",
     )
     autocomplete_fields = ("user_profile",)
-    readonly_fields = ("transaction", "processed_by", "processed_at", "created_at", "updated_at")
-    actions = ("action_approve", "action_reject")
+    readonly_fields = (
+        "user_profile",
+        "project_label",
+        "amount",
+        "member_notes",
+        "status",
+        "admin_notes",
+        "transaction",
+        "processed_by",
+        "processed_at",
+        "created_at",
+        "updated_at",
+    )
 
-    @admin.action(description="Approve transfers (credits main account)")
-    def action_approve(self, request, queryset):
-        done = 0
-        for req in queryset.filter(status=ProjectTransferRequest.STATUS_PENDING):
-            try:
-                approve_transfer_request(req, admin=request.user)
-                done += 1
-            except ValueError as exc:
-                self.message_user(request, f"{req.user_profile}: {exc}", level=messages.ERROR)
-        if done:
-            self.message_user(request, f"Approved {done} transfer(s).", level=messages.SUCCESS)
+    def has_add_permission(self, request):
+        return False
 
-    @admin.action(description="Reject selected transfers")
-    def action_reject(self, request, queryset):
-        done = 0
-        for req in queryset.filter(status=ProjectTransferRequest.STATUS_PENDING):
-            reject_transfer_request(req, admin=request.user)
-            done += 1
-        if done:
-            self.message_user(request, f"Rejected {done} transfer(s).", level=messages.SUCCESS)
+    def has_change_permission(self, request, obj=None):
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["title"] = (
+            "Legacy project transfer requests (historical). "
+            "New matured transfers post instantly — see "
+            "'Project transfers to main account'."
+        )
+        return super().changelist_view(request, extra_context=extra_context)

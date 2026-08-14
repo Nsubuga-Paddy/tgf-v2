@@ -150,16 +150,18 @@ export const MY_PROJECTS = [
 export const PROJECT_TAKE_ACTIONS = {
   '52wsc': [
     {
-      id: 'transfer-main',
-      label: 'Transfer to main account',
-      description: 'Move matured 52WSC returns to your main MCS account',
-      icon: 'transfer',
+      id: 'start-new-cycle',
+      label: 'Start new cycle with BF',
+      description:
+        'Use leftover balance brought forward as the opening balance for your next 52-week cycle',
+      icon: 'retain',
     },
     {
-      id: 'join-gwc',
-      label: 'Join GWC Group',
-      description: 'Use matured savings toward a Generational Wealth Creation group',
-      icon: 'users',
+      id: 'transfer-main',
+      label: 'Transfer everything to main account',
+      description:
+        'Move amount saved + interest earned + balance brought forward to your Main Account',
+      icon: 'transfer',
     },
   ],
   gwc: [
@@ -209,17 +211,18 @@ export const PROJECT_TAKE_ACTIONS = {
 
 export const MATURED_PROJECTS = [
   {
-    id: 'matured-52wsc-2025',
+    id: 'matured-52wsc-2026',
     projectId: '52wsc',
     name: '52 Weeks Saving Challenge',
     shortName: '52WSC',
     icon: 'piggy',
-    maturedOn: '15 Jul 2026',
-    cycleLine: '2025 savings cycle matured',
-    principal: 2_600_000,
-    earnings: 310_000,
-    availableAmount: 2_910_000,
-    nextBestAction: 'Transfer to main account or join a GWC group',
+    maturedOn: '6 Jan 2027',
+    cycleLine: 'Cycle 1 · 2026 · personal start 7 Jan 2026',
+    principal: 13_780_000,
+    earnings: 412_500,
+    availableAmount: 14_277_500,
+    nextBestAction:
+      'Start a new cycle with BF (UGX 85,000) or transfer everything to Main Account',
   },
   {
     id: 'matured-gwc-deposit',

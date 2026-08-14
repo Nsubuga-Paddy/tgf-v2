@@ -9,9 +9,12 @@ Design:
   Pending withdrawals reduce the "available" balance (funds are withheld).
   On approval, a debit transaction is posted to the ledger.
 
-Funds flow IN from matured projects (transfer to main account) and admin
-credits (e.g. staff allowances). Funds flow OUT via withdrawals to bank and
-investments back into projects.
+Funds flow IN from matured projects (member-initiated transfer to main account,
+no admin approval) and admin credits. Funds flow OUT via withdrawals to bank
+(admin-approved) and investments back into projects.
+
+Project refund requests (e.g. Real Estate) are the project-side exception that
+still require administrator approval before crediting Main Account.
 """
 from __future__ import annotations
 
@@ -91,6 +94,20 @@ class AdminMainAccountCredit(MainAccountTransaction):
         verbose_name_plural = "Credit member main account"
 
 
+class ProjectTransferToMainAccount(MainAccountTransaction):
+    """
+    Proxy for admin audit of completed project → Main Account credits.
+
+    These are member-initiated matured transfers (52WSC, CGF, etc.) and do not
+    require administrator approval. Staff use this list for visibility only.
+    """
+
+    class Meta:
+        proxy = True
+        verbose_name = "Project transfer to main account"
+        verbose_name_plural = "Project transfers to main account"
+
+
 class MainAccountWithdrawal(models.Model):
     """A withdrawal request from the main account to the member's bank."""
 
@@ -129,6 +146,13 @@ class MainAccountWithdrawal(models.Model):
         max_length=255,
         blank=True,
         help_text="Snapshot of mobile number or bank details at request time.",
+    )
+    funding_note = models.TextField(
+        blank=True,
+        help_text=(
+            "Snapshot of Main Account credits from projects/dividends at request time, "
+            "so approvers can see where the member's funds came from."
+        ),
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     admin_notes = models.TextField(blank=True)
@@ -178,11 +202,11 @@ class MainAccountWithdrawal(models.Model):
 
 
 class ProjectTransferRequest(models.Model):
-    """Member request to move matured project funds into the main account.
+    """Legacy request-to-approve model for project → Main Account transfers.
 
-    Approving this posts a PROJECT_TRANSFER_IN credit to the main account
-    ledger. Reducing the source project's own balance remains an admin step
-    (handled per-project), keeping money movement auditable end-to-end.
+    Matured project transfers are now member-initiated and post immediately via
+    transfer_from_project (no admin approval). This model is retained for
+    historical rows only. New matured flows must not create pending requests.
     """
 
     STATUS_PENDING = "pending"
@@ -227,8 +251,8 @@ class ProjectTransferRequest(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-        verbose_name = "Project transfer request"
-        verbose_name_plural = "Project transfer requests"
+        verbose_name = "Legacy project transfer request"
+        verbose_name_plural = "Legacy project transfer requests"
 
     def __str__(self) -> str:
         return f"{self.user_profile}: {self.project_label} -> main ({self.get_status_display()})"

@@ -814,7 +814,13 @@ def ensure_user_profile(sender, instance, created, **kwargs):
 # Withdrawal Request Model
 # -------------------------------------------------------------------
 class WithdrawalRequest(models.Model):
-    """Model to track user withdrawal requests"""
+    """
+    Legacy direct 52WSC withdrawal requests (pre Main Account flow).
+
+    New matured 52WSC funds move to Main Account without admin approval.
+    Bank cash-out is then requested from Main Account withdrawals.
+    Kept for historical records only.
+    """
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('approved', 'Approved'),
@@ -845,8 +851,8 @@ class WithdrawalRequest(models.Model):
     
     class Meta:
         ordering = ['-created_at']
-        verbose_name = "Withdrawal Request"
-        verbose_name_plural = "Withdrawal Requests"
+        verbose_name = "Legacy 52WSC withdrawal request"
+        verbose_name_plural = "Legacy 52WSC withdrawal requests"
     
     def __str__(self):
         return f"{self.user_profile.display_name} - UGX {self.amount:,.0f} - {self.get_status_display()}"

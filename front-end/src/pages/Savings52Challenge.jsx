@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   ArrowRight,
   CalendarDays,
@@ -10,6 +10,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import AppShell from '../components/layout/AppShell'
+import WscMaturedCyclePanel from '../components/WscMaturedCyclePanel'
 import { useAuth } from '../context/AuthContext'
 import { useMember } from '../context/MemberContext'
 import { formatUGX } from '../utils/format'
@@ -24,6 +25,11 @@ const EMPTY_MEMBER = {
   nextWeekToCover: 1,
   totalWeeks: 52,
   cycleComplete: false,
+  cycleStartDate: null,
+  cycleEndDate: null,
+  cycleMaturedOn: null,
+  cycleLabel: null,
+  maturedCycle: null,
   fixedSavings: {
     totalInvested: 0,
     totalInterestExpected: 0,
@@ -73,6 +79,15 @@ export default function Savings52Challenge() {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [maturedCycle, setMaturedCycle] = useState(null)
+
+  const applyPayload = useCallback((payload) => {
+    const next = { ...EMPTY_MEMBER, ...(payload.member || {}) }
+    setData(next)
+    setInvestments(payload.investments || [])
+    setTransactions(payload.transactions || [])
+    setMaturedCycle(payload.member?.maturedCycle || null)
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -81,9 +96,7 @@ export default function Savings52Challenge() {
     authFetch('/api/projects/52wsc/')
       .then((payload) => {
         if (!alive) return
-        setData({ ...EMPTY_MEMBER, ...(payload.member || {}) })
-        setInvestments(payload.investments || [])
-        setTransactions(payload.transactions || [])
+        applyPayload(payload)
       })
       .catch((err) => {
         if (!alive) return
@@ -96,9 +109,10 @@ export default function Savings52Challenge() {
     return () => {
       alive = false
     }
-  }, [authFetch, addToast])
+  }, [authFetch, addToast, applyPayload])
 
   const progress = Math.min(Math.max(data.progressPercentage, 0), 100)
+  const personalWeek = data.weeklyTarget?.currentWeek || data.weeksCompleted || 1
   const canTransfer =
     data.cycleComplete ||
     data.weeksCompleted >= (data.totalWeeks || 52) ||
@@ -146,6 +160,45 @@ export default function Savings52Challenge() {
     )
   }
 
+  const handleStartNewCycle = async () => {
+    try {
+      const payload = await authFetch('/api/projects/52wsc/start-new-cycle/', {
+        method: 'POST',
+        body: {},
+      })
+      addToast(payload.detail || 'New cycle started with your balance brought forward.')
+      if (payload.dashboard) applyPayload(payload.dashboard)
+    } catch (err) {
+      addToast(err.message || 'Could not start a new cycle.')
+    }
+  }
+
+  const handleTransferAll = async () => {
+    try {
+      const payload = await authFetch('/api/projects/52wsc/transfer-all/', {
+        method: 'POST',
+        body: {},
+      })
+      addToast(payload.detail || 'Matured funds were credited to your Main Account.')
+      if (payload.dashboard) applyPayload(payload.dashboard)
+    } catch (err) {
+      addToast(err.message || 'Could not transfer matured funds.')
+    }
+  }
+
+  const handleTransferMaturedPot = async () => {
+    try {
+      const payload = await authFetch('/api/projects/52wsc/transfer-pot/', {
+        method: 'POST',
+        body: {},
+      })
+      addToast(payload.detail || 'Matured pot was credited to your Main Account.')
+      if (payload.dashboard) applyPayload(payload.dashboard)
+    } catch (err) {
+      addToast(err.message || 'Could not transfer matured pot.')
+    }
+  }
+
   return (
     <AppShell title="52 Weeks Saving Challenge">
       <div className="wsc-page">
@@ -155,7 +208,15 @@ export default function Savings52Challenge() {
             <h2>
               {member.firstName}&apos;s <span>52WSC</span> Dashboard
             </h2>
-            <p>Track your personal savings progress, fixed savings, and transaction history.</p>
+            <p>
+              Track your personal savings progress, fixed savings, and transaction history.
+              {data.cycleStartDate && data.cycleEndDate ? (
+                <>
+                  {' '}
+                  Your cycle runs from {data.cycleStartDate} to {data.cycleEndDate}.
+                </>
+              ) : null}
+            </p>
           </div>
           <div className="wsc-account-box">
             <small>Account Number</small>
@@ -165,6 +226,15 @@ export default function Savings52Challenge() {
 
         {loading ? <p className="wsc-status-line">Loading your 52WSC ledger…</p> : null}
         {error && !loading ? <p className="wsc-status-line danger-text">{error}</p> : null}
+
+        {maturedCycle ? (
+          <WscMaturedCyclePanel
+            cycle={maturedCycle}
+            onStartNewCycle={handleStartNewCycle}
+            onTransferAll={handleTransferAll}
+            onTransferMaturedPot={handleTransferMaturedPot}
+          />
+        ) : null}
 
         <section className="wsc-stats-grid">
           <article className="wsc-stat-card">
@@ -179,7 +249,11 @@ export default function Savings52Challenge() {
             <div className="wsc-progress">
               <div style={{ width: `${progress}%` }} />
             </div>
-            <p>Current year deposits only, locked until 52 weeks complete.</p>
+            <p>
+              {data.cycleLabel
+                ? `${data.cycleLabel} deposits toward the 52-week ladder.`
+                : 'Deposits for your personal cycle, locked until 52 weeks complete.'}
+            </p>
           </article>
 
           <article className="wsc-stat-card">
@@ -193,7 +267,7 @@ export default function Savings52Challenge() {
             <small>
               Fully Covered Weeks: {data.weeksCompleted}
               <br />
-              Next Week: {data.nextWeekToCover}
+              Next Week: {data.nextWeekToCover > 52 ? 'Complete' : data.nextWeekToCover}
             </small>
             <p>Unallocated balance for weeks not yet fully covered.</p>
           </article>
@@ -224,8 +298,8 @@ export default function Savings52Challenge() {
             <strong>
               {formatDailyUGX(data.fixedSavings.dailyUnfixedInterest)} <em>daily</em>
             </strong>
-            <small>YearToDate: {formatUGX(data.fixedSavings.unfixedInterestEarnedYtd)}</small>
-            <p>15% annualized on unfixed savings.</p>
+            <small>Accrued: {formatUGX(data.fixedSavings.unfixedInterestEarnedYtd)}</small>
+            <p>15% annualized on unfixed savings (daily accrual).</p>
           </article>
         </section>
 
@@ -233,7 +307,7 @@ export default function Savings52Challenge() {
           <div className="wsc-week-head">
             <h3>
               <CalendarDays size={18} />
-              Weekly Savings Target
+              Your personal week progress
             </h3>
           </div>
 
@@ -245,15 +319,18 @@ export default function Savings52Challenge() {
               <div>
                 <span>Required Savings</span>
                 <strong>{formatUGX(data.weeklyTarget.requiredSavings)}</strong>
-                <small>Week {data.weeklyTarget.currentWeek} × UGX 10,000</small>
+                <small>
+                  Your week {personalWeek} × UGX 10,000
+                  {data.cycleStartDate ? ` · from ${data.cycleStartDate}` : ''}
+                </small>
               </div>
             </div>
 
             <div className="wsc-compact-stats">
               <div>
                 <CalendarDays size={18} />
-                <span>Current Week</span>
-                <b>Week {data.weeklyTarget.currentWeek}</b>
+                <span>Your Week</span>
+                <b>Week {personalWeek}</b>
               </div>
               <div>
                 <Flag size={18} />
@@ -264,7 +341,11 @@ export default function Savings52Challenge() {
 
             <div className="wsc-motivation">
               <Lightbulb size={17} />
-              <p>Stay consistent! Small weekly contributions lead to significant annual savings.</p>
+              <p>
+                {data.cycleStartDate && data.cycleEndDate
+                  ? `Your 52 weeks savings challenge runs from ${data.cycleStartDate} and will end on ${data.cycleEndDate}.`
+                  : 'Your 52 weeks savings challenge starts on your first deposit date for this cycle.'}
+              </p>
             </div>
           </div>
         </section>
@@ -311,9 +392,7 @@ export default function Savings52Challenge() {
                           type={
                             String(investment.status).toLowerCase() === 'fixed'
                               ? 'success'
-                              : String(investment.status).toLowerCase() === 'matured'
-                                ? 'warning'
-                                : 'warning'
+                              : 'warning'
                           }
                         >
                           {investment.status}
@@ -399,41 +478,37 @@ export default function Savings52Challenge() {
             Add contribution
           </button>
           <div
-            className={`wsc-withdraw-wrap ${!canTransfer ? 'locked' : ''}`}
+            className={`wsc-withdraw-wrap ${!canTransfer || maturedCycle?.status === 'awaiting_decision' ? 'locked' : ''}`}
             onMouseEnter={revealTransferHint}
             onMouseLeave={hideTransferHint}
             onFocus={revealTransferHint}
             onBlur={hideTransferHint}
             onClick={(e) => {
-              if (canTransfer) return
+              if (canTransfer && maturedCycle?.status !== 'awaiting_decision') return
               e.preventDefault()
               setShowWithdrawHint(true)
               window.setTimeout(() => setShowWithdrawHint(false), 2800)
             }}
           >
-            {showWithdrawHint && !canTransfer ? (
+            {showWithdrawHint &&
+            (!canTransfer || maturedCycle?.status === 'awaiting_decision') ? (
               <div className="wsc-withdraw-tooltip" role="status">
-                {transferHint}
+                {maturedCycle?.status === 'awaiting_decision'
+                  ? 'Use Choose next step on the matured cycle card above.'
+                  : transferHint}
               </div>
             ) : null}
             <button
               type="button"
               className="btn btn-outline"
-              disabled={!canTransfer}
-              aria-disabled={!canTransfer}
-              aria-describedby={!canTransfer && showWithdrawHint ? 'wsc-transfer-hint' : undefined}
+              disabled={!canTransfer || maturedCycle?.status === 'awaiting_decision'}
               onClick={() => {
-                if (!canTransfer) return
-                addToast('52WSC transfer to main account flow coming next')
+                if (!canTransfer || maturedCycle?.status === 'awaiting_decision') return
+                addToast('Use the matured cycle panel to transfer or start a new cycle.')
               }}
             >
               Transfer to main account
             </button>
-            {showWithdrawHint && !canTransfer ? (
-              <span id="wsc-transfer-hint" className="sr-only">
-                {transferHint}
-              </span>
-            ) : null}
           </div>
         </div>
       </div>

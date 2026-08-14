@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.db.models import Sum, Window, F, Case, When, DecimalField, Value
 from django.utils import timezone
 
-from .models import SavingsTransaction, Investment
+from .models import SavingsTransaction, Investment, SavingsCycle
 from core.admin_base import ExportableAdminMixin
 
 
@@ -338,6 +338,89 @@ class InvestmentAdmin(ExportableAdminMixin, admin.ModelAdmin):
             extra_context['show_maturity_alert'] = True
         
         return super().changelist_view(request, extra_context)
+
+
+@admin.register(SavingsCycle)
+class SavingsCycleAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user_profile",
+        "cycle_number",
+        "start_date",
+        "end_date",
+        "status",
+        "amount_saved",
+        "interest_earned",
+        "balance_brought_forward",
+        "settlement_action",
+        "main_account_transaction",
+        "matured_at",
+        "settled_at",
+    )
+    list_filter = ("status", "settlement_action", "start_date", "end_date")
+    search_fields = (
+        "user_profile__user__username",
+        "user_profile__account_number",
+    )
+    autocomplete_fields = ("user_profile",)
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "matured_at",
+        "settled_at",
+        "main_account_transaction",
+        "seeded_next_cycle",
+    )
+    fieldsets = (
+        (
+            "Cycle",
+            {
+                "fields": (
+                    "user_profile",
+                    "cycle_number",
+                    "start_date",
+                    "end_date",
+                    "status",
+                    "opening_balance",
+                ),
+                "description": (
+                    "Personal 52-week cycles. When matured, members transfer to "
+                    "Main Account themselves (no admin approval). Track completed "
+                    "credits under Main Account → Project transfers to main account."
+                ),
+            },
+        ),
+        (
+            "Maturity snapshot",
+            {
+                "fields": (
+                    "amount_saved",
+                    "interest_earned",
+                    "balance_brought_forward",
+                    "matured_at",
+                ),
+            },
+        ),
+        (
+            "Settlement",
+            {
+                "fields": (
+                    "settlement_action",
+                    "main_account_transaction",
+                    "seeded_next_cycle",
+                    "settled_at",
+                    "notes",
+                ),
+            },
+        ),
+        (
+            "Timestamps",
+            {
+                "fields": ("created_at", "updated_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
 
 
 # Customize admin site

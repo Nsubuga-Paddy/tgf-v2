@@ -719,31 +719,72 @@ admin.site.register(User, UserAdmin)
 
 @admin.register(WithdrawalRequest)
 class WithdrawalRequestAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ('user_profile', 'amount_display', 'reason_preview', 'status', 'created_at', 'get_bank_info', 'link_to_profile')
+    """
+    Legacy direct 52WSC withdrawals. New flow: matured 52WSC → Main Account
+    (no approval) → Main Account withdrawal (bank payout approval).
+    """
+
+    list_display = (
+        'user_profile',
+        'amount_display',
+        'reason_preview',
+        'status',
+        'created_at',
+        'get_bank_info',
+        'link_to_profile',
+    )
     list_filter = ('status', 'created_at')
-    list_editable = ('status',)
     autocomplete_fields = ('user_profile',)
-    search_fields = ('user_profile__user__username', 'user_profile__user__first_name', 'user_profile__user__last_name', 'user_profile__account_number')
-    readonly_fields = ('created_at', 'updated_at', 'get_bank_info')
+    search_fields = (
+        'user_profile__user__username',
+        'user_profile__user__first_name',
+        'user_profile__user__last_name',
+        'user_profile__account_number',
+    )
+    readonly_fields = (
+        'user_profile',
+        'amount',
+        'reason',
+        'status',
+        'created_at',
+        'updated_at',
+        'get_bank_info',
+        'admin_notes',
+        'processed_at',
+    )
     date_hierarchy = 'created_at'
     fieldsets = (
-        ('Request Details', {
+        ('Legacy request (read-only)', {
             'fields': ('user_profile', 'amount', 'reason', 'status'),
-            'description': 'Review the withdrawal request. Use status to approve, reject, or mark as processed.'
+            'description': (
+                'Historical 52WSC direct withdrawal requests. '
+                'Matured 52WSC transfers to Main Account do not need approval. '
+                'Bank payouts are processed under Main Account → Main account withdrawals. '
+                'Project refunds that need approval live under Real Estate.'
+            ),
         }),
         ('Bank Account (from user profile)', {
             'fields': ('get_bank_info',),
-            'description': 'Use these details to process the payment.'
         }),
-        ('Admin Action', {
+        ('Admin notes', {
             'fields': ('admin_notes', 'processed_at'),
-            'description': 'Add notes (e.g. transaction ref, date paid) and set processed date when complete.'
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
+            'classes': ('collapse',),
+        }),
     )
+
+    def has_add_permission(self, request):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['title'] = (
+            'Legacy 52WSC withdrawal requests (historical). '
+            'Use Main Account for bank payouts; project→main transfers are instant.'
+        )
+        return super().changelist_view(request, extra_context=extra_context)
     
     def amount_display(self, obj):
         return f"UGX {obj.amount:,.0f}"

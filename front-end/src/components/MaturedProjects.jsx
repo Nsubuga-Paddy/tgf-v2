@@ -95,6 +95,38 @@ export default function MaturedProjects() {
       }
       return
     }
+    if (actionProject.projectId === '52wsc') {
+      if (action.id === 'open-52wsc' || action.id === 'open') {
+        setActionProject(null)
+        navigate('/projects/52wsc')
+        return
+      }
+      const endpoint =
+        action.id === 'start-new-cycle'
+          ? '/api/projects/52wsc/start-new-cycle/'
+          : action.id === 'transfer-main' || action.id === 'transfer-all'
+            ? '/api/projects/52wsc/transfer-all/'
+            : action.id === 'transfer-pot'
+              ? '/api/projects/52wsc/transfer-pot/'
+              : null
+      if (!endpoint) {
+        setActionProject(null)
+        navigate('/projects/52wsc')
+        return
+      }
+      setTransferring(true)
+      try {
+        const payload = await authFetch(endpoint, { method: 'POST', body: {} })
+        addToast(payload.detail || '52WSC maturity action completed.')
+        setActionProject(null)
+        await reloadDashboard({ silent: true })
+      } catch (err) {
+        addToast(err.message || 'Could not complete 52WSC maturity action.')
+      } finally {
+        setTransferring(false)
+      }
+      return
+    }
     addToast(`${action.label} is still under development`)
     setActionProject(null)
   }

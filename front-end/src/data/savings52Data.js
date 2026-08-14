@@ -1,3 +1,11 @@
+/**
+ * 52WSC design fixtures — frontend preview only (no backend yet).
+ *
+ * Scenario: member finished a personal 52-week cycle that started on their
+ * first 2026 deposit. Full ladder was covered, interest accrued daily at 15%
+ * annualized, and a leftover BF remains after week 52.
+ */
+
 export const SAVINGS_52_MEMBER = {
   accountNumber: 'MCSTGF-NS0042',
   targetAmount: 13_780_000,
@@ -7,8 +15,8 @@ export const SAVINGS_52_MEMBER = {
   weeksCompleted: 18,
   nextWeekToCover: 19,
   totalWeeks: 52,
-  /** Withdrawals unlock only after the full 52-week cycle is complete */
   cycleComplete: false,
+  cycleStartDate: '7 Jan 2026',
   fixedSavings: {
     totalInvested: 1_500_000,
     totalInterestExpected: 225_000,
@@ -20,6 +28,49 @@ export const SAVINGS_52_MEMBER = {
     currentWeek: 30,
     requiredSavings: 300_000,
     remainingWeeks: 22,
+  },
+}
+
+/** Matured cycle waiting for member decision (BF present). */
+export const SAVINGS_52_MATURED_PREVIEW = {
+  accountNumber: 'MCSTGF-NS0042',
+  targetAmount: 13_780_000,
+  currentYearDeposits: 13_865_000,
+  progressPercentage: 100,
+  balanceBroughtForward: 85_000,
+  weeksCompleted: 52,
+  nextWeekToCover: 53,
+  totalWeeks: 52,
+  cycleComplete: true,
+  cycleStartDate: '7 Jan 2026',
+  cycleEndDate: '6 Jan 2027',
+  cycleMaturedOn: '6 Jan 2027',
+  cycleLabel: 'Cycle 1 · 2026',
+  maturedCycle: {
+    id: 'preview-cycle-1',
+    label: 'Cycle 1 · 2026',
+    startDate: '7 Jan 2026',
+    maturedOn: '6 Jan 2027',
+    weeksCompleted: 52,
+    /** Amount applied to the 52-week ladder (principal saved in cycle) */
+    amountSaved: 13_780_000,
+    /** 15% annualized, daily accrual for days money was held */
+    interestEarned: 412_500,
+    /** Leftover after week 52 was fully covered */
+    balanceBroughtForward: 85_000,
+    status: 'awaiting_decision',
+  },
+  fixedSavings: {
+    totalInvested: 0,
+    totalInterestExpected: 0,
+    dailyUnfixedInterest: 0,
+    unfixedInterestEarnedYtd: 412_500,
+    latestMaturityDate: '—',
+  },
+  weeklyTarget: {
+    currentWeek: 52,
+    requiredSavings: 520_000,
+    remainingWeeks: 0,
   },
 }
 
@@ -103,3 +154,52 @@ export const SAVINGS_52_TRANSACTIONS = [
     balanceForward: null,
   },
 ]
+
+export const SAVINGS_52_MATURED_TRANSACTIONS = [
+  {
+    id: 'mtx-1',
+    date: '6 Jan 2027',
+    type: 'Deposit',
+    typeKey: 'deposit',
+    amount: 605_000,
+    runningTotal: 13_865_000,
+    weeksCovered: 'Week 52',
+    receipt: '52WSC-2026-052',
+    balanceForward: 85_000,
+  },
+  {
+    id: 'mtx-2',
+    date: '20 Dec 2026',
+    type: 'Deposit',
+    typeKey: 'deposit',
+    amount: 980_000,
+    runningTotal: 13_260_000,
+    weeksCovered: 'Week 50, Week 51',
+    receipt: '52WSC-2026-050',
+    balanceForward: 0,
+  },
+  {
+    id: 'mtx-3',
+    date: '7 Jan 2026',
+    type: 'Deposit',
+    typeKey: 'deposit',
+    amount: 10_000,
+    runningTotal: 10_000,
+    weeksCovered: 'Week 1',
+    receipt: '52WSC-2026-001',
+    balanceForward: 0,
+  },
+]
+
+export function maturedTotals(cycle) {
+  const amountSaved = Number(cycle?.amountSaved) || 0
+  const interestEarned = Number(cycle?.interestEarned) || 0
+  const balanceBroughtForward = Number(cycle?.balanceBroughtForward) || 0
+  return {
+    amountSaved,
+    interestEarned,
+    balanceBroughtForward,
+    maturedPot: amountSaved + interestEarned,
+    transferAll: amountSaved + interestEarned + balanceBroughtForward,
+  }
+}

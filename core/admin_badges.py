@@ -27,13 +27,8 @@ def pending_project_access_request_count() -> int:
     ).count()
 
 
-def pending_withdrawal_request_count() -> int:
-    from accounts.models import WithdrawalRequest
-
-    return WithdrawalRequest.objects.filter(status="pending").count()
-
-
 def pending_main_account_withdrawal_count() -> int:
+    """Bank payouts from Main Account still need admin approval."""
     from main_account.models import MainAccountWithdrawal
 
     return MainAccountWithdrawal.objects.filter(
@@ -55,26 +50,28 @@ def pending_cgf_action_request_count() -> int:
     return CGFActionRequest.objects.filter(status="pending").count()
 
 
-def pending_realestate_action_request_count() -> int:
+def pending_realestate_refund_request_count() -> int:
+    """Only project refunds require approval before Main Account credit."""
     from realestate_projects.models import RealEstateProjectActionRequest
 
     return RealEstateProjectActionRequest.objects.filter(
         status=RealEstateProjectActionRequest.STATUS_PENDING,
+        action_type=RealEstateProjectActionRequest.ACTION_REFUND,
     ).count()
 
 
 # (app_label, model object_name) → pending count callable
+# Note: matured project → Main Account transfers are instant (no badge).
 ADMIN_PENDING_BADGE_COUNTERS: dict[tuple[str, str], Callable[[], int]] = {
     ("auth", "User"): pending_user_verification_count,
     ("accounts", "ProjectAccessRequest"): pending_project_access_request_count,
-    ("accounts", "WithdrawalRequest"): pending_withdrawal_request_count,
     ("main_account", "MainAccountWithdrawal"): pending_main_account_withdrawal_count,
     ("cooperative_shareholding", "DividendChoiceRequest"): pending_dividend_request_count,
     ("goat_farming", "CGFActionRequest"): pending_cgf_action_request_count,
     (
         "realestate_projects",
         "RealEstateProjectActionRequest",
-    ): pending_realestate_action_request_count,
+    ): pending_realestate_refund_request_count,
 }
 
 
