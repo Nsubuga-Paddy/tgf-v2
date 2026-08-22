@@ -74,7 +74,7 @@ class PackagePurchaseAdmin(ExportableAdminMixin, admin.ModelAdmin):
     list_display = [
         'user', 'farm', 'package', 'total_amount_display',
         'amount_paid_display', 'balance_due_display', 'payment_status',
-        'goats_status', 'purchase_date'
+        'goats_status', 'purchase_date', 'matures_on_display', 'maturity_status_display',
     ]
     list_editable = ['purchase_date']
     list_filter = ['status', 'farm', 'package']
@@ -142,6 +142,37 @@ class PackagePurchaseAdmin(ExportableAdminMixin, admin.ModelAdmin):
             return format_html('<span style="color: red;">Awaiting payment</span>')
     goats_status.short_description = 'Goat Status'
 
+    def matures_on_display(self, obj):
+        from goat_farming.services import maturity_datetime
+
+        matures = maturity_datetime(obj.purchase_date)
+        if not matures:
+            return '—'
+        return matures.strftime('%d %b %Y')
+    matures_on_display.short_description = 'Matures on'
+
+    def maturity_status_display(self, obj):
+        from goat_farming.services import (
+            CGF_ELIGIBLE_STATUSES,
+            cycle_progress_pct,
+            days_until_maturity,
+            is_purchase_matured,
+        )
+
+        if obj.settled_at:
+            return format_html('<span style="color: #64748b;">Settled</span>')
+        if obj.status not in CGF_ELIGIBLE_STATUSES:
+            return format_html('<span style="color: #94a3b8;">Not in cycle</span>')
+        if is_purchase_matured(obj):
+            return format_html('<span style="color: green; font-weight: 600;">Matured</span>')
+        days = days_until_maturity(obj.purchase_date)
+        pct = cycle_progress_pct(obj.purchase_date)
+        label = f'{pct}%'
+        if days is not None:
+            label = f'{pct}% · {days} days left'
+        return format_html('<span style="color: #b45309;">{}</span>', label)
+    maturity_status_display.short_description = 'Maturity'
+
     def allocate_goats_action(self, request, queryset):
         count = 0
         for purchase in queryset:
@@ -154,7 +185,10 @@ class PackagePurchaseAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
 @admin.register(UserFarmAccount)
 class UserFarmAccountAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ['user_display', 'farm', 'current_goats', 'expected_kids', 'is_active', 'created_at']
+    list_display = [
+        'user_display', 'farm', 'current_goats', 'expected_kids', 'is_active',
+        'created_at', 'nearest_matures_on_display',
+    ]
     list_filter = ['farm', 'is_active', 'created_at']
     autocomplete_fields = ('user', 'farm')
     search_fields = ['user__user__username', 'user__user__first_name', 'user__user__last_name', 'user__account_number']
@@ -170,6 +204,34 @@ class UserFarmAccountAdmin(ExportableAdminMixin, admin.ModelAdmin):
         )
     user_display.short_description = 'User & Account'
     user_display.admin_order_field = 'user'
+
+    def nearest_matures_on_display(self, obj):
+        """Nearest unsettled package maturity for this member/farm (purchase_date + 425)."""
+        from goat_farming.services import (
+            eligible_cycle_queryset,
+            is_purchase_matured,
+            maturity_datetime,
+        )
+
+        purchases = list(
+            eligible_cycle_queryset(obj.user, farm_id=obj.farm_id, unsettled_only=True)
+        )
+        if not purchases:
+            return '—'
+        active = [p for p in purchases if not is_purchase_matured(p)]
+        target = (
+            min(active, key=lambda p: (p.purchase_date, p.pk))
+            if active
+            else min(purchases, key=lambda p: (p.purchase_date, p.pk))
+        )
+        matures = maturity_datetime(target.purchase_date)
+        if not matures:
+            return '—'
+        label = matures.strftime('%d %b %Y')
+        if is_purchase_matured(target):
+            return format_html('<span style="color: green;">{} (matured)</span>', label)
+        return label
+    nearest_matures_on_display.short_description = 'Nearest matures on'
 
 @admin.register(Payment)
 class PaymentAdmin(ExportableAdminMixin, admin.ModelAdmin):

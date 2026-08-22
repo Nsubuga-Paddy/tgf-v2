@@ -129,20 +129,36 @@ export const CGF_BREEDING_INFO = {
 export const MARKET_PRICE_PER_KID = 400_000
 export const KIDS_PER_GOAT_PER_YEAR = 3
 
-/** Add 14 months to an ISO date string; return display + remaining label. */
-export function kiddingFromCreated(createdAtIso, asOf = new Date()) {
-  const created = new Date(createdAtIso)
-  const kidding = new Date(created)
-  kidding.setMonth(kidding.getMonth() + 14)
+/** Maturity from purchase/start ISO date + 425 days (~14 months). */
+export const CGF_CYCLE_DAYS = 425
 
+export function maturityFromPurchaseDate(startIso, asOf = new Date()) {
+  if (!startIso) {
+    return { dateLabel: '—', statusLabel: 'No cycle start', tone: 'secondary', progressPct: 0 }
+  }
+  const start = new Date(startIso)
+  if (Number.isNaN(start.getTime())) {
+    return { dateLabel: '—', statusLabel: 'Invalid date', tone: 'secondary', progressPct: 0 }
+  }
+  const matures = new Date(start.getTime() + CGF_CYCLE_DAYS * 24 * 60 * 60 * 1000)
   const options = { year: 'numeric', month: 'short', day: 'numeric' }
-  const dateLabel = kidding.toLocaleDateString('en-US', options)
+  const dateLabel = matures.toLocaleDateString('en-US', options)
+  const elapsedMs = asOf.getTime() - start.getTime()
+  const progressPct = Math.max(
+    0,
+    Math.min(100, Math.round((elapsedMs / (CGF_CYCLE_DAYS * 24 * 60 * 60 * 1000)) * 100)),
+  )
 
-  if (kidding <= asOf) {
-    return { dateLabel, statusLabel: 'Ready for breeding!', tone: 'success' }
+  if (matures <= asOf) {
+    return {
+      dateLabel,
+      statusLabel: 'Cycle complete',
+      tone: 'success',
+      progressPct: 100,
+    }
   }
 
-  const daysDiff = Math.ceil((kidding.getTime() - asOf.getTime()) / (1000 * 3600 * 24))
+  const daysDiff = Math.ceil((matures.getTime() - asOf.getTime()) / (1000 * 3600 * 24))
   if (daysDiff > 365) {
     const years = Math.floor(daysDiff / 365)
     const months = Math.floor((daysDiff % 365) / 30)
@@ -152,6 +168,7 @@ export function kiddingFromCreated(createdAtIso, asOf = new Date()) {
         months > 0 ? ` ${months} month${months > 1 ? 's' : ''}` : ''
       } remaining`,
       tone: 'warning',
+      progressPct,
     }
   }
   if (daysDiff > 30) {
@@ -163,13 +180,20 @@ export function kiddingFromCreated(createdAtIso, asOf = new Date()) {
         days > 0 ? ` ${days} day${days > 1 ? 's' : ''}` : ''
       } remaining`,
       tone: 'warning',
+      progressPct,
     }
   }
   return {
     dateLabel,
     statusLabel: `${daysDiff} day${daysDiff > 1 ? 's' : ''} remaining`,
     tone: 'info',
+    progressPct,
   }
+}
+
+/** @deprecated Prefer maturityFromPurchaseDate — kept for older call sites. */
+export function kiddingFromCreated(createdAtIso, asOf = new Date()) {
+  return maturityFromPurchaseDate(createdAtIso, asOf)
 }
 
 export function purchaseStatusBadge(status) {

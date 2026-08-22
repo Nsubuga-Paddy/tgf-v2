@@ -1105,11 +1105,18 @@ class Savings52TransferPotAPIView(APIView):
 
 def build_cgf_member_payload(profile) -> dict:
     """Reuse the same calculations as goat_farming.views.cgf_dashboard."""
-    from datetime import timedelta
-
     from django.db.models import Sum
 
     from goat_farming.models import PackagePurchase, Payment, UserFarmAccount
+    from goat_farming.services import (
+        cycle_progress_pct,
+        days_until_maturity,
+        farm_maturity_flags,
+        is_purchase_matured,
+        maturity_datetime,
+        matured_transfer_preview,
+        member_cycle_progress,
+    )
 
     user_farm_accounts = (
         UserFarmAccount.objects.filter(user=profile, is_active=True)
@@ -1136,19 +1143,8 @@ def build_cgf_member_payload(profile) -> dict:
     )
     effective_kids_per_goat = (package_based_total / total_goats) if total_goats else 0
 
-    # Next upcoming maturity among farm accounts that are not yet mature.
-    next_maturity_date = None
     now = timezone.now()
-    for account in user_farm_accounts.order_by("created_at"):
-        if not account.created_at:
-            continue
-        maturity_date = account.created_at + timedelta(days=425)
-        if maturity_date > now:
-            next_maturity_date = maturity_date
-            break
-
-    from goat_farming.services import farm_maturity_flags, matured_transfer_preview
-
+    progress_info = member_cycle_progress(profile)
     maturity_by_farm = farm_maturity_flags(profile)
 
     farm_accounts = []
@@ -1162,6 +1158,8 @@ def build_cgf_member_payload(profile) -> dict:
         total_expected_kids += resolved_kids
         created_local = to_cooperative_datetime(account.created_at)
         farm_flags = maturity_by_farm.get(account.farm_id) or {}
+        next_mat = farm_flags.get("next_maturity_at")
+        cycle_start = farm_flags.get("cycle_start_at")
         farm_accounts.append(
             {
                 "id": f"fa-{account.pk}",
@@ -1171,6 +1169,19 @@ def build_cgf_member_payload(profile) -> dict:
                 "currentGoats": int(account.current_goats or 0),
                 "expectedKids": int(resolved_kids),
                 "createdAt": created_local.date().isoformat(),
+                "cycleStartAt": date_label(cycle_start) if cycle_start else "",
+                "cycleStartAtIso": (
+                    to_cooperative_datetime(cycle_start).date().isoformat()
+                    if cycle_start
+                    else ""
+                ),
+                "maturityDate": date_label(next_mat) if next_mat else "",
+                "maturityDateIso": (
+                    to_cooperative_datetime(next_mat).date().isoformat()
+                    if next_mat
+                    else ""
+                ),
+                "progressPct": int(farm_flags.get("progress_pct") or 0),
                 "isCycleComplete": bool(farm_flags.get("is_cycle_complete")),
                 "canTransfer": bool(farm_flags.get("can_transfer")),
                 "transferAmount": money(farm_flags.get("transfer_amount") or 0),
@@ -1183,6 +1194,10 @@ def build_cgf_member_payload(profile) -> dict:
         status_label = purchase.get_status_display()
         if purchase.settled_at:
             status_label = "Transferred to Main Account"
+        matures_at = maturity_datetime(purchase.purchase_date)
+        eligible = purchase.status in ("paid", "allocated") and not purchase.settled_at
+        matured = eligible and is_purchase_matured(purchase, now=now)
+        days_left = days_until_maturity(purchase.purchase_date, now=now)
         purchases.append(
             {
                 "id": purchase.pk,
@@ -1199,6 +1214,19 @@ def build_cgf_member_payload(profile) -> dict:
                     getattr(purchase.package, "kids_per_goat", 2) if purchase.package else 2
                 ),
                 "purchaseDate": date_label(purchase.purchase_date),
+                "maturityDate": date_label(matures_at) if matures_at else "",
+                "maturityDateIso": (
+                    to_cooperative_datetime(matures_at).date().isoformat()
+                    if matures_at
+                    else ""
+                ),
+                "progressPct": (
+                    cycle_progress_pct(purchase.purchase_date, now=now)
+                    if eligible
+                    else (100 if purchase.settled_at else 0)
+                ),
+                "isMatured": matured,
+                "daysUntilMaturity": days_left,
                 "settledAt": date_label(purchase.settled_at) if purchase.settled_at else "",
             }
         )
@@ -1271,6 +1299,11 @@ def build_cgf_member_payload(profile) -> dict:
 
     transfer_preview = matured_transfer_preview(profile)
 
+    # Upcoming next maturity among still-active cycles only.
+    upcoming = None
+    if progress_info.get("active_count"):
+        upcoming = progress_info.get("next_maturity_at")
+
     return {
         "member": {
             "accountNumber": profile.account_number or "",
@@ -1279,9 +1312,8 @@ def build_cgf_member_payload(profile) -> dict:
             "totalPaid": money(total_paid),
             "totalBalance": money(total_balance),
             "totalExpectedKids": int(total_expected_kids),
-            "nextMaturityDate": date_label(next_maturity_date)
-            if next_maturity_date
-            else None,
+            "nextMaturityDate": date_label(upcoming) if upcoming else None,
+            "cycleProgressPct": int(progress_info.get("pct") or 0),
             "totalInvestments": money(total_investments),
             "investmentCount": int(investment_count),
             "totalPackageAmounts": money(total_invested),

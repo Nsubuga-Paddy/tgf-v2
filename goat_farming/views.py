@@ -50,19 +50,16 @@ def cgf_dashboard(request):
     )
     effective_kids_per_goat = (package_based_total / total_goats) if total_goats else 0
 
-    # Calculate next maturity date (earliest account created + 14 months)
+    # Calculate next maturity date from package purchase_date + 425 days
     next_maturity_date = None
-    if user_farm_accounts.exists():
-        from django.utils import timezone
-        from datetime import timedelta
-        
-        # Get the earliest account creation date and add 14 months (approximately 425 days)
-        earliest_account = user_farm_accounts.order_by('created_at').first()
-        if earliest_account:
-            maturity_date = earliest_account.created_at + timedelta(days=425)  # 14 months ≈ 425 days
-            # Only show if it's in the future
-            if maturity_date > timezone.now():
-                next_maturity_date = maturity_date
+    try:
+        from goat_farming.services import member_cycle_progress
+
+        progress_info = member_cycle_progress(user_profile)
+        if progress_info.get("active_count"):
+            next_maturity_date = progress_info.get("next_maturity_at")
+    except Exception:
+        next_maturity_date = None
 
     # Recent payments
     recent_payments = (

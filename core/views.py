@@ -322,7 +322,10 @@ class ProfileView(TemplateView):
                     now = timezone.now()
                     cutoff = now - timedelta(days=425)
                     context['cgf_has_completed_cycles'] = PackagePurchase.objects.filter(
-                        user=profile, status='allocated', purchase_date__lte=cutoff
+                        user=profile,
+                        status__in=['paid', 'allocated'],
+                        settled_at__isnull=True,
+                        purchase_date__lte=cutoff,
                     ).exists()
                     # User's CGF action requests (Sell, Take, Transfer) for display
                     context['cgf_action_requests'] = profile.cgf_action_requests.all().order_by('-created_at')

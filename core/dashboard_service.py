@@ -135,38 +135,35 @@ def _empty_financials() -> dict:
     }
 
 
-CGF_CYCLE_DAYS = 425
+def _format_coop_date(dt) -> str:
+    if not dt:
+        return ""
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, timezone.get_default_timezone())
+    return timezone.localtime(dt, timezone.get_default_timezone()).strftime("%d %b %Y")
 
 
 def _cgf_maturity_summary(profile) -> dict:
     """Summarise matured vs still-active CGF package cycles for one member."""
-    from datetime import timedelta
-
     from goat_farming.models import CGF_CASHOUT_PRICE_PER_GOAT, PackagePurchase, UserFarmAccount
+    from goat_farming.services import (
+        eligible_cycle_queryset,
+        is_purchase_matured,
+        maturity_datetime,
+        member_cycle_progress,
+        purchase_cycle_goats,
+        purchase_cycle_kids,
+    )
 
-    cutoff = timezone.now() - timedelta(days=CGF_CYCLE_DAYS)
+    now = timezone.now()
     # Settled cycles were already transferred to Main Account — exclude them.
-    allocated = list(
-        PackagePurchase.objects.filter(
-            user=profile,
-            status="allocated",
-            settled_at__isnull=True,
-        )
-        .select_related("package", "farm")
-        .order_by("purchase_date", "pk")
-    )
-    matured = [
-        p for p in allocated if p.purchase_date and p.purchase_date <= cutoff
-    ]
-    active = [
-        p for p in allocated if not p.purchase_date or p.purchase_date > cutoff
-    ]
+    # Eligible = Fully Paid or Goats Allocated (purchase_date drives the 425-day clock).
+    cycles = list(eligible_cycle_queryset(profile, unsettled_only=True))
+    matured = [p for p in cycles if is_purchase_matured(p, now=now)]
+    active = [p for p in cycles if not is_purchase_matured(p, now=now)]
 
-    matured_goats = sum(int(p.goats_allocated or 0) for p in matured)
-    matured_kids = sum(
-        int(p.goats_allocated or 0) * int(getattr(p.package, "kids_per_goat", 2) or 2)
-        for p in matured
-    )
+    matured_goats = sum(purchase_cycle_goats(p) for p in matured)
+    matured_kids = sum(purchase_cycle_kids(p) for p in matured)
     principal = sum((p.amount_paid or p.total_amount or ZERO) for p in matured)
     if not isinstance(principal, Decimal):
         principal = Decimal(str(principal or 0))
@@ -179,8 +176,9 @@ def _cgf_maturity_summary(profile) -> dict:
     if matured:
         dates = [p.purchase_date for p in matured if p.purchase_date]
         if dates:
-            earliest_purchase = min(dates)
-            earliest = earliest_purchase + timedelta(days=CGF_CYCLE_DAYS)
+            earliest = maturity_datetime(min(dates))
+
+    progress = member_cycle_progress(profile)
 
     total_goats = (
         UserFarmAccount.objects.filter(user=profile, is_active=True).aggregate(
@@ -203,6 +201,8 @@ def _cgf_maturity_summary(profile) -> dict:
         "earnings": earnings,
         "available": available,
         "earliest_matured_at": earliest,
+        "next_maturity_at": progress.get("next_maturity_at"),
+        "progress_pct": int(progress.get("pct") or 0),
         "total_goats": int(total_goats or 0),
         "invested": invested if isinstance(invested, Decimal) else Decimal(str(invested or 0)),
     }
@@ -228,14 +228,7 @@ def _build_matured_projects(profile, my_projects: list[dict]) -> list[dict]:
             cycle_line = (
                 f"{matured_n} matured 14-month cycle{'s' if matured_n != 1 else ''} ready"
             )
-        matured_on = ""
-        if cgf["earliest_matured_at"]:
-            dt = cgf["earliest_matured_at"]
-            if timezone.is_naive(dt):
-                dt = timezone.make_aware(dt, timezone.get_default_timezone())
-            matured_on = timezone.localtime(
-                dt, timezone.get_default_timezone()
-            ).strftime("%d %b %Y")
+        matured_on = _format_coop_date(cgf.get("earliest_matured_at"))
         out.append(
             {
                 "id": "matured-cgf",
@@ -386,11 +379,13 @@ def _build_my_projects(user, profile) -> list[dict]:
             cgf = _cgf_maturity_summary(profile)
             matured_n = cgf["matured_count"]
             active_n = cgf["active_count"]
+            next_on = _format_coop_date(cgf.get("next_maturity_at"))
             if cgf["has_matured"] and cgf["has_active"]:
                 status_tag = "Partially matured"
                 status_class = "st-mixed"
                 cycle_line = (
-                    f"{matured_n} matured · {active_n} active · 14-month cycles"
+                    f"{matured_n} matured · {active_n} active"
+                    + (f" · next matures {next_on}" if next_on else "")
                 )
             elif cgf["has_matured"]:
                 status_tag = "Matured"
@@ -401,7 +396,9 @@ def _build_my_projects(user, profile) -> list[dict]:
             else:
                 status_tag = "Active"
                 status_class = "st-active"
-                cycle_line = "14-month cycle"
+                cycle_line = (
+                    f"Matures on {next_on}" if next_on else "14-month cycle"
+                )
             cards.append(_card(
                 "Commercial Goat Farming", "fa-horse",
                 invested=cgf["invested"],
@@ -409,6 +406,7 @@ def _build_my_projects(user, profile) -> list[dict]:
                 status_class=status_class,
                 cycle_line=cycle_line,
                 url=_safe_reverse("goat_farming:dashboard"),
+                progress={"pct": int(cgf.get("progress_pct") or 0)},
                 stats=[
                     {"label": "Amount invested", "value": cgf["invested"], "cls": "", "badge": ""},
                     {

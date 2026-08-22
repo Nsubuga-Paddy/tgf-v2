@@ -12,7 +12,7 @@ import {
 import CgfShell from '../../components/cgf/CgfShell'
 import {
   CGF_BREEDING_INFO,
-  kiddingFromCreated,
+  maturityFromPurchaseDate,
   purchaseStatusBadge,
 } from '../../data/cgfData'
 import { useAuth } from '../../context/AuthContext'
@@ -182,17 +182,26 @@ export default function CgfDashboard() {
                     <th>Farm</th>
                     <th>Current Goats</th>
                     <th>Expected Kids</th>
-                    <th>Next Kidding Date</th>
-                    <th>Account Created</th>
+                    <th>Matures On</th>
+                    <th>Cycle Start</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {farmAccounts.map((account) => {
-                    const kidding = kiddingFromCreated(account.createdAt)
+                    const progressPct = Number(account.progressPct || 0)
                     const cycleComplete = Boolean(
                       account.canTransfer || account.isCycleComplete,
                     )
+                    const remaining = maturityFromPurchaseDate(
+                      account.cycleStartAtIso || account.createdAt,
+                    )
+                    const tone = cycleComplete ? 'success' : remaining.tone
+                    const statusLabel = cycleComplete
+                      ? account.canTransfer
+                        ? 'Cycle complete · ready to transfer'
+                        : 'Cycle complete'
+                      : remaining.statusLabel
                     const showTransfer = Boolean(account.canTransfer)
                     const busy = transferring === account.farmId || transferring === 'all'
                     return (
@@ -215,22 +224,20 @@ export default function CgfDashboard() {
                           <small>Expected kids</small>
                         </td>
                         <td>
-                          <b>{kidding.dateLabel}</b>
+                          <b>{account.maturityDate || remaining.dateLabel || '—'}</b>
                           <br />
-                          <small className={`cgf-tone-${kidding.tone}`}>
-                            {cycleComplete && account.canTransfer
-                              ? 'Cycle complete · ready to transfer'
-                              : cycleComplete && !account.canTransfer
-                                ? 'Cycle complete'
-                                : kidding.statusLabel}
+                          <small className={`cgf-tone-${tone}`}>
+                            {statusLabel}
+                            {account.maturityDate ? ` · ${progressPct}%` : ''}
                           </small>
                         </td>
                         <td>
-                          {new Date(account.createdAt).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
+                          {account.cycleStartAt ||
+                            new Date(account.createdAt).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
                         </td>
                         <td className="cgf-row-action">
                           {showTransfer ? (
@@ -318,38 +325,68 @@ export default function CgfDashboard() {
             </div>
           ) : (
             <table className="cgf-table">
-              <thead>
-                <tr>
-                  <th>Farm</th>
-                  <th>Package</th>
-                  <th>Total Amount</th>
-                  <th>Amount Paid</th>
-                  <th>Balance</th>
-                  <th>Status</th>
-                  <th>Goats Allocated</th>
-                  <th>Purchase Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {purchases.map((purchase) => (
-                  <tr key={purchase.id}>
-                    <td>{purchase.farmName}</td>
-                    <td>{purchase.packageName}</td>
-                    <td>{formatUGX(purchase.totalAmount)}</td>
-                    <td>{formatUGX(purchase.amountPaid)}</td>
-                    <td>{formatUGX(purchase.balanceDue)}</td>
-                    <td>
-                      <Badge tone={purchaseStatusBadge(purchase.status)}>
-                        {purchase.statusLabel}
-                      </Badge>
-                    </td>
-                    <td>
-                      {purchase.goatsAllocated}/{purchase.goatCount}
-                    </td>
-                    <td>{purchase.purchaseDate}</td>
+                <thead>
+                  <tr>
+                    <th>Farm</th>
+                    <th>Package</th>
+                    <th>Total Amount</th>
+                    <th>Amount Paid</th>
+                    <th>Balance</th>
+                    <th>Status</th>
+                    <th>Goats Allocated</th>
+                    <th>Purchase Date</th>
+                    <th>Matures On</th>
                   </tr>
-                ))}
-              </tbody>
+                </thead>
+                <tbody>
+                  {purchases.map((purchase) => {
+                    const matured = Boolean(purchase.isMatured)
+                    const settled = purchase.status === 'settled'
+                    return (
+                      <tr key={purchase.id}>
+                        <td>{purchase.farmName}</td>
+                        <td>{purchase.packageName}</td>
+                        <td>{formatUGX(purchase.totalAmount)}</td>
+                        <td>{formatUGX(purchase.amountPaid)}</td>
+                        <td>{formatUGX(purchase.balanceDue)}</td>
+                        <td>
+                          <Badge tone={purchaseStatusBadge(purchase.status)}>
+                            {purchase.statusLabel}
+                          </Badge>
+                        </td>
+                        <td>
+                          {purchase.goatsAllocated}/{purchase.goatCount}
+                        </td>
+                        <td>{purchase.purchaseDate}</td>
+                        <td>
+                          {purchase.maturityDate || '—'}
+                          {settled ? (
+                            <>
+                              <br />
+                              <small className="cgf-tone-info">Settled</small>
+                            </>
+                          ) : matured ? (
+                            <>
+                              <br />
+                              <small className="cgf-tone-success">Matured</small>
+                            </>
+                          ) : purchase.progressPct != null && purchase.maturityDate ? (
+                            <>
+                              <br />
+                              <small className="cgf-tone-warning">
+                                {purchase.progressPct}% ·{' '}
+                                {purchase.daysUntilMaturity != null &&
+                                purchase.daysUntilMaturity > 0
+                                  ? `${purchase.daysUntilMaturity} days left`
+                                  : 'in progress'}
+                              </small>
+                            </>
+                          ) : null}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
             </table>
           )}
         </div>
