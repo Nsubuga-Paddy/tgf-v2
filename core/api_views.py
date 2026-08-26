@@ -181,6 +181,15 @@ def serialize_project_card(card: dict) -> dict:
 
 
 def serialize_matured_project(card: dict) -> dict:
+    redeem_deposits = []
+    for row in card.get("redeem_deposits") or []:
+        redeem_deposits.append(
+            {
+                "depositId": row.get("deposit_id") or "",
+                "redeemable": money(row.get("redeemable")),
+                "principal": money(row.get("principal")),
+            }
+        )
     return {
         "id": card.get("id") or f"matured-{card.get('project_id') or 'project'}",
         "projectId": card.get("project_id") or "",
@@ -195,6 +204,9 @@ def serialize_matured_project(card: dict) -> dict:
         "nextBestAction": card.get("next_best_action") or "",
         "maturedGoats": int(card.get("matured_goats") or 0),
         "maturedKids": int(card.get("matured_kids") or 0),
+        "actionKind": card.get("action_kind") or "",
+        "depositId": card.get("deposit_id") or "",
+        "redeemDeposits": redeem_deposits,
     }
 
 
@@ -1421,9 +1433,11 @@ def build_gwc_member_payload(user) -> dict:
     deposit_rows = []
     for deposit in deposits_qs:
         row = deposit_to_display(deposit)
+        ledger = row["interest_ledger"]
         deposit_rows.append(
             {
                 "depositId": row["deposit_id"],
+                "pk": row["pk"],
                 "status": row["status"],
                 "isUpcoming": bool(row["is_upcoming"]),
                 "principalAmount": money(row["principal_amount"]),
@@ -1443,6 +1457,34 @@ def build_gwc_member_payload(user) -> dict:
                 "tenureDisplay": row["tenure_display"],
                 "payoutStructureDisplay": row["payout_structure_display"] or "At maturity",
                 "interestAtMaturityAfterTax": money(row["interest_at_maturity_after_tax"]),
+                "redeemableMonthlyInterest": bool(row["redeemable_monthly_interest"]),
+                "interestLedger": {
+                    "enabled": bool(ledger.get("enabled")),
+                    "totalEarned": money(ledger.get("total_earned")),
+                    "totalRedeemed": money(ledger.get("total_redeemed")),
+                    "redeemable": money(ledger.get("redeemable")),
+                    "canRedeem": bool(ledger.get("can_redeem")),
+                    "months": [
+                        {
+                            "periodKey": m["periodKey"],
+                            "periodLabel": m["periodLabel"],
+                            "earned": money(m["earned"]),
+                            "transferred": money(m["transferred"]),
+                            "carry": money(m["carry"]),
+                        }
+                        for m in ledger.get("months") or []
+                    ],
+                    "redemptions": [
+                        {
+                            "id": r["id"],
+                            "amount": money(r["amount"]),
+                            "redeemedAt": gwc_date_label(r["redeemed_at"]),
+                            "notes": r.get("notes") or "",
+                            "reference": r.get("reference") or "",
+                        }
+                        for r in ledger.get("redemptions") or []
+                    ],
+                },
             }
         )
 
@@ -1463,6 +1505,7 @@ def build_gwc_member_payload(user) -> dict:
         )
 
     matured_count = sum(1 for d in deposit_rows if d["status"] == "Matured")
+    total_redeemable = portfolio.get("total_redeemable_interest") or 0
     return {
         "account": {
             "accountNumber": profile.account_number or "",
@@ -1471,12 +1514,16 @@ def build_gwc_member_payload(user) -> dict:
             "totalPrincipal": money(portfolio.get("total_principal")),
             "totalAccruedInterest": money(portfolio.get("total_accrued_interest")),
             "totalMaturityValue": money(portfolio.get("total_maturity_value")),
+            "totalRedeemableInterest": money(portfolio.get("total_redeemable_interest")),
+            "totalInterestRedeemed": money(portfolio.get("total_interest_redeemed")),
         },
         "deposits": deposit_rows,
         "activities": activities,
         "meta": {
             "canTransferToMain": matured_count > 0,
             "maturedCount": matured_count,
+            "canRedeemInterest": float(total_redeemable or 0) > 0,
+            "totalRedeemableInterest": money(total_redeemable),
         },
     }
 
@@ -1492,6 +1539,89 @@ class GwcAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         return Response(build_gwc_member_payload(request.user))
+
+
+class GwcRedeemInterestAPIView(APIView):
+    """Transfer redeemable monthly GWC interest to Main Account."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from decimal import Decimal, InvalidOperation
+
+        from gwc.models import GWCFixedDeposit
+        from gwc.services import transfer_redeemable_interest_to_main
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_GWC):
+            return Response(
+                {"detail": "You do not have access to Generational Wealth Creation."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        deposit_id = (
+            request.data.get("depositId")
+            or request.data.get("deposit_id")
+            or ""
+        )
+        deposit_id = str(deposit_id).strip()
+        if not deposit_id:
+            return Response(
+                {"detail": "depositId is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        deposit = (
+            GWCFixedDeposit.objects.filter(user=request.user, deposit_id=deposit_id)
+            .first()
+        )
+        if not deposit:
+            return Response(
+                {"detail": "Deposit not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        raw_amount = request.data.get("amount", None)
+        amount = None
+        if raw_amount is not None and str(raw_amount).strip() != "":
+            try:
+                amount = Decimal(str(raw_amount))
+            except (InvalidOperation, ValueError, TypeError):
+                return Response(
+                    {"detail": "Invalid amount."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        notes = (request.data.get("notes") or "").strip()
+        try:
+            redemption = transfer_redeemable_interest_to_main(
+                deposit,
+                amount=amount,
+                actor=request.user,
+                notes=notes,
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "detail": (
+                    f"UGX {redemption.amount:,.0f} interest was credited to your Main Account."
+                ),
+                "redemption": {
+                    "id": redemption.pk,
+                    "amount": money(redemption.amount),
+                    "depositId": deposit.deposit_id,
+                    "reference": (
+                        redemption.main_account_transaction.reference
+                        if redemption.main_account_transaction_id
+                        else ""
+                    ),
+                },
+                "dashboard": build_gwc_member_payload(request.user),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 def _serialize_rep_list_project(project, *, user, pending_join_ids, interested_ids) -> dict:

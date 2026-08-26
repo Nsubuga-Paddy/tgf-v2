@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeftRight,
   Building2,
@@ -31,12 +31,48 @@ const ACTION_ICONS = {
   retain: RefreshCw,
 }
 
+function parseAmountInput(raw) {
+  if (raw == null || String(raw).trim() === '') return null
+  const cleaned = String(raw).replace(/,/g, '').trim()
+  const n = Number(cleaned)
+  if (!Number.isFinite(n) || n <= 0) return null
+  return Math.round(n)
+}
+
 export default function MaturedProjects() {
   const navigate = useNavigate()
   const { authFetch } = useAuth()
   const { maturedProjects, addToast, reloadDashboard } = useMember()
   const [actionProject, setActionProject] = useState(null)
+  const [redeemProject, setRedeemProject] = useState(null)
+  const [redeemDepositId, setRedeemDepositId] = useState('')
+  const [redeemAmount, setRedeemAmount] = useState('')
   const [transferring, setTransferring] = useState(false)
+
+  const redeemDeposits = useMemo(
+    () => redeemProject?.redeemDeposits || [],
+    [redeemProject],
+  )
+
+  const selectedRedeemCap = useMemo(() => {
+    if (!redeemProject) return 0
+    const match = redeemDeposits.find((d) => d.depositId === redeemDepositId)
+    if (match) return Number(match.redeemable || 0)
+    return Number(redeemProject.availableAmount || 0)
+  }, [redeemProject, redeemDeposits, redeemDepositId])
+
+  useEffect(() => {
+    if (!redeemProject) return
+    const first =
+      redeemProject.depositId ||
+      redeemDeposits[0]?.depositId ||
+      ''
+    setRedeemDepositId(first)
+    const cap =
+      redeemDeposits.find((d) => d.depositId === first)?.redeemable ??
+      redeemProject.availableAmount
+    setRedeemAmount(String(Math.round(Number(cap || 0))))
+  }, [redeemProject, redeemDeposits])
 
   const openProject = (project) => {
     if (project.projectId === '52wsc') {
@@ -68,11 +104,66 @@ export default function MaturedProjects() {
     : actionProject?.projectId
   const takeActions = actionProject ? PROJECT_TAKE_ACTIONS[actionKey] || [] : []
 
+  const openRedeemModal = (project) => {
+    setActionProject(null)
+    setRedeemProject(project)
+  }
+
+  const closeRedeemModal = () => {
+    if (transferring) return
+    setRedeemProject(null)
+    setRedeemDepositId('')
+    setRedeemAmount('')
+  }
+
+  const submitRedeem = async () => {
+    if (!redeemProject || transferring) return
+    const depositId = redeemDepositId || redeemProject.depositId
+    if (!depositId) {
+      addToast('Select a GWC deposit to redeem from.')
+      return
+    }
+    const amount = parseAmountInput(redeemAmount)
+    if (amount == null) {
+      addToast('Enter a valid amount greater than zero.')
+      return
+    }
+    if (amount > selectedRedeemCap) {
+      addToast(
+        `Amount cannot exceed redeemable interest (${formatUGX(selectedRedeemCap)}).`,
+      )
+      return
+    }
+    setTransferring(true)
+    try {
+      const payload = await authFetch('/api/projects/gwc/redeem-interest/', {
+        method: 'POST',
+        body: { depositId, amount },
+      })
+      addToast(
+        payload.detail ||
+          'Redeemable interest was credited to your Main Account.',
+      )
+      setRedeemProject(null)
+      setRedeemDepositId('')
+      setRedeemAmount('')
+      await reloadDashboard({ silent: true })
+    } catch (err) {
+      addToast(err.message || 'Could not redeem GWC interest.')
+    } finally {
+      setTransferring(false)
+    }
+  }
+
   const runAction = async (action) => {
     if (!actionProject || transferring) return
     if (action.id === 'open-gwc') {
       setActionProject(null)
       navigate('/projects/gwc')
+      return
+    }
+    if (actionProject.projectId === 'gwc' && action.id === 'redeem-interest') {
+      openRedeemModal(actionProject)
       return
     }
     if (actionProject.projectId === 'cgf' && action.id === 'transfer-main') {
@@ -131,6 +222,10 @@ export default function MaturedProjects() {
     setActionProject(null)
   }
 
+  const isGwcRedeemCard = (project) =>
+    project.projectId === 'gwc' &&
+    (project.actionKind === 'redeem_interest' || Number(project.availableAmount) > 0)
+
   return (
     <section className="section matured-section" id="matured-projects">
       <div className="section-head">
@@ -168,14 +263,22 @@ export default function MaturedProjects() {
                 </div>
                 <span className="matured-badge">
                   <CheckCircle2 size={13} />
-                  Matured
+                  {isGwcRedeemCard(project) ? 'Interest ready' : 'Matured'}
                 </span>
               </div>
 
               <div className="matured-amount">
-                <small>Available at maturity</small>
+                <small>
+                  {isGwcRedeemCard(project)
+                    ? 'Redeemable interest'
+                    : 'Available at maturity'}
+                </small>
                 <strong>{formatUGX(project.availableAmount)}</strong>
-                <span>Matured on {project.maturedOn}</span>
+                <span>
+                  {isGwcRedeemCard(project)
+                    ? `As of ${project.maturedOn || 'today'}`
+                    : `Matured on ${project.maturedOn}`}
+                </span>
               </div>
 
               <div className="matured-breakdown">
@@ -184,7 +287,7 @@ export default function MaturedProjects() {
                   <b>{formatUGX(project.principal)}</b>
                 </div>
                 <div>
-                  <span>Earnings</span>
+                  <span>{isGwcRedeemCard(project) ? 'Interest earned' : 'Earnings'}</span>
                   <b>{formatUGX(project.earnings)}</b>
                 </div>
               </div>
@@ -200,14 +303,25 @@ export default function MaturedProjects() {
                   <FolderOpen size={15} />
                   Open
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={() => setActionProject(project)}
-                >
-                  <Zap size={15} />
-                  Take action
-                </button>
+                {isGwcRedeemCard(project) ? (
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => openRedeemModal(project)}
+                  >
+                    <ArrowLeftRight size={15} />
+                    Redeem interest
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => setActionProject(project)}
+                  >
+                    <Zap size={15} />
+                    Take action
+                  </button>
+                )}
               </div>
             </article>
           ))}
@@ -282,6 +396,105 @@ export default function MaturedProjects() {
                   })}
                 </ul>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {redeemProject ? (
+        <div
+          className="take-action-backdrop"
+          role="presentation"
+          onClick={closeRedeemModal}
+        >
+          <div
+            className="take-action-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="gwc-redeem-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="take-action-head">
+              <div>
+                <h3 id="gwc-redeem-title">Redeem GWC interest</h3>
+                <p>Transfer to Main Account · full or partial</p>
+              </div>
+              <button
+                type="button"
+                className="nav-icon-btn"
+                aria-label="Close"
+                onClick={closeRedeemModal}
+                disabled={transferring}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="take-action-body">
+              <p className="take-action-lead">
+                Available now: <strong>{formatUGX(selectedRedeemCap)}</strong>. Enter the full
+                amount or a smaller partial amount.
+              </p>
+
+              {redeemDeposits.length > 1 ? (
+                <label className="gwc-redeem-field">
+                  <span>Deposit</span>
+                  <select
+                    value={redeemDepositId}
+                    onChange={(e) => {
+                      const id = e.target.value
+                      setRedeemDepositId(id)
+                      const cap =
+                        redeemDeposits.find((d) => d.depositId === id)?.redeemable || 0
+                      setRedeemAmount(String(Math.round(Number(cap))))
+                    }}
+                    disabled={transferring}
+                  >
+                    {redeemDeposits.map((d) => (
+                      <option key={d.depositId} value={d.depositId}>
+                        {d.depositId} · {formatUGX(d.redeemable)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <p className="gwc-redeem-deposit-ref">
+                  Deposit: <strong>{redeemDepositId || redeemProject.depositId || '—'}</strong>
+                </p>
+              )}
+
+              <label className="gwc-redeem-field">
+                <span>Amount (UGX)</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={redeemAmount}
+                  onChange={(e) => setRedeemAmount(e.target.value)}
+                  disabled={transferring}
+                  placeholder="Enter amount"
+                />
+              </label>
+
+              <div className="gwc-redeem-actions">
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  disabled={transferring || selectedRedeemCap <= 0}
+                  onClick={() =>
+                    setRedeemAmount(String(Math.round(Number(selectedRedeemCap || 0))))
+                  }
+                >
+                  Use full amount
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={transferring}
+                  onClick={submitRedeem}
+                >
+                  <ArrowLeftRight size={15} />
+                  {transferring ? 'Transferring…' : 'Transfer to Main Account'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

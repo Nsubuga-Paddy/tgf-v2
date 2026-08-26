@@ -300,6 +300,49 @@ def _build_matured_projects(profile, my_projects: list[dict]) -> list[dict]:
     except Exception:
         pass
 
+    # GWC monthly redeemable interest (admin-enabled deposits with open balance).
+    try:
+        from gwc.services import redeemable_interest_summary_for_user
+
+        user = getattr(profile, "user", None)
+        if user is not None:
+            gwc_redeem = redeemable_interest_summary_for_user(user)
+            if gwc_redeem.get("has_redeemable"):
+                n = int(gwc_redeem.get("deposit_count") or 0)
+                cycle_line = (
+                    f"{n} deposit{'s' if n != 1 else ''} · monthly interest ready to redeem"
+                )
+                out.append(
+                    {
+                        "id": "matured-gwc-interest",
+                        "project_id": "gwc",
+                        "name": "Generational Wealth Creation",
+                        "short_name": "GWC",
+                        "icon": "fa-hand-holding-heart",
+                        "matured_on": timezone.localdate().strftime("%d %b %Y"),
+                        "cycle_line": cycle_line,
+                        "principal": gwc_redeem["total_principal"],
+                        "earnings": gwc_redeem["total_earned"],
+                        "available_amount": gwc_redeem["total_redeemable"],
+                        "next_best_action": (
+                            "Redeem monthly interest to Main Account (full or partial), "
+                            "then withdraw from Main Account"
+                        ),
+                        "action_kind": "redeem_interest",
+                        "deposit_id": gwc_redeem.get("primary_deposit_id") or "",
+                        "redeem_deposits": [
+                            {
+                                "deposit_id": d["deposit_id"],
+                                "redeemable": d["redeemable"],
+                                "principal": d["principal"],
+                            }
+                            for d in gwc_redeem.get("deposits") or []
+                        ],
+                    }
+                )
+    except Exception:
+        pass
+
     _ = my_projects
     return out
 
@@ -436,34 +479,69 @@ def _build_my_projects(user, profile) -> list[dict]:
     # ---- Generational Wealth Creation ----
     if "Generational Wealth Creation" in names:
         try:
-            from gwc.services import portfolio_summary_for_user
+            from gwc.services import nearest_active_progress, portfolio_summary_for_user
             from gwc.models import GWCFixedDeposit
             port = portfolio_summary_for_user(user)
             principal = port.get("total_principal", ZERO)
             interest = port.get("total_accrued_interest", ZERO)
-            next_mat = (
-                GWCFixedDeposit.objects.filter(user=user, status=GWCFixedDeposit.Status.ACTIVE)
-                .order_by("maturity_date").values_list("maturity_date", flat=True).first()
-            )
+            redeemable = port.get("total_redeemable_interest", ZERO)
+            progress_info = nearest_active_progress(user)
+            next_mat = progress_info.get("next_maturity")
             matured_count = GWCFixedDeposit.objects.filter(
                 user=user, status=GWCFixedDeposit.Status.MATURED
-            ).count() if hasattr(GWCFixedDeposit.Status, "MATURED") else 0
+            ).count()
+            if progress_info.get("has_active"):
+                status_tag = "Active"
+                status_class = "st-active"
+                cycle_line = (
+                    f"Matures {next_mat.strftime('%d %b %Y')}" if next_mat else "Fixed deposits"
+                )
+            elif matured_count:
+                status_tag = "Matured"
+                status_class = "st-matured"
+                cycle_line = f"{matured_count} matured deposit{'s' if matured_count != 1 else ''}"
+            else:
+                status_tag = "Active"
+                status_class = "st-active"
+                cycle_line = "Fixed deposits"
+            stats = [
+                {"label": "Total deposited", "value": principal, "cls": "", "badge": ""},
+                {"label": "Accrued interest", "value": interest, "cls": "green", "badge": ""},
+                {
+                    "label": "Nearest maturity",
+                    "value": next_mat.strftime("%d %b %Y") if next_mat else "—",
+                    "cls": "",
+                    "badge": "",
+                    "raw": True,
+                },
+            ]
+            if redeemable and redeemable > ZERO:
+                stats.append(
+                    {
+                        "label": "Redeemable interest",
+                        "value": redeemable,
+                        "cls": "green",
+                        "badge": "",
+                    }
+                )
             cards.append(_card(
                 "Generational Wealth Creation", "fa-hand-holding-heart",
                 invested=principal,
-                status_tag="Matured" if matured_count else "Active",
-                status_class="st-matured" if matured_count else "st-active",
-                cycle_line="Fixed deposits",
+                status_tag=status_tag,
+                status_class=status_class,
+                cycle_line=cycle_line,
                 url=_safe_reverse("gwc:gwc"),
-                stats=[
-                    {"label": "Total deposited", "value": principal, "cls": "", "badge": ""},
-                    {"label": "Accrued interest", "value": interest, "cls": "green", "badge": ""},
-                    {"label": "Nearest maturity",
-                     "value": next_mat.strftime("%d %b %Y") if next_mat else "—",
-                     "cls": "", "badge": "", "raw": True},
-                ],
-                transfer=({"label": "Generational Wealth Creation", "suggested": ZERO}
-                          if matured_count else None),
+                progress={"pct": int(progress_info.get("pct") or 0)},
+                stats=stats,
+                transfer=(
+                    {"label": "Generational Wealth Creation", "suggested": redeemable}
+                    if redeemable and redeemable > ZERO
+                    else (
+                        {"label": "Generational Wealth Creation", "suggested": ZERO}
+                        if matured_count
+                        else None
+                    )
+                ),
             ))
         except Exception:
             pass

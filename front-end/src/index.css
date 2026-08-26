@@ -5509,6 +5509,168 @@ a {
   color: #b91c1c;
 }
 
+.gwc-status-redeemable {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.gwc-interest-ledger {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed var(--border);
+}
+
+.gwc-interest-ledger-head h5 {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+}
+
+.gwc-interest-ledger-head p {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+
+.gwc-interest-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.gwc-interest-summary > div {
+  background: var(--bg-soft, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+}
+
+.gwc-interest-summary span {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--ink-faint);
+  margin-bottom: 0.2rem;
+}
+
+.gwc-interest-summary strong {
+  font-size: 0.86rem;
+}
+
+.gwc-ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  margin-bottom: 0.65rem;
+}
+
+.gwc-ledger-table th,
+.gwc-ledger-table td {
+  text-align: left;
+  padding: 0.4rem 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.gwc-ledger-table th {
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+
+.gwc-ledger-empty {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  margin: 0 0 0.75rem;
+}
+
+.gwc-redemption-list {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+}
+
+.gwc-redemption-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink-faint);
+}
+
+.gwc-redemption-list strong {
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.gwc-redeem-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.gwc-redeem-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.gwc-redeem-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  margin-bottom: 0.65rem;
+}
+
+.gwc-redeem-field span {
+  font-weight: 600;
+}
+
+.gwc-redeem-field input,
+.gwc-redeem-field select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg, #fff);
+}
+
+.gwc-redeem-deposit-ref {
+  font-size: 0.82rem;
+  margin: 0 0 0.75rem;
+  color: var(--ink-faint);
+}
+
+.gwc-redeem-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.gwc-redeem-actions .btn-primary {
+  margin-left: auto;
+}
+
+@media (max-width: 540px) {
+  .gwc-interest-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .gwc-redeem-actions .btn-primary {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
 .gwc-fd-highlight {
   display: grid;
   grid-template-columns: 1fr;

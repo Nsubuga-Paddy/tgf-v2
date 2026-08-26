@@ -131,6 +131,16 @@ class GWCFixedDeposit(models.Model):
         default="At maturity",
         help_text="Short label shown on the member dashboard.",
     )
+    redeemable_monthly_interest = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text=(
+            "When enabled, the member may transfer calendar-month interest "
+            "(net of tax) to their Main Account before maturity. Typical for "
+            "large single deposits (e.g. group ~120M). Leave off for lock-to-maturity "
+            "deposits (e.g. individual ~12M)."
+        ),
+    )
 
     tax_rate = models.DecimalField(
         max_digits=7,
@@ -176,6 +186,10 @@ class GWCFixedDeposit(models.Model):
             )
 
     def save(self, *args, **kwargs) -> None:
+        if self.redeemable_monthly_interest:
+            label = (self.payout_structure_display or "").strip()
+            if not label or label.lower() in {"at maturity", "at maturity."}:
+                self.payout_structure_display = "Monthly interest redeemable"
         self.full_clean()
         is_new = self._state.adding
         super().save(*args, **kwargs)
@@ -192,3 +206,40 @@ class GWCFixedDeposit(models.Model):
                 amount=self.principal_amount,
                 timestamp=timezone.now(),
             )
+
+
+class GWCInterestRedemption(models.Model):
+    """Member (or admin) transfer of redeemable GWC interest to Main Account."""
+
+    deposit = models.ForeignKey(
+        GWCFixedDeposit,
+        on_delete=models.CASCADE,
+        related_name="interest_redemptions",
+    )
+    amount = models.DecimalField(max_digits=16, decimal_places=2)
+    redeemed_at = models.DateTimeField(default=timezone.now, db_index=True)
+    notes = models.TextField(blank=True)
+    main_account_transaction = models.ForeignKey(
+        "main_account.MainAccountTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="gwc_interest_redemptions",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="gwc_interest_redemptions_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-redeemed_at", "-pk"]
+        verbose_name = "GWC interest redemption"
+        verbose_name_plural = "GWC interest redemptions"
+
+    def __str__(self) -> str:
+        ref = getattr(self.deposit, "deposit_id", None) or f"#{self.deposit_id}"
+        return f"{ref}: redeemed {self.amount}"

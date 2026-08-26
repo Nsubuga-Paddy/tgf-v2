@@ -6,6 +6,7 @@ from .api_views import (
     ClaimDividendAPIView,
     DashboardAPIView,
     GwcAPIView,
+    GwcRedeemInterestAPIView,
     HelpVideosAPIView,
     MainAccountWithdrawAPIView,
     ProfileAPIView,
@@ -66,6 +67,11 @@ urlpatterns = [
         name="api_projects_cgf_transfer_to_main",
     ),
     path("projects/gwc/", GwcAPIView.as_view(), name="api_projects_gwc"),
+    path(
+        "projects/gwc/redeem-interest/",
+        GwcRedeemInterestAPIView.as_view(),
+        name="api_projects_gwc_redeem_interest",
+    ),
     path("projects/rep/", RepListAPIView.as_view(), name="api_projects_rep"),
     path(
         "projects/rep/<int:project_id>/",

@@ -166,16 +166,17 @@ export const PROJECT_TAKE_ACTIONS = {
   ],
   gwc: [
     {
-      id: 'transfer-main',
-      label: 'Transfer to main account',
-      description: 'Move matured fixed-deposit returns to your main MCS account',
-      icon: 'transfer',
-    },
-    {
       id: 'open-gwc',
       label: 'Open GWC dashboard',
-      description: 'View deposits, renewal, and maturity options on your GWC dashboard',
+      description: 'View deposits, the interest ledger, and maturity details',
       icon: 'dashboard',
+    },
+    {
+      id: 'redeem-interest',
+      label: 'Redeem interest',
+      description:
+        'Transfer redeemable monthly interest to Main Account (full or partial amount)',
+      icon: 'transfer',
     },
   ],
   cgf: [
