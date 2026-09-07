@@ -91,7 +91,12 @@ export function EditPersonalModal({ open, onClose, profile, onSave }) {
               </label>
               <label className="profile-field">
                 <span>Date of Birth</span>
-                <input type="text" value={form.birthdate} onChange={set('birthdate')} />
+                <input
+                  type="text"
+                  placeholder="YYYY-MM-DD"
+                  value={form.birthdate}
+                  onChange={set('birthdate')}
+                />
               </label>
               <label className="profile-field full">
                 <span>Address</span>

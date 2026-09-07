@@ -14,6 +14,7 @@ from accounts.models import UserProfile
 GOAT_UNIT_PRICE_DEFAULT = Decimal("600000.00")
 CGF_CASHOUT_PRICE_PER_GOAT = Decimal("400000.00")  # Value per goat when selling/cashing out
 ACCOUNT_GOAT_CAPACITY = 10
+DEFAULT_CGF_CYCLE_MONTHS = 14
 
 def get_receipt_prefix() -> str:
     """Generate the auto receipt prefix (RCPT-YYYYMMDD)"""
@@ -90,14 +91,25 @@ class InvestmentPackage(models.Model):
     )
     kids_per_goat = models.PositiveSmallIntegerField(
         default=2,
-        help_text="Expected kids per goat at end of 14-month cycle"
+        help_text="Expected kids per goat at the end of this package's production cycle."
+    )
+    cycle_duration_months = models.PositiveSmallIntegerField(
+        default=DEFAULT_CGF_CYCLE_MONTHS,
+        validators=[MinValueValidator(1)],
+        help_text="Production / goat maturity cycle duration in months for this package."
     )
     management_fee_tier = models.ForeignKey(
         ManagementFeeTier, 
         on_delete=models.PROTECT,
         help_text="Management fee tier for this package"
     )
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(
+        default=True,
+        help_text=(
+            "When unchecked, members can no longer buy this package. "
+            "Existing purchases keep their goats, cycle, and cash-out terms."
+        ),
+    )
 
     def __str__(self):
         return f"{self.name} - {self.goat_count} goats"
@@ -119,7 +131,7 @@ class InvestmentPackage(models.Model):
 
     @property
     def expected_kids_per_package(self) -> int:
-        """Expected kids at end of 14-month cycle (goat_count * kids_per_goat)"""
+        """Expected kids at end of the package cycle (goat_count * kids_per_goat)."""
         return self.goat_count * self.kids_per_goat
 
 class UserFarmAccount(models.Model):

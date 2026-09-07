@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { useMember } from '../context/MemberContext'
 import { formatUGX } from '../utils/format'
+import MainAccountProjectsModal from './MainAccountProjectsModal'
 
 export default function PortfolioSummary() {
   const { authFetch } = useAuth()
@@ -28,6 +29,7 @@ export default function PortfolioSummary() {
     reloadDashboard,
   } = useMember()
   const [claiming, setClaiming] = useState(false)
+  const [buySharesOpen, setBuySharesOpen] = useState(false)
   const sharesLabel = shareholding.sharesHeldDisplay || String(shareholding.sharesHeld || 0)
   const eligibleLabel =
     shareholding.dividendEligibleDisplay || String(shareholding.dividendEligible || 0)
@@ -204,7 +206,7 @@ export default function PortfolioSummary() {
                   <button
                     type="button"
                     className="btn-equity"
-                    onClick={() => addToast('Buying shares is still under development')}
+                    onClick={() => setBuySharesOpen(true)}
                   >
                     <ShoppingCart size={15} />
                     Buy more shares
@@ -247,7 +249,7 @@ export default function PortfolioSummary() {
                 <button
                   type="button"
                   className="btn-equity"
-                  onClick={() => addToast('Buying shares is still under development')}
+                  onClick={() => setBuySharesOpen(true)}
                 >
                   <ShoppingCart size={15} />
                   Buy shares
@@ -265,6 +267,12 @@ export default function PortfolioSummary() {
           )}
         </div>
       </section>
+      <MainAccountProjectsModal
+        open={buySharesOpen}
+        onClose={() => setBuySharesOpen(false)}
+        available={mainAccount.available}
+        initialDestination="shares"
+      />
     </>
   )
 }

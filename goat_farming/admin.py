@@ -47,9 +47,35 @@ class ManagementFeeTierAdmin(ExportableAdminMixin, admin.ModelAdmin):
 
 @admin.register(InvestmentPackage)
 class InvestmentPackageAdmin(ExportableAdminMixin, admin.ModelAdmin):
-    list_display = ['name', 'goat_count', 'kids_per_goat', 'goat_cost_display', 'management_fee_display', 'total_cost_display', 'is_active']
+    list_display = [
+        'name',
+        'goat_count',
+        'kids_per_goat',
+        'cycle_duration_months',
+        'goat_cost_display',
+        'management_fee_display',
+        'total_cost_display',
+        'is_active',
+    ]
     list_filter = ['is_active', 'management_fee_tier']
     search_fields = ['name']
+    fieldsets = (
+        (None, {
+            'fields': (
+                'name',
+                'goat_count',
+                'goat_unit_price',
+                'kids_per_goat',
+                'cycle_duration_months',
+                'management_fee_tier',
+                'is_active',
+            ),
+            'description': (
+                'Uncheck Active to stop new member purchases. Existing members who already '
+                'bought this package keep their goats, cycle duration, and cash-out terms.'
+            ),
+        }),
+    )
     
     def goat_cost_display(self, obj):
         return f"UGX {float(obj.goat_cost):,.0f}"
@@ -145,7 +171,7 @@ class PackagePurchaseAdmin(ExportableAdminMixin, admin.ModelAdmin):
     def matures_on_display(self, obj):
         from goat_farming.services import maturity_datetime
 
-        matures = maturity_datetime(obj.purchase_date)
+        matures = maturity_datetime(obj)
         if not matures:
             return '—'
         return matures.strftime('%d %b %Y')
@@ -165,8 +191,8 @@ class PackagePurchaseAdmin(ExportableAdminMixin, admin.ModelAdmin):
             return format_html('<span style="color: #94a3b8;">Not in cycle</span>')
         if is_purchase_matured(obj):
             return format_html('<span style="color: green; font-weight: 600;">Matured</span>')
-        days = days_until_maturity(obj.purchase_date)
-        pct = cycle_progress_pct(obj.purchase_date)
+        days = days_until_maturity(obj)
+        pct = cycle_progress_pct(obj)
         label = f'{pct}%'
         if days is not None:
             label = f'{pct}% · {days} days left'
@@ -224,7 +250,7 @@ class UserFarmAccountAdmin(ExportableAdminMixin, admin.ModelAdmin):
             if active
             else min(purchases, key=lambda p: (p.purchase_date, p.pk))
         )
-        matures = maturity_datetime(target.purchase_date)
+        matures = maturity_datetime(target)
         if not matures:
             return '—'
         label = matures.strftime('%d %b %Y')

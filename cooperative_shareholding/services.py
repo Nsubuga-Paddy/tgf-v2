@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import ROUND_CEILING, Decimal
 from typing import Any
 
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
+
+from accounts.models import MemberNotification, Project
+from main_account import services as main_account_ledger
+from main_account.models import MainAccountTransaction
 
 from .models import (
     CooperativeGlobalDefaults,
@@ -15,6 +19,7 @@ from .models import (
     DividendDisbursement,
     ShareAcquisitionLine,
     format_share_quantity,
+    validate_share_quantity_step,
 )
 
 PROJECT_NAME = "Cooperative Shareholding"
@@ -541,3 +546,249 @@ def cooperative_display_state(profile, shareholding) -> str:
     if shareholding is None:
         return "pending_setup"
     return "full"
+
+
+def _q_money(amount) -> Decimal:
+    return Decimal(amount or 0).quantize(Decimal("0.01"))
+
+
+def _q_shares(value) -> Decimal:
+    return Decimal(value or 0).quantize(Decimal("0.1"))
+
+
+def _ceil_to_share_step(value: Decimal) -> Decimal:
+    if value <= 0:
+        return Decimal("0")
+    doubled = value * Decimal("2")
+    return (doubled.to_integral_value(rounding=ROUND_CEILING) / Decimal("2")).quantize(
+        Decimal("0.1")
+    )
+
+
+def share_tier_requirements(
+    *,
+    price_per_share: Decimal | None = None,
+    usd_to_ugx_rate: Decimal | None = None,
+    global_defaults: CooperativeGlobalDefaults | None = None,
+) -> list[dict[str, Any]]:
+    defaults = global_defaults or CooperativeGlobalDefaults.get_solo()
+    price = _q_money(price_per_share or defaults.new_share_purchase_price)
+    usd_rate = Decimal(usd_to_ugx_rate or 3800)
+    blue_value = _q_money(defaults.blue_diamond_usd_threshold * usd_rate)
+    blue_shares = _ceil_to_share_step(blue_value / price) if price > 0 else Decimal("0")
+    rows = [
+        ("Standard", Decimal("0"), Decimal("0")),
+        ("Elite", Decimal("100"), Decimal("0")),
+        ("Gold", Decimal("500"), Decimal("0")),
+        ("Platinum", Decimal("1000"), Decimal("0")),
+        ("Diamond", Decimal("2000"), Decimal("0")),
+        ("Blue Diamond", blue_shares, blue_value),
+    ]
+    return [
+        {
+            "name": name,
+            "emoji": get_tier_emoji(name),
+            "min_shares": _q_shares(min_shares),
+            "min_shares_display": format_share_quantity(min_shares),
+            "min_value": _q_money(min_value),
+        }
+        for name, min_shares, min_value in rows
+    ]
+
+
+def _empty_share_summary(
+    *,
+    profile,
+    global_defaults: CooperativeGlobalDefaults | None = None,
+) -> dict[str, Any]:
+    defaults = global_defaults or CooperativeGlobalDefaults.get_solo()
+    usd_rate = Decimal("3800")
+    return {
+        "total_shares": Decimal("0.0"),
+        "total_shares_display": "0",
+        "total_historical_amount": Decimal("0"),
+        "portfolio_value": Decimal("0"),
+        "current_share_value": Decimal("0"),
+        "dividend_eligible_shares": Decimal("0.0"),
+        "dividend_eligible_shares_display": "0",
+        "dividend_eligible_value": Decimal("0"),
+        "new_era_shares": Decimal("0.0"),
+        "new_era_shares_display": "0",
+        "new_era_value": Decimal("0"),
+        "legacy_value_per_share": defaults.legacy_dividend_value_per_share,
+        "new_share_purchase_price": defaults.new_share_purchase_price,
+        "dividend_rate": Decimal("0.26"),
+        "dividend_rate_percent": Decimal("26.00"),
+        "expected_dividend": Decimal("0"),
+        "tier": get_shareholder_tier(Decimal("0"), Decimal("0"), usd_rate, defaults),
+        "tier_emoji": get_tier_emoji("Standard"),
+        "year_joined": None,
+        "certificate_status": "",
+        "reinvest_share_price": defaults.reinvest_share_price,
+        "usd_to_ugx_rate": usd_rate,
+        "issuance_period_name": None,
+    }
+
+
+def _shareholding_for_profile(profile) -> CooperativeShareholding | None:
+    try:
+        return profile.user.cooperative_shareholding
+    except CooperativeShareholding.DoesNotExist:
+        return None
+
+
+def _summary_for_profile(profile, holding=None) -> dict[str, Any]:
+    defaults = CooperativeGlobalDefaults.get_solo()
+    holding = holding if holding is not None else _shareholding_for_profile(profile)
+    if holding is None:
+        return _empty_share_summary(profile=profile, global_defaults=defaults)
+    return build_shareholding_summary(holding)
+
+
+def _next_tier(summary: dict[str, Any], requirements: list[dict[str, Any]]) -> dict[str, Any] | None:
+    current_shares = Decimal(summary.get("total_shares") or 0)
+    current_value = Decimal(summary.get("portfolio_value") or 0)
+    for row in requirements:
+        min_shares = Decimal(row["min_shares"] or 0)
+        min_value = Decimal(row["min_value"] or 0)
+        if min_value > 0:
+            if current_value < min_value:
+                return row
+        elif current_shares < min_shares:
+            return row
+    return None
+
+
+def build_share_purchase_options(profile) -> dict[str, Any]:
+    defaults = CooperativeGlobalDefaults.get_solo()
+    holding = _shareholding_for_profile(profile)
+    summary = _summary_for_profile(profile, holding)
+    price = _q_money(defaults.new_share_purchase_price)
+    usd_rate = Decimal(summary.get("usd_to_ugx_rate") or 3800)
+    requirements = share_tier_requirements(
+        price_per_share=price,
+        usd_to_ugx_rate=usd_rate,
+        global_defaults=defaults,
+    )
+    next_tier = _next_tier(summary, requirements)
+    available = main_account_ledger.available_balance(profile)
+    return {
+        "pricePerShare": float(price),
+        "shareStep": 0.5,
+        "minimumShares": 0.5,
+        "minimumAmount": float(price * Decimal("0.5")),
+        "availableMain": float(available),
+        "currentShares": float(summary.get("total_shares") or 0),
+        "currentSharesDisplay": summary.get("total_shares_display") or "0",
+        "currentPortfolioValue": float(summary.get("portfolio_value") or 0),
+        "currentTier": summary.get("tier") or "Standard",
+        "currentTierEmoji": summary.get("tier_emoji") or get_tier_emoji("Standard"),
+        "tierRequirements": [
+            {
+                "name": row["name"],
+                "emoji": row["emoji"],
+                "minShares": float(row["min_shares"]),
+                "minSharesDisplay": row["min_shares_display"],
+                "minValue": float(row["min_value"]),
+            }
+            for row in requirements
+        ],
+        "nextTier": (
+            {
+                "name": next_tier["name"],
+                "emoji": next_tier["emoji"],
+                "minShares": float(next_tier["min_shares"]),
+                "minSharesDisplay": next_tier["min_shares_display"],
+                "minValue": float(next_tier["min_value"]),
+            }
+            if next_tier
+            else None
+        ),
+        "memberHasShareholdingRecord": holding is not None,
+    }
+
+
+@transaction.atomic
+def purchase_shares_from_main_account(
+    profile,
+    shares,
+    *,
+    notes: str = "",
+) -> dict[str, Any]:
+    defaults = CooperativeGlobalDefaults.get_solo()
+    raw_share_qty = Decimal(shares or 0)
+    validate_share_quantity_step(raw_share_qty)
+    if raw_share_qty <= 0:
+        raise ValueError("Enter a positive number of shares.")
+    share_qty = _q_shares(raw_share_qty)
+
+    price = _q_money(defaults.new_share_purchase_price)
+    amount = _q_money(share_qty * price)
+    if amount <= 0:
+        raise ValueError("Share purchase amount must be positive.")
+    if amount > main_account_ledger.available_balance(profile):
+        raise ValueError("Amount exceeds Main Account available balance.")
+
+    holding = _shareholding_for_profile(profile)
+    before = _summary_for_profile(profile, holding)
+    if holding is None:
+        holding = CooperativeShareholding.objects.create(
+            user=profile.user,
+            year_joined=timezone.localdate().year,
+            certificate_status=CooperativeShareholding.CertificateStatus.PENDING,
+        )
+
+    project = Project.objects.filter(name=PROJECT_NAME).first()
+    if project is not None:
+        profile.projects.add(project)
+
+    note_text = (notes or "").strip()
+    description = f"Purchase of {format_share_quantity(share_qty)} MCS cooperative share(s)."
+    if note_text:
+        description = f"{description} Note: {note_text}"
+    tx = main_account_ledger.post_transaction(
+        profile,
+        direction=MainAccountTransaction.Direction.DEBIT,
+        category=MainAccountTransaction.Category.SHARE_PURCHASE,
+        amount=amount,
+        source_label="MCS share purchase",
+        description=description,
+        created_by=profile.user,
+        reference_prefix="SHP",
+    )
+    acquisition = ShareAcquisitionLine(
+        shareholding=holding,
+        receipt_number=tx.reference,
+        acquisition_date=timezone.localdate(),
+        shares_held=share_qty,
+        share_amount=amount,
+        price_per_share=price,
+        source_description="Main Account share purchase",
+        main_account_transaction=tx,
+    )
+    acquisition.save()
+
+    after = build_shareholding_summary(holding)
+    MemberNotification.objects.create(
+        user=profile.user,
+        source=MemberNotification.Source.SYSTEM,
+        title="Share purchase completed",
+        body=(
+            f"UGX {amount:,.0f} was debited from your Main Account to purchase "
+            f"{format_share_quantity(share_qty)} MCS cooperative share(s). "
+            f"Your shareholder tier is now {after.get('tier')}."
+        ),
+    )
+    return {
+        "shareholding": holding,
+        "acquisition": acquisition,
+        "transaction": tx,
+        "transaction_reference": tx.reference,
+        "shares_purchased": share_qty,
+        "shares_purchased_display": format_share_quantity(share_qty),
+        "amount": amount,
+        "price_per_share": price,
+        "before": before,
+        "after": after,
+        "notes": note_text,
+    }

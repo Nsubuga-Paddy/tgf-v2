@@ -24,6 +24,12 @@ export default defineConfig({
     outDir: process.env.VITE_DJANGO_OUT_DIR || djangoFrontendDist,
     emptyOutDir: true,
     assetsDir: 'assets',
+    // Keep peak RAM lower on small Windows machines (Django static build).
+    reportCompressedSize: false,
+    sourcemap: false,
+    rollupOptions: {
+      maxParallelFileOps: 1,
+    },
   },
   server: {
     host: '127.0.0.1',

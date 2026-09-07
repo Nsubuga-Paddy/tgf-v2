@@ -7,6 +7,13 @@ import Login from './pages/Login'
 import PasswordResetComplete from './pages/PasswordResetComplete'
 import Profile from './pages/Profile'
 import ProtectionBenefits from './pages/ProtectionBenefits'
+import LoansLayout from './pages/loans/LoansLayout'
+import LoansHub from './pages/loans/LoansHub'
+import LoanEligibility from './pages/loans/LoanEligibility'
+import LoanApply from './pages/loans/LoanApply'
+import LoanApplications from './pages/loans/LoanApplications'
+import LoanApplicationDetail from './pages/loans/LoanApplicationDetail'
+import LoanFacilityDetail from './pages/loans/LoanFacilityDetail'
 import RealEstateDashboard from './pages/RealEstateDashboard'
 import RealEstateProjectDetail from './pages/RealEstateProjectDetail'
 import ResetPassword from './pages/ResetPassword'
@@ -16,6 +23,7 @@ import CgfTransactions from './pages/cgf/CgfTransactions'
 import SessionTimeoutBanner from './components/SessionTimeoutBanner'
 import { useAuth } from './context/AuthContext'
 import GenerationalWealth from './pages/GenerationalWealth'
+import Notifications from './pages/Notifications'
 import Savings52Challenge from './pages/Savings52Challenge'
 import SignUp from './pages/SignUp'
 import VerificationPending from './pages/VerificationPending'
@@ -47,7 +55,17 @@ export default function App() {
       <Routes>
       <Route path="/" element={<RequireAuth><Home /></RequireAuth>} />
       <Route path="/protection" element={<RequireAuth><ProtectionBenefits /></RequireAuth>} />
+      <Route path="/loans" element={<RequireAuth><LoansLayout /></RequireAuth>}>
+        <Route index element={<LoansHub />} />
+        <Route path="eligibility" element={<LoanEligibility />} />
+        <Route path="apply" element={<LoanApply />} />
+        <Route path="applications" element={<LoanApplications />} />
+        <Route path="applications/:applicationId" element={<LoanApplicationDetail />} />
+        <Route path="facility/:loanId" element={<LoanFacilityDetail />} />
+      </Route>
       <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+      <Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} />
+      <Route path="/notifications/:notificationId" element={<RequireAuth><Notifications /></RequireAuth>} />
       <Route path="/projects/52wsc" element={<RequireAuth><Savings52Challenge /></RequireAuth>} />
       <Route path="/projects/gwc" element={<RequireAuth><GenerationalWealth /></RequireAuth>} />
       <Route path="/projects/cgf" element={<RequireAuth><CgfDashboard /></RequireAuth>} />

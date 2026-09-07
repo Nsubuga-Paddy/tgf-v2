@@ -118,12 +118,12 @@ export const CGF_CURRENT_INVESTMENTS = CGF_PURCHASES.map((p) => ({
 }))
 
 export const CGF_BREEDING_INFO = {
-  cycle: 'Every 14 months',
+  cycle: 'Set per package (14 or 18 months)',
   kidsPerBirth: 'Configurable per package (default 2 per goat)',
   gestation: '5 months',
-  maturityAge: '14 months from birth',
+  maturityAge: 'Based on the package cycle duration',
   expectedRoi: 'Kids can be sold or kept for breeding',
-  nextGeneration: 'Kids mature in 14 months',
+  nextGeneration: 'Maturity follows the package terms',
 }
 
 export const MARKET_PRICE_PER_KID = 400_000

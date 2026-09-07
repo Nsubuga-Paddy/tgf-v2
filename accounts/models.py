@@ -176,6 +176,10 @@ class UserProfile(models.Model):
     # Access control & flags
     is_verified = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
+    is_mcs_staff = models.BooleanField(
+        default=False,
+        help_text="MCS staff member. Staff loans use 1% monthly interest; shareholding remains a soft review factor.",
+    )
 
     # Account number like MCSTGF-AB0001 (auto-generated)
     account_number = models.CharField(
@@ -1109,3 +1113,152 @@ class ProjectAccessRequest(models.Model):
             f"{self.user_profile.display_name} → {self.project.name} "
             f"({self.get_status_display()})"
         )
+
+
+class MemberEmailNotification(models.Model):
+    """Dedup log for outbound member milestone emails (birthday, matured projects, etc.)."""
+
+    class EventType(models.TextChoices):
+        BIRTHDAY = "birthday", "Birthday celebration"
+        MATURITY_DIGEST = "maturity_digest", "Matured / redeemable digest"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="member_email_notifications",
+    )
+    event_type = models.CharField(max_length=40, choices=EventType.choices, db_index=True)
+    event_key = models.CharField(
+        max_length=191,
+        db_index=True,
+        help_text="Stable id for dedupe, e.g. birthday:2026 or digest fingerprint.",
+    )
+    subject = models.CharField(max_length=255, blank=True)
+    meta = models.JSONField(default=dict, blank=True)
+    sent_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ["-sent_at", "-pk"]
+        verbose_name = "Member email notification"
+        verbose_name_plural = "Member email notifications"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "event_type", "event_key"],
+                name="uniq_member_email_notification",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} · {self.event_type} · {self.event_key}"
+
+
+class StaffAnnouncement(models.Model):
+    """Admin-composed message for members (in-app inbox + optional email)."""
+
+    class Audience(models.TextChoices):
+        ALL = "all", "All members"
+        PROJECT = "project", "Members of a project"
+        SELECTED = "selected", "Selected members"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PUBLISHED = "published", "Published"
+
+    title = models.CharField(max_length=200)
+    body = models.TextField(help_text="Plain text shown in the member inbox and email.")
+    audience = models.CharField(
+        max_length=20,
+        choices=Audience.choices,
+        default=Audience.ALL,
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="staff_announcements",
+        help_text="Required when audience is “Members of a project”.",
+    )
+    selected_members = models.ManyToManyField(
+        "UserProfile",
+        blank=True,
+        related_name="targeted_staff_announcements",
+        help_text="Used when audience is “Selected members”.",
+    )
+    send_email = models.BooleanField(
+        default=True,
+        help_text="Also email recipients when this announcement is published.",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="staff_announcements_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    recipient_count = models.PositiveIntegerField(default=0)
+    email_sent_count = models.PositiveIntegerField(default=0)
+    email_failed_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "Staff announcement"
+        verbose_name_plural = "Staff announcements"
+
+    def __str__(self) -> str:
+        return f"{self.title} ({self.get_status_display()})"
+
+
+class MemberNotification(models.Model):
+    """Per-member inbox item (staff announcements and future system notices)."""
+
+    class Source(models.TextChoices):
+        STAFF = "staff", "Staff announcement"
+        SYSTEM = "system", "System"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="inbox_notifications",
+    )
+    announcement = models.ForeignKey(
+        StaffAnnouncement,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="notifications",
+    )
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.STAFF,
+        db_index=True,
+    )
+    title = models.CharField(max_length=200)
+    body = models.TextField()
+    is_read = models.BooleanField(default=False, db_index=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+    email_sent = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "Member notification"
+        verbose_name_plural = "Member notifications"
+        indexes = [
+            models.Index(fields=["user", "is_read", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        state = "read" if self.is_read else "unread"
+        return f"{self.user_id}: {self.title} ({state})"
+

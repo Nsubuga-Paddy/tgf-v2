@@ -10,6 +10,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import AppShell from '../components/layout/AppShell'
+import MainAccountProjectsModal from '../components/MainAccountProjectsModal'
 import WscMaturedCyclePanel from '../components/WscMaturedCyclePanel'
 import { useAuth } from '../context/AuthContext'
 import { useMember } from '../context/MemberContext'
@@ -72,7 +73,7 @@ function StatusBadge({ type, children }) {
 
 export default function Savings52Challenge() {
   const { authFetch } = useAuth()
-  const { member, addToast } = useMember()
+  const { member, mainAccount, addToast } = useMember()
   const [showWithdrawHint, setShowWithdrawHint] = useState(false)
   const [data, setData] = useState(EMPTY_MEMBER)
   const [investments, setInvestments] = useState([])
@@ -80,6 +81,7 @@ export default function Savings52Challenge() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [maturedCycle, setMaturedCycle] = useState(null)
+  const [contributeOpen, setContributeOpen] = useState(false)
 
   const applyPayload = useCallback((payload) => {
     const next = { ...EMPTY_MEMBER, ...(payload.member || {}) }
@@ -473,7 +475,7 @@ export default function Savings52Challenge() {
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => addToast('Add contribution is still under development')}
+            onClick={() => setContributeOpen(true)}
           >
             Add contribution
           </button>
@@ -512,6 +514,20 @@ export default function Savings52Challenge() {
           </div>
         </div>
       </div>
+      <MainAccountProjectsModal
+        open={contributeOpen}
+        onClose={() => setContributeOpen(false)}
+        available={mainAccount.available}
+        initialDestination="savings_52wsc"
+        onSuccess={async (payload) => {
+          if (payload?.dashboard) {
+            applyPayload(payload.dashboard)
+            return
+          }
+          const next = await authFetch('/api/projects/52wsc/')
+          applyPayload(next)
+        }}
+      />
     </AppShell>
   )
 }

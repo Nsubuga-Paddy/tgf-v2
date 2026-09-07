@@ -85,8 +85,8 @@ export default function CgfInvestment() {
             <div className="cgf-faq-item">
               <strong>How long until I see returns?</strong>
               <p>
-                Kids are born 5 months after purchase, and mature at 14 months from birth (19 months
-                total).
+                Timelines now follow the package terms. Existing packages may remain on their
+                original 14-month cycle, while newer packages can use the updated 18-month cycle.
               </p>
             </div>
             <div className="cgf-faq-item">

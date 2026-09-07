@@ -6,12 +6,18 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 
-from main_account.services import transfer_from_project
+from accounts.models import MemberNotification
+from main_account import services as main_ledger
 
-from .models import RealEstateProjectActionRequest, RealEstateProjectTransaction
+from .models import (
+    RealEstateProject,
+    RealEstateProjectActionRequest,
+    RealEstateProjectTransaction,
+)
 
 TWO_PLACES = Decimal("0.01")
 ZERO = Decimal("0.00")
+PROJECT_LABEL = "Real Estate Projects"
 
 
 def _q(amount) -> Decimal:
@@ -133,7 +139,7 @@ def process_refund_request(action_request, *, admin=None, admin_notes=""):
         note=admin_notes or "Refund credited to Main Account",
         transaction_date=timezone.localdate(),
     )
-    main_tx = transfer_from_project(
+    main_tx = main_ledger.transfer_from_project(
         req.user.profile,
         f"Real Estate refund - {req.project.name}",
         amount,
@@ -218,3 +224,134 @@ def reject_refund_request(action_request, *, admin=None, admin_notes=""):
     action_request.processed_at = timezone.now()
     action_request.save()
     return action_request
+
+
+def investable_projects(user):
+    """Running Real Estate projects the member already has access to."""
+    return (
+        RealEstateProject.objects.filter(
+            status=RealEstateProject.STATUS_RUNNING,
+            allowed_members=user,
+        )
+        .distinct()
+        .order_by("name", "pk")
+    )
+
+
+def _rep_date_label(value) -> str:
+    if not value:
+        return ""
+    return f"{value.day} {value.strftime('%b %Y')}"
+
+
+def serialize_investable_project(user, project) -> dict:
+    paid = paid_amount(user, project)
+    unit = (project.land_size_unit or "").strip()
+    land_size_label = ""
+    if project.land_size is not None:
+        land_size_label = f"{project.land_size:g} {unit}".strip()
+    return {
+        "id": project.pk,
+        "name": project.name,
+        "location": project.location or "",
+        "description": (project.description or "").strip(),
+        "status": project.status,
+        "startDate": _rep_date_label(project.start_date),
+        "endDate": _rep_date_label(project.end_date),
+        "minimumInvestment": project.minimum_investment or "",
+        "landSize": float(project.land_size) if project.land_size is not None else None,
+        "landSizeUnit": unit,
+        "landSizeLabel": land_size_label,
+        "alreadyPaid": float(paid),
+    }
+
+
+def build_contribute_options(profile) -> dict:
+    user = profile.user
+    available = main_ledger.available_balance(profile)
+    projects = [serialize_investable_project(user, project) for project in investable_projects(user)]
+    can_contribute = bool(projects)
+    block_message = ""
+    if not can_contribute:
+        block_message = (
+            "You do not have an open Real Estate project to pay into yet. "
+            "Join a running project first."
+        )
+    return {
+        "availableMain": float(available),
+        "projects": projects,
+        "defaultProjectId": projects[0]["id"] if projects else None,
+        "canContribute": can_contribute,
+        "blockMessage": block_message,
+        "hasProjectAccess": bool(profile.has_project(PROJECT_LABEL)),
+    }
+
+
+@transaction.atomic
+def contribute_from_main_account(
+    profile,
+    *,
+    project_id,
+    amount,
+    notes: str = "",
+    created_by=None,
+) -> dict:
+    if not profile.has_project(PROJECT_LABEL):
+        raise ValueError("You do not have access to Real Estate Projects.")
+
+    try:
+        project = investable_projects(profile.user).get(pk=int(project_id))
+    except (TypeError, ValueError, RealEstateProject.DoesNotExist):
+        raise ValueError(
+            "Select a running Real Estate project you already have access to."
+        )
+
+    amount = _q(amount)
+    if amount <= ZERO:
+        raise ValueError("Enter a valid contribution amount.")
+    if amount > main_ledger.available_balance(profile):
+        raise ValueError("Amount exceeds Main Account available balance.")
+
+    note_text = (notes or "").strip()
+    description = (
+        f"Real Estate contribution of UGX {amount:,.0f} to {project.name} from Main Account."
+    )
+    if note_text:
+        description = f"{description} Note: {note_text}"
+
+    main_tx = main_ledger.invest_to_project(
+        profile,
+        PROJECT_LABEL,
+        amount,
+        description=description,
+        created_by=created_by or profile.user,
+    )
+    paid_after = paid_amount(profile.user, project) + amount
+    project_tx = RealEstateProjectTransaction.objects.create(
+        project=project,
+        user=profile.user,
+        amount=amount,
+        type=RealEstateProjectTransaction.TYPE_PAYMENT,
+        payment_status=RealEstateProjectTransaction.PAYMENT_STATUS_PARTIAL,
+        note=note_text or f"Paid from Main Account. Receipt {main_tx.reference}.",
+        transaction_date=timezone.localdate(),
+    )
+    MemberNotification.objects.create(
+        user=profile.user,
+        source=MemberNotification.Source.SYSTEM,
+        title="Real Estate contribution posted",
+        body=(
+            f"UGX {amount:,.0f} was moved from your Main Account into {project.name}. "
+            f"Receipt {main_tx.reference}."
+        ),
+    )
+    return {
+        "transaction": main_tx,
+        "project_transaction": project_tx,
+        "project": project,
+        "amount": amount,
+        "receipt": main_tx.reference,
+        "already_paid": paid_after,
+        "notes": note_text,
+        "options": build_contribute_options(profile),
+    }

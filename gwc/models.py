@@ -10,6 +10,8 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+GWC_MONTHLY_REDEEMABLE_THRESHOLD = Decimal("120000000")
+
 
 class GWCDepositActivity(models.Model):
     """Timeline entries shown on the member dashboard (e.g. deposit funded, manual notes)."""
@@ -186,6 +188,8 @@ class GWCFixedDeposit(models.Model):
             )
 
     def save(self, *args, **kwargs) -> None:
+        if (self.principal_amount or Decimal("0")) >= GWC_MONTHLY_REDEEMABLE_THRESHOLD:
+            self.redeemable_monthly_interest = True
         if self.redeemable_monthly_interest:
             label = (self.payout_structure_display or "").strip()
             if not label or label.lower() in {"at maturity", "at maturity."}:

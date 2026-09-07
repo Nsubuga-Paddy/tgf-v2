@@ -10,6 +10,7 @@ import {
   Vault,
 } from 'lucide-react'
 import AppShell from '../components/layout/AppShell'
+import MainAccountProjectsModal from '../components/MainAccountProjectsModal'
 import { useAuth } from '../context/AuthContext'
 import { useMember } from '../context/MemberContext'
 import { formatUGX } from '../utils/format'
@@ -298,7 +299,7 @@ function DepositCard({ deposit, onRedeem, redeeming }) {
 
 export default function GenerationalWealth() {
   const { authFetch } = useAuth()
-  const { member, addToast, reloadDashboard } = useMember()
+  const { member, mainAccount, addToast, reloadDashboard } = useMember()
   const [showWithdrawHint, setShowWithdrawHint] = useState(false)
   const [deposits, setDeposits] = useState([])
   const [portfolio, setPortfolio] = useState(EMPTY_PORTFOLIO)
@@ -308,6 +309,7 @@ export default function GenerationalWealth() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [redeeming, setRedeeming] = useState(false)
+  const [depositOpen, setDepositOpen] = useState(false)
 
   const applyPayload = useCallback(
     (payload) => {
@@ -535,7 +537,7 @@ export default function GenerationalWealth() {
                   <button
                     type="button"
                     className="btn btn-primary"
-                    onClick={() => addToast('Add deposit is still under development')}
+                    onClick={() => setDepositOpen(true)}
                   >
                     Add deposit
                   </button>
@@ -578,6 +580,19 @@ export default function GenerationalWealth() {
           </div>
         </section>
       </div>
+      <MainAccountProjectsModal
+        open={depositOpen}
+        onClose={() => setDepositOpen(false)}
+        available={mainAccount.available}
+        initialDestination="gwc"
+        onSuccess={async (payload) => {
+          if (payload?.dashboard) {
+            applyPayload(payload.dashboard)
+            return
+          }
+          await loadGwc()
+        }}
+      />
     </AppShell>
   )
 }

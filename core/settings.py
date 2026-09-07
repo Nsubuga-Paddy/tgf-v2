@@ -95,6 +95,7 @@ INSTALLED_APPS = [
     'cooperative_shareholding',
     'help_center',
     'main_account',
+    'loans',
 ]
 
 MIDDLEWARE = [

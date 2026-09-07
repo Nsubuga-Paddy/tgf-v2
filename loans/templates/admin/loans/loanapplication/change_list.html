@@ -1,0 +1,56 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+  <style>
+    .loan-admin-pending-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 0 0 16px;
+      padding: 14px 16px;
+      border: 1px solid #fed7aa;
+      border-radius: 10px;
+      background: #fff7ed;
+      color: #7c2d12;
+    }
+
+    .loan-admin-pending-banner strong {
+      display: block;
+      color: #9a3412;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .loan-admin-pending-banner span {
+      display: block;
+      margin-top: 3px;
+      color: #9a3412;
+      font-size: 13px;
+    }
+
+    .loan-admin-pending-count {
+      min-width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: #fb923c;
+      color: #fff;
+      font-weight: 800;
+      font-size: 18px;
+    }
+  </style>
+
+  <div class="loan-admin-pending-banner">
+    <div>
+      <strong>Pending loan applications</strong>
+      <span>
+        {{ pending_applications_count }} application{{ pending_applications_count|pluralize }} waiting for review or disbursement.
+      </span>
+    </div>
+    <div class="loan-admin-pending-count">{{ pending_applications_count }}</div>
+  </div>
+
+  {{ block.super }}
+{% endblock %}

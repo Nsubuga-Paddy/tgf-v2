@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .emails import get_site_base_url
+from .emails import get_site_base_url, log_email_for_testing
 from .serializers import (
     MobileLogoutSerializer,
     MobilePasswordResetConfirmSerializer,
@@ -100,6 +100,13 @@ class MobilePasswordResetRequestView(APIView):
                 "reset_url": reset_url,
             },
             request=request,
+        )
+
+        log_email_for_testing(
+            to_email=user.email,
+            subject="Reset your MCS password",
+            body=message,
+            context="password_reset_api",
         )
 
         try:

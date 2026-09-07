@@ -19,7 +19,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.conf import settings
 
 from .forms import CustomUserCreationForm, PasswordResetRequestForm
-from .emails import get_site_base_url
+from .emails import get_site_base_url, log_email_for_testing
 from .models import UserProfile
 
 User = get_user_model()
@@ -218,6 +218,12 @@ def password_reset_request(request):
                         "reset_url": reset_url,
                     },
                     request=request,
+                )
+                log_email_for_testing(
+                    to_email=user.email,
+                    subject=subject,
+                    body=message,
+                    context="password_reset",
                 )
                 send_mail(
                     subject,

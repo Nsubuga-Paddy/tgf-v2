@@ -54,9 +54,10 @@ class ShareAcquisitionLineInline(admin.TabularInline):
         "price_per_share",
         "current_value_per_share",
         "dividend_eligible",
+        "main_account_transaction",
         "source_description",
     )
-    readonly_fields = ("current_value_per_share", "dividend_eligible")
+    readonly_fields = ("current_value_per_share", "dividend_eligible", "main_account_transaction")
 
 
 @admin.register(CooperativeIssuancePeriod)

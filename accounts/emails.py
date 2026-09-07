@@ -24,6 +24,37 @@ def get_site_base_url() -> str:
     return "http://127.0.0.1:8000"
 
 
+def log_email_for_testing(
+    *,
+    to_email: str,
+    subject: str,
+    body: str,
+    from_email: str | None = None,
+    context: str = "email",
+) -> None:
+    """
+    TEMPORARY testing helper: dump the full outbound email to CMD / server logs.
+
+    Remove (or stop calling) once SMTP delivery is confirmed in production.
+    """
+    sender = from_email or getattr(settings, "DEFAULT_FROM_EMAIL", "") or "(default)"
+    block = (
+        "\n"
+        + "=" * 72
+        + f"\n[MCS EMAIL TEST DUMP · {context}]\n"
+        + f"From: {sender}\n"
+        + f"To:   {to_email}\n"
+        + f"Subj: {subject}\n"
+        + "-" * 72
+        + f"\n{body}\n"
+        + "=" * 72
+        + "\n"
+    )
+    # print() shows reliably in runserver CMD; logger catches file/structured logs.
+    print(block, flush=True)
+    logger.info(block)
+
+
 def send_account_verified_email(user) -> bool:
     """
     Notify a member that their account has been verified.
@@ -51,6 +82,13 @@ def send_account_verified_email(user) -> bool:
             "site_url": site_url,
             "account_number": account_number,
         },
+    )
+
+    log_email_for_testing(
+        to_email=email,
+        subject=subject,
+        body=message,
+        context="account_verified",
     )
 
     try:

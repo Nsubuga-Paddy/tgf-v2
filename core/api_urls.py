@@ -1,20 +1,44 @@
 from django.urls import path
 
+from cooperative_shareholding.api_views import (
+    SharePurchaseFromMainAPIView,
+    SharePurchaseOptionsAPIView,
+)
+from loans.api_views import (
+    LoanApplicationDetailAPIView,
+    LoanApplyAPIView,
+    LoanEligibilityAPIView,
+    LoanFacilityDetailAPIView,
+    LoanRepayFromMainAPIView,
+    LoansHubAPIView,
+)
+
 from .api_views import (
     CgfAPIView,
+    CgfPurchaseFromMainAPIView,
+    CgfPurchaseOptionsAPIView,
     CgfTransferToMainAPIView,
     ClaimDividendAPIView,
     DashboardAPIView,
     GwcAPIView,
+    GwcContributeFromMainAPIView,
+    GwcContributeOptionsAPIView,
     GwcRedeemInterestAPIView,
     HelpVideosAPIView,
     MainAccountWithdrawAPIView,
+    MemberNotificationReadAPIView,
+    MemberNotificationsAPIView,
+    MemberNotificationsReadAllAPIView,
     ProfileAPIView,
     ProjectAccessRequestAPIView,
+    RepContributeFromMainAPIView,
+    RepContributeOptionsAPIView,
     RepDetailAPIView,
     RepRefundRequestAPIView,
     RepListAPIView,
     Savings52APIView,
+    Savings52ContributeFromMainAPIView,
+    Savings52ContributeOptionsAPIView,
     Savings52StartNewCycleAPIView,
     Savings52TransferAllAPIView,
     Savings52TransferPotAPIView,
@@ -44,7 +68,27 @@ urlpatterns = [
         ClaimDividendAPIView.as_view(),
         name="api_shareholding_claim_dividend",
     ),
+    path(
+        "shareholding/purchase-options/",
+        SharePurchaseOptionsAPIView.as_view(),
+        name="api_shareholding_purchase_options",
+    ),
+    path(
+        "shareholding/purchase-from-main/",
+        SharePurchaseFromMainAPIView.as_view(),
+        name="api_shareholding_purchase_from_main",
+    ),
     path("projects/52wsc/", Savings52APIView.as_view(), name="api_projects_52wsc"),
+    path(
+        "projects/52wsc/contribute-options/",
+        Savings52ContributeOptionsAPIView.as_view(),
+        name="api_projects_52wsc_contribute_options",
+    ),
+    path(
+        "projects/52wsc/contribute-from-main/",
+        Savings52ContributeFromMainAPIView.as_view(),
+        name="api_projects_52wsc_contribute_from_main",
+    ),
     path(
         "projects/52wsc/start-new-cycle/",
         Savings52StartNewCycleAPIView.as_view(),
@@ -62,17 +106,47 @@ urlpatterns = [
     ),
     path("projects/cgf/", CgfAPIView.as_view(), name="api_projects_cgf"),
     path(
+        "projects/cgf/purchase-options/",
+        CgfPurchaseOptionsAPIView.as_view(),
+        name="api_projects_cgf_purchase_options",
+    ),
+    path(
+        "projects/cgf/purchase-from-main/",
+        CgfPurchaseFromMainAPIView.as_view(),
+        name="api_projects_cgf_purchase_from_main",
+    ),
+    path(
         "projects/cgf/transfer-to-main/",
         CgfTransferToMainAPIView.as_view(),
         name="api_projects_cgf_transfer_to_main",
     ),
     path("projects/gwc/", GwcAPIView.as_view(), name="api_projects_gwc"),
     path(
+        "projects/gwc/contribute-options/",
+        GwcContributeOptionsAPIView.as_view(),
+        name="api_projects_gwc_contribute_options",
+    ),
+    path(
+        "projects/gwc/contribute-from-main/",
+        GwcContributeFromMainAPIView.as_view(),
+        name="api_projects_gwc_contribute_from_main",
+    ),
+    path(
         "projects/gwc/redeem-interest/",
         GwcRedeemInterestAPIView.as_view(),
         name="api_projects_gwc_redeem_interest",
     ),
     path("projects/rep/", RepListAPIView.as_view(), name="api_projects_rep"),
+    path(
+        "projects/rep/contribute-options/",
+        RepContributeOptionsAPIView.as_view(),
+        name="api_projects_rep_contribute_options",
+    ),
+    path(
+        "projects/rep/contribute-from-main/",
+        RepContributeFromMainAPIView.as_view(),
+        name="api_projects_rep_contribute_from_main",
+    ),
     path(
         "projects/rep/<int:project_id>/",
         RepDetailAPIView.as_view(),
@@ -83,5 +157,46 @@ urlpatterns = [
         RepRefundRequestAPIView.as_view(),
         name="api_projects_rep_refund",
     ),
+    path("projects/loans/", LoansHubAPIView.as_view(), name="api_projects_loans"),
+    path(
+        "projects/loans/eligibility/",
+        LoanEligibilityAPIView.as_view(),
+        name="api_projects_loans_eligibility",
+    ),
+    path(
+        "projects/loans/apply/",
+        LoanApplyAPIView.as_view(),
+        name="api_projects_loans_apply",
+    ),
+    path(
+        "projects/loans/applications/<int:application_id>/",
+        LoanApplicationDetailAPIView.as_view(),
+        name="api_projects_loans_application_detail",
+    ),
+    path(
+        "projects/loans/facilities/<int:loan_id>/",
+        LoanFacilityDetailAPIView.as_view(),
+        name="api_projects_loans_facility_detail",
+    ),
+    path(
+        "projects/loans/facilities/<int:loan_id>/repay/",
+        LoanRepayFromMainAPIView.as_view(),
+        name="api_projects_loans_repay",
+    ),
     path("help/videos/", HelpVideosAPIView.as_view(), name="api_help_videos"),
+    path(
+        "notifications/",
+        MemberNotificationsAPIView.as_view(),
+        name="api_notifications",
+    ),
+    path(
+        "notifications/read-all/",
+        MemberNotificationsReadAllAPIView.as_view(),
+        name="api_notifications_read_all",
+    ),
+    path(
+        "notifications/<int:notification_id>/read/",
+        MemberNotificationReadAPIView.as_view(),
+        name="api_notification_read",
+    ),
 ]

@@ -21,6 +21,7 @@ import {
   Users,
 } from 'lucide-react'
 import AppShell from '../components/layout/AppShell'
+import MainAccountProjectsModal from '../components/MainAccountProjectsModal'
 import { useAuth } from '../context/AuthContext'
 import { useMember } from '../context/MemberContext'
 import { formatUGX } from '../utils/format'
@@ -58,7 +59,7 @@ export default function RealEstateProjectDetail() {
   const { projectId } = useParams()
   const navigate = useNavigate()
   const { authFetch } = useAuth()
-  const { member, addToast, reloadDashboard } = useMember()
+  const { member, mainAccount, addToast, reloadDashboard } = useMember()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notFound, setNotFound] = useState(false)
@@ -78,6 +79,7 @@ export default function RealEstateProjectDetail() {
   const [transactions, setTransactions] = useState([])
   const [refreshKey, setRefreshKey] = useState(0)
   const [refundSubmitting, setRefundSubmitting] = useState(false)
+  const [contributeOpen, setContributeOpen] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -414,7 +416,8 @@ export default function RealEstateProjectDetail() {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => addToast('Add contribution is still under development')}
+                  disabled={project.status !== 'running'}
+                  onClick={() => setContributeOpen(true)}
                 >
                   Add contribution
                 </button>
@@ -427,6 +430,11 @@ export default function RealEstateProjectDetail() {
                   <RotateCcw size={15} />
                   {refundSubmitting ? 'Submitting refund…' : 'Request refund'}
                 </button>
+                {project.status !== 'running' ? (
+                  <p className="rep-transfer-note">
+                    New contributions are only accepted while this project is running.
+                  </p>
+                ) : null}
                 {userStats.paymentCompleted ? (
                   <p className="rep-transfer-note">Fully paid projects move toward land title processing.</p>
                 ) : userStats.latestRefundStatus === 'pending' || userStats.latestRefundStatus === 'approved' ? (
@@ -448,6 +456,16 @@ export default function RealEstateProjectDetail() {
           </>
         ) : null}
       </div>
+      <MainAccountProjectsModal
+        open={contributeOpen}
+        onClose={() => setContributeOpen(false)}
+        available={mainAccount?.available}
+        initialDestination="real_estate"
+        initialProjectId={project?.id || projectId}
+        onSuccess={async () => {
+          setRefreshKey((key) => key + 1)
+        }}
+      />
     </AppShell>
   )
 }

@@ -1,0 +1,37 @@
+Hello {{ user.first_name|default:user.get_username }},
+
+Your MCS loan has been approved and disbursed to your Main Account.
+
+Loan reference: {{ loan_reference }}
+Purpose: {{ purpose_label }}
+
+Approved loan amount: UGX {{ amount_display }}
+Insurance fee (1%): UGX {{ insurance_fee_display }}
+Loan processing fee: UGX {{ processing_fee_display }}
+Total deductions: UGX {{ total_deductions_display }}
+Net amount credited to Main Account: UGX {{ net_disbursed_display }}
+
+Term: {{ term_months }} months
+Interest rate: {{ rate_display }}
+Total interest over the term: UGX {{ total_interest_display }}
+Total repayable: UGX {{ total_repayable_display }}
+
+Monthly installment: UGX {{ installment_display }}
+First installment due: {{ first_due_date }}
+Disbursed on: {{ disbursed_date }}
+
+How repayment works:
+- Pay monthly installments until the loan is cleared
+- You can repay early from your Main Account in the member portal
+- You may also repay by bank transfer using the MCS bank details shown under Loans
+
+View your loan and full repayment schedule:
+{{ loan_url }}
+
+{% if account_number %}Your MCS account number: {{ account_number }}
+{% endif %}
+Sign in here:
+{{ login_url }}
+
+— Mushana Multipurpose Cooperative Society (MCS)
+{{ site_url }}

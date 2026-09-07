@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { ArrowUpFromLine, CheckCircle2, History } from 'lucide-react'
+import { ArrowLeftRight, ArrowUpFromLine, CheckCircle2, History } from 'lucide-react'
 import { useMember } from '../context/MemberContext'
 import { formatUGX, greetingForNow } from '../utils/format'
+import MainAccountProjectsModal from './MainAccountProjectsModal'
 import RequestWithdrawModal from './RequestWithdrawModal'
 import TransactionHistoryModal from './TransactionHistoryModal'
 
@@ -9,6 +10,7 @@ export default function BalanceHero() {
   const { member, mainAccount } = useMember()
   const [historyOpen, setHistoryOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [projectsOpen, setProjectsOpen] = useState(false)
 
   return (
     <div id="home">
@@ -42,6 +44,14 @@ export default function BalanceHero() {
             <button
               type="button"
               className="btn btn-ghost-light"
+              onClick={() => setProjectsOpen(true)}
+            >
+              <ArrowLeftRight size={16} />
+              Use Main Account
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost-light"
               onClick={() => setHistoryOpen(true)}
             >
               <History size={16} />
@@ -53,6 +63,11 @@ export default function BalanceHero() {
 
       <TransactionHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} />
       <RequestWithdrawModal open={withdrawOpen} onClose={() => setWithdrawOpen(false)} />
+      <MainAccountProjectsModal
+        open={projectsOpen}
+        onClose={() => setProjectsOpen(false)}
+        available={mainAccount.available}
+      />
     </div>
   )
 }

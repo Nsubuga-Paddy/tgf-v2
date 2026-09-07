@@ -228,6 +228,14 @@ class ShareAcquisitionLine(models.Model):
             "Lots purchased at the new-share price are excluded until a future cycle."
         ),
     )
+    main_account_transaction = models.OneToOneField(
+        "main_account.MainAccountTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="share_acquisition",
+        help_text="Main Account debit that funded this member purchase, when applicable.",
+    )
 
     class Meta:
         ordering = ["-acquisition_date", "-pk"]

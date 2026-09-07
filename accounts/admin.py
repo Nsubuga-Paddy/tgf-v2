@@ -13,6 +13,9 @@ from .models import (
     WithdrawalRequest,
     GWCContribution,
     ProjectAccessRequest,
+    MemberEmailNotification,
+    StaffAnnouncement,
+    MemberNotification,
 )
 from core.admin_base import ExportableAdminMixin
 
@@ -64,7 +67,7 @@ class UserProfileInline(admin.StackedInline):
     fields = (
         'photo', 'whatsapp_number', 'national_id', 'birthdate', 
         'address', 'bio', 'account_number', 'bank_name', 'bank_account_number', 
-        'bank_account_name', 'is_verified', 'is_admin', 'projects'
+        'bank_account_name', 'is_verified', 'is_admin', 'is_mcs_staff', 'projects'
     )
     readonly_fields = ('account_number', 'created_at', 'updated_at')
     filter_horizontal = ('projects',)
@@ -272,10 +275,11 @@ class UserProfileAdmin(ExportableAdminMixin, admin.ModelAdmin):
         'get_projects',
         'is_verified',
         'is_admin',
+        'is_mcs_staff',
         'get_pending_project_requests_count',
         'created_at',
     )
-    list_filter = ('is_verified', 'is_admin', UserProfileProjectAccessListFilter, 'created_at', 'bank_name')
+    list_filter = ('is_verified', 'is_admin', 'is_mcs_staff', UserProfileProjectAccessListFilter, 'created_at', 'bank_name')
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'user__email', 'account_number', 'whatsapp_number', 'bank_name', 'bank_account_number', 'bank_account_name')
     readonly_fields = ('account_number', 'created_at', 'updated_at')
     autocomplete_fields = ('user',)
@@ -295,7 +299,8 @@ class UserProfileAdmin(ExportableAdminMixin, admin.ModelAdmin):
             'description': 'Bank account details used for withdrawals and payments. Admin will use these to send money to users.'
         }),
         ('Status & Permissions', {
-            'fields': ('is_verified', 'is_admin', 'projects')
+            'fields': ('is_verified', 'is_admin', 'is_mcs_staff', 'projects'),
+            'description': 'Mark MCS staff so loan eligibility can apply the 1% staff interest rate.',
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
@@ -1113,4 +1118,200 @@ class GWCContributionAdmin(ExportableAdminMixin, admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user_profile__user')
+
+
+@admin.register(MemberEmailNotification)
+class MemberEmailNotificationAdmin(admin.ModelAdmin):
+    list_display = ("user", "event_type", "event_key", "subject", "sent_at")
+    list_filter = ("event_type", "sent_at")
+    search_fields = (
+        "user__username",
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+        "event_key",
+        "subject",
+    )
+    readonly_fields = ("user", "event_type", "event_key", "subject", "meta", "sent_at")
+    date_hierarchy = "sent_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(StaffAnnouncement)
+class StaffAnnouncementAdmin(admin.ModelAdmin):
+    change_form_template = "admin/accounts/staffannouncement/change_form.html"
+    list_display = (
+        "title",
+        "audience",
+        "project",
+        "send_email",
+        "status",
+        "recipient_count",
+        "email_sent_count",
+        "published_at",
+        "created_by",
+    )
+    list_filter = ("status", "audience", "send_email", "created_at")
+    search_fields = ("title", "body")
+    autocomplete_fields = ("project", "selected_members", "created_by")
+    readonly_fields = (
+        "status",
+        "created_by",
+        "created_at",
+        "updated_at",
+        "published_at",
+        "recipient_count",
+        "email_sent_count",
+        "email_failed_count",
+    )
+    filter_horizontal = ("selected_members",)
+    actions = ("action_publish_announcements",)
+    fieldsets = (
+        (
+            "Compose",
+            {
+                "fields": ("title", "body"),
+                "description": (
+                    "Write the notice members will see in Notifications (bell) "
+                    "and optionally by email."
+                ),
+            },
+        ),
+        (
+            "Audience",
+            {
+                "fields": ("audience", "project", "selected_members", "send_email"),
+                "description": (
+                    "All members = everyone with a profile. "
+                    "Project = members of that MCS project. "
+                    "Selected = pick specific members."
+                ),
+            },
+        ),
+        (
+            "Publishing",
+            {
+                "fields": (
+                    "status",
+                    "published_at",
+                    "recipient_count",
+                    "email_sent_count",
+                    "email_failed_count",
+                    "created_by",
+                    "created_at",
+                    "updated_at",
+                ),
+            },
+        ),
+    )
+
+    def save_model(self, request, obj, form, change):
+        if not obj.created_by_id:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        obj = self.get_object(request, object_id) if object_id else None
+        extra_context["show_save_and_publish"] = (
+            obj is None or obj.status != StaffAnnouncement.Status.PUBLISHED
+        )
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
+    def _publish_announcement(self, request, announcement) -> bool:
+        from django.core.exceptions import ValidationError
+
+        from accounts.announcement_services import publish_staff_announcement
+
+        if announcement.status == StaffAnnouncement.Status.PUBLISHED:
+            self.message_user(
+                request,
+                f"“{announcement.title}” is already published.",
+                messages.WARNING,
+            )
+            return False
+        try:
+            result = publish_staff_announcement(announcement, actor=request.user)
+        except ValidationError as exc:
+            detail = "; ".join(
+                f"{k}: {', '.join(v) if isinstance(v, (list, tuple)) else v}"
+                for k, v in exc.message_dict.items()
+            ) if hasattr(exc, "message_dict") else str(exc)
+            self.message_user(
+                request,
+                f"Could not publish “{announcement.title}”: {detail}",
+                messages.ERROR,
+            )
+            return False
+        self.message_user(
+            request,
+            (
+                f"Published “{announcement.title}”: "
+                f"{result['recipients']} inbox · "
+                f"{result['email_sent']} emailed · "
+                f"{result['email_failed']} email failures"
+            ),
+            messages.SUCCESS,
+        )
+        return True
+
+    def response_add(self, request, obj, post_url_continue=None):
+        if "_save_and_publish" in request.POST:
+            self._publish_announcement(request, obj)
+        return super().response_add(request, obj, post_url_continue)
+
+    def response_change(self, request, obj):
+        if "_save_and_publish" in request.POST:
+            self._publish_announcement(request, obj)
+        return super().response_change(request, obj)
+
+    @admin.action(description="Publish selected announcements (inbox + optional email)")
+    def action_publish_announcements(self, request, queryset):
+        published = 0
+        for announcement in queryset.order_by("pk"):
+            if self._publish_announcement(request, announcement):
+                published += 1
+        if published == 0 and queryset.exists():
+            self.message_user(request, "No drafts were published.", messages.WARNING)
+
+
+@admin.register(MemberNotification)
+class MemberNotificationAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "title",
+        "source",
+        "is_read",
+        "email_sent",
+        "created_at",
+    )
+    list_filter = ("source", "is_read", "email_sent", "created_at")
+    search_fields = (
+        "user__username",
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+        "title",
+        "body",
+    )
+    readonly_fields = (
+        "user",
+        "announcement",
+        "source",
+        "title",
+        "body",
+        "is_read",
+        "read_at",
+        "email_sent",
+        "created_at",
+    )
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
 

@@ -10,6 +10,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import CgfShell from '../../components/cgf/CgfShell'
+import MainAccountProjectsModal from '../../components/MainAccountProjectsModal'
 import {
   CGF_BREEDING_INFO,
   maturityFromPurchaseDate,
@@ -40,7 +41,7 @@ function Badge({ tone, children }) {
 
 export default function CgfDashboard() {
   const { authFetch } = useAuth()
-  const { member, addToast, reloadDashboard } = useMember()
+  const { member, mainAccount, addToast, reloadDashboard } = useMember()
   const [summary, setSummary] = useState(EMPTY_SUMMARY)
   const [farmAccounts, setFarmAccounts] = useState([])
   const [purchases, setPurchases] = useState([])
@@ -48,6 +49,7 @@ export default function CgfDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [transferring, setTransferring] = useState(false)
+  const [purchaseOpen, setPurchaseOpen] = useState(false)
 
   const applyPayload = useCallback((payload) => {
     setSummary({ ...EMPTY_SUMMARY, ...(payload.member || {}) })
@@ -116,7 +118,7 @@ export default function CgfDashboard() {
             <button
               type="button"
               className="btn btn-outline cgf-purchase-btn"
-              onClick={() => addToast('Purchase package is still under development')}
+              onClick={() => setPurchaseOpen(true)}
             >
               <ShoppingCart size={15} />
               Purchase package
@@ -173,7 +175,7 @@ export default function CgfDashboard() {
                 <Sprout size={18} />
                 Your Goat Holdings by Farm
               </h3>
-              <Badge tone="info">Breeding cycle: 14 months</Badge>
+              <Badge tone="info">Package-specific cycles</Badge>
             </div>
             <div className="cgf-table-wrap">
               <table className="cgf-table">
@@ -360,6 +362,12 @@ export default function CgfDashboard() {
                         <td>{purchase.purchaseDate}</td>
                         <td>
                           {purchase.maturityDate || '—'}
+                          {purchase.cycleDurationMonths ? (
+                            <>
+                              <br />
+                              <small>{purchase.cycleDurationMonths}-month cycle</small>
+                            </>
+                          ) : null}
                           {settled ? (
                             <>
                               <br />
@@ -428,6 +436,19 @@ export default function CgfDashboard() {
           </div>
         </section>
       ) : null}
+      <MainAccountProjectsModal
+        open={purchaseOpen}
+        onClose={() => setPurchaseOpen(false)}
+        available={mainAccount.available}
+        initialDestination="cgf"
+        onSuccess={async (payload) => {
+          if (payload?.dashboard) {
+            applyPayload(payload.dashboard)
+            return
+          }
+          await loadCgf()
+        }}
+      />
     </CgfShell>
   )
 }

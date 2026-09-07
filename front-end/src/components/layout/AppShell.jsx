@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
   ChevronDown,
   Compass,
+  HandCoins,
   HelpCircle,
   Home,
   LayoutGrid,
@@ -21,14 +22,22 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { useMember } from '../../context/MemberContext'
 import { useTheme } from '../../context/ThemeContext'
+import { formatNotifTime } from '../../utils/notificationTime'
 import mcsLogo from '../../../mcs-logo2.png'
 
 const NAV = [
   { id: 'home', label: 'Home', icon: Home, to: '/' },
   { id: 'projects', label: 'My Projects', icon: LayoutGrid, hash: 'projects' },
   { id: 'protection', label: 'Protection Benefits', icon: Shield, to: '/protection' },
+  { id: 'loans', label: 'Member Loans', icon: HandCoins, to: '/loans' },
   { id: 'discover', label: 'Other Projects', icon: Compass, hash: 'discover' },
 ]
+
+function formatUnreadBadge(count) {
+  const n = Number(count || 0)
+  if (n <= 0) return ''
+  return n > 99 ? '99+' : String(n)
+}
 
 export default function AppShell({ children, title = 'Home' }) {
   const [sidebarOpen, setSidebarOpen] = useState(() =>
@@ -38,9 +47,14 @@ export default function AppShell({ children, title = 'Home' }) {
     typeof window !== 'undefined' ? window.innerWidth < 960 : false,
   )
   const [profileOpen, setProfileOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifLoading, setNotifLoading] = useState(false)
   const profileRef = useRef(null)
+  const notifRef = useRef(null)
   const { member, toast } = useMember()
-  const { logout } = useAuth()
+  const { logout, authFetch, isAuthenticated } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const location = useLocation()
   const navigate = useNavigate()
@@ -49,11 +63,35 @@ export default function AppShell({ children, title = 'Home' }) {
     ? 'help'
     : location.pathname.startsWith('/protection')
       ? 'protection'
+      : location.pathname.startsWith('/loans')
+        ? 'loans'
       : location.pathname.startsWith('/projects/')
         ? 'projects'
         : location.pathname.startsWith('/profile')
           ? 'profile'
+          : location.pathname.startsWith('/notifications')
+            ? 'notifications'
           : location.hash.replace('#', '') || 'home'
+
+  const loadNotifications = useCallback(async () => {
+    if (!isAuthenticated || !authFetch) return
+    setNotifLoading(true)
+    try {
+      const payload = await authFetch('/api/notifications/')
+      setNotifications(payload.notifications || [])
+      setUnreadCount(Number(payload.unreadCount || 0))
+    } catch {
+      // Keep prior list if refresh fails.
+    } finally {
+      setNotifLoading(false)
+    }
+  }, [authFetch, isAuthenticated])
+
+  useEffect(() => {
+    loadNotifications()
+    const timer = window.setInterval(loadNotifications, 60000)
+    return () => window.clearInterval(timer)
+  }, [loadNotifications])
 
   useEffect(() => {
     const onResize = () => {
@@ -70,9 +108,15 @@ export default function AppShell({ children, title = 'Home' }) {
       if (profileRef.current && !profileRef.current.contains(e.target)) {
         setProfileOpen(false)
       }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false)
+      }
     }
     const onKey = (e) => {
-      if (e.key === 'Escape') setProfileOpen(false)
+      if (e.key === 'Escape') {
+        setProfileOpen(false)
+        setNotifOpen(false)
+      }
     }
     document.addEventListener('mousedown', onClick)
     document.addEventListener('keydown', onKey)
@@ -112,9 +156,29 @@ export default function AppShell({ children, title = 'Home' }) {
     }
   }
 
+  const openNotification = (item) => {
+    setNotifOpen(false)
+    navigate(`/notifications/${item.id}`)
+  }
+
+  const markAllRead = async () => {
+    try {
+      const payload = await authFetch('/api/notifications/read-all/', {
+        method: 'POST',
+        body: { limit: 50 },
+      })
+      setNotifications(payload.notifications || [])
+      setUnreadCount(Number(payload.unreadCount || 0))
+    } catch {
+      // ignore
+    }
+  }
+
   const sidebarVisible = sidebarOpen
   const pageTitle = location.pathname.startsWith('/protection')
     ? 'Protection Benefits'
+    : location.pathname.startsWith('/loans')
+      ? 'Member Loans'
     : location.pathname.startsWith('/projects/52wsc')
       ? '52 Weeks Saving Challenge'
     : location.pathname.startsWith('/projects/gwc')
@@ -129,12 +193,16 @@ export default function AppShell({ children, title = 'Home' }) {
       ? 'Real Estate Projects'
     : location.pathname.startsWith('/profile')
       ? 'My Profile'
+    : location.pathname.startsWith('/notifications')
+      ? 'Notifications'
     : location.pathname.startsWith('/help')
       ? 'Help Center'
       : title
 
   const pageSubtitle = location.pathname.startsWith('/protection')
     ? 'Bereavement cover and retirement protection'
+    : location.pathname.startsWith('/loans')
+      ? 'Eligibility, active loans, and repayments'
     : location.pathname.startsWith('/projects/52wsc')
       ? 'Track personal 52WSC savings, targets, fixed savings, and history'
     : location.pathname.startsWith('/projects/gwc')
@@ -149,9 +217,19 @@ export default function AppShell({ children, title = 'Home' }) {
       ? 'Cooperative property projects, contributions, and performance'
     : location.pathname.startsWith('/profile')
       ? 'Your member details, bank info, and action requests'
+    : location.pathname.startsWith('/notifications')
+      ? 'Investor notices and account updates'
     : location.pathname.startsWith('/help')
       ? 'Video tutorials for MCS projects and account setup'
       : 'Your personal cooperative portfolio'
+
+  const unreadBadge = formatUnreadBadge(unreadCount)
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/notifications')) {
+      loadNotifications()
+    }
+  }, [location.pathname, loadNotifications])
 
   return (
     <div className={`shell ${sidebarVisible ? 'sidebar-open' : 'sidebar-collapsed'}`}>
@@ -203,15 +281,79 @@ export default function AppShell({ children, title = 'Home' }) {
             <HelpCircle size={18} />
           </button>
 
-          <button
-            type="button"
-            className="nav-icon-btn has-dot"
-            aria-label="Notifications"
-            title="Notifications"
-          >
-            <Bell size={18} />
-            <span className="notif-dot" />
-          </button>
+          <div className="notif-menu" ref={notifRef}>
+            <button
+              type="button"
+              className={`nav-icon-btn notif-bell-btn ${unreadCount > 0 ? 'has-unread' : ''} ${notifOpen ? 'active' : ''}`}
+              aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+              title="Notifications"
+              aria-expanded={notifOpen}
+              onClick={() => {
+                setProfileOpen(false)
+                setNotifOpen((v) => !v)
+                if (!notifOpen) loadNotifications()
+              }}
+            >
+              <Bell size={18} />
+              {unreadBadge ? <span className="notif-count-badge">{unreadBadge}</span> : null}
+            </button>
+
+            {notifOpen ? (
+              <div className="notif-dropdown" role="dialog" aria-label="Notifications">
+                <div className="notif-dropdown-head">
+                  <div>
+                    <b>Notifications</b>
+                    <span>
+                      {unreadCount > 0
+                        ? `${unreadCount} unread`
+                        : notifLoading
+                          ? 'Loading…'
+                          : 'All caught up'}
+                    </span>
+                  </div>
+                  {unreadCount > 0 ? (
+                    <button type="button" className="notif-mark-all" onClick={markAllRead}>
+                      Mark all read
+                    </button>
+                  ) : null}
+                </div>
+                <ul className="notif-list">
+                  {notifications.length === 0 ? (
+                    <li className="notif-empty">No notifications yet.</li>
+                  ) : (
+                    notifications.map((item) => (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          className={`notif-item ${item.isRead ? '' : 'unread'}`}
+                          onClick={() => openNotification(item)}
+                        >
+                          <b>{item.title}</b>
+                          <span className="notif-item-preview">
+                            {(item.body || '').slice(0, 110)}
+                            {(item.body || '').length > 110 ? '…' : ''}
+                          </span>
+                          <small>{formatNotifTime(item.createdAt)}</small>
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+                <div className="notif-dropdown-foot">
+                  <button
+                    type="button"
+                    className="notif-view-all"
+                    onClick={() => {
+                      setNotifOpen(false)
+                      navigate('/notifications')
+                    }}
+                  >
+                    View all notifications
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
 
           <div className="profile-menu" ref={profileRef}>
             <button
@@ -219,7 +361,10 @@ export default function AppShell({ children, title = 'Home' }) {
               className={`profile-trigger ${profileOpen ? 'open' : ''}`}
               aria-haspopup="menu"
               aria-expanded={profileOpen}
-              onClick={() => setProfileOpen((v) => !v)}
+              onClick={() => {
+                setNotifOpen(false)
+                setProfileOpen((v) => !v)
+              }}
             >
               <span className="avatar sm">{member.initials}</span>
               <span className="profile-meta">
@@ -291,6 +436,8 @@ export default function AppShell({ children, title = 'Home' }) {
             const isActive =
               item.to === '/protection'
                 ? activeId === 'protection'
+                : item.to === '/loans'
+                  ? activeId === 'loans'
                 : item.to === '/'
                   ? activeId === 'home' && !location.hash
                   : activeId === item.hash

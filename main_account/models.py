@@ -37,7 +37,10 @@ class MainAccountTransaction(models.Model):
         ADMIN_CREDIT = "admin_credit", "Admin credit"
         PROJECT_TRANSFER_IN = "project_transfer_in", "Transfer from project"
         DIVIDEND = "dividend", "Dividend payout"
+        LOAN_DISBURSEMENT = "loan_disbursement", "Loan disbursement"
         PROJECT_INVESTMENT = "project_investment", "Investment into project"
+        LOAN_REPAYMENT = "loan_repayment", "Loan repayment"
+        SHARE_PURCHASE = "share_purchase", "Share purchase"
         WITHDRAWAL = "withdrawal", "Withdrawal to bank"
         ADJUSTMENT = "adjustment", "Adjustment / correction"
 

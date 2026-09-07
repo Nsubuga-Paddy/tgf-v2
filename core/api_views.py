@@ -553,6 +553,18 @@ def build_action_requests(profile) -> list[dict]:
                 created_at=r.created_at,
             )
 
+    if hasattr(profile, "loan_applications"):
+        for r in profile.loan_applications.all().order_by("-created_at"):
+            add(
+                req_id=f"loan-app-{r.pk}",
+                project="Loans",
+                type_label="Loan application",
+                detail=f"{r.reference} - {ugx(r.amount_requested)}",
+                status=r.status,
+                status_display=r.get_status_display(),
+                created_at=r.created_at,
+            )
+
     try:
         coop_holding = profile.user.cooperative_shareholding
     except Exception:
@@ -1024,6 +1036,66 @@ class Savings52APIView(APIView):
         return Response(build_52wsc_member_payload(profile))
 
 
+class Savings52ContributeOptionsAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from savings_52_weeks.services import build_contribute_options
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_52WSC):
+            return Response(
+                {"detail": "You do not have access to the 52 Weeks Saving Challenge."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response(build_contribute_options(profile))
+
+
+class Savings52ContributeFromMainAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from savings_52_weeks.services import contribute_from_main_account
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_52WSC):
+            return Response(
+                {"detail": "You do not have access to the 52 Weeks Saving Challenge."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        data = request.data or {}
+        notes = (data.get("notes") or "").strip()
+        try:
+            amount = Decimal(str(data.get("amount") or "0").replace(",", ""))
+            result = contribute_from_main_account(
+                profile,
+                amount,
+                notes=notes,
+                created_by=request.user,
+            )
+        except (ValueError, ArithmeticError, DjangoValidationError) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "ok": True,
+                "message": (
+                    f"UGX {result['amount']:,.0f} contributed to 52WSC from Main Account. "
+                    f"Receipt {result['receipt']}."
+                ),
+                "contribution": {
+                    "amount": money(result["amount"]),
+                    "receipt": result["receipt"],
+                    "cycleTotal": money(result["cycle_total"]),
+                    "notes": result["notes"],
+                },
+                "contributeOptions": result["options"],
+                "dashboard": build_52wsc_member_payload(profile),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class Savings52StartNewCycleAPIView(APIView):
     """Seed the next personal cycle with matured balance brought forward."""
 
@@ -1194,6 +1266,9 @@ def build_cgf_member_payload(profile) -> dict:
                     else ""
                 ),
                 "progressPct": int(farm_flags.get("progress_pct") or 0),
+                "cycleDurationMonths": int(
+                    farm_flags.get("cycle_duration_months") or 14
+                ),
                 "isCycleComplete": bool(farm_flags.get("is_cycle_complete")),
                 "canTransfer": bool(farm_flags.get("can_transfer")),
                 "transferAmount": money(farm_flags.get("transfer_amount") or 0),
@@ -1206,10 +1281,10 @@ def build_cgf_member_payload(profile) -> dict:
         status_label = purchase.get_status_display()
         if purchase.settled_at:
             status_label = "Transferred to Main Account"
-        matures_at = maturity_datetime(purchase.purchase_date)
+        matures_at = maturity_datetime(purchase)
         eligible = purchase.status in ("paid", "allocated") and not purchase.settled_at
         matured = eligible and is_purchase_matured(purchase, now=now)
-        days_left = days_until_maturity(purchase.purchase_date, now=now)
+        days_left = days_until_maturity(purchase, now=now)
         purchases.append(
             {
                 "id": purchase.pk,
@@ -1225,6 +1300,11 @@ def build_cgf_member_payload(profile) -> dict:
                 "kidsPerGoat": int(
                     getattr(purchase.package, "kids_per_goat", 2) if purchase.package else 2
                 ),
+                "cycleDurationMonths": int(
+                    getattr(purchase.package, "cycle_duration_months", 14)
+                    if purchase.package
+                    else 14
+                ),
                 "purchaseDate": date_label(purchase.purchase_date),
                 "maturityDate": date_label(matures_at) if matures_at else "",
                 "maturityDateIso": (
@@ -1233,7 +1313,7 @@ def build_cgf_member_payload(profile) -> dict:
                     else ""
                 ),
                 "progressPct": (
-                    cycle_progress_pct(purchase.purchase_date, now=now)
+                    cycle_progress_pct(purchase, now=now)
                     if eligible
                     else (100 if purchase.settled_at else 0)
                 ),
@@ -1353,6 +1433,73 @@ class CgfAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         return Response(build_cgf_member_payload(profile))
+
+
+class CgfPurchaseOptionsAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from goat_farming.services import build_purchase_options
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_CGF):
+            return Response(
+                {"detail": "You do not have access to Commercial Goat Farming."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response(build_purchase_options(profile))
+
+
+class CgfPurchaseFromMainAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from goat_farming.services import purchase_package_from_main_account
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_CGF):
+            return Response(
+                {"detail": "You do not have access to Commercial Goat Farming."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        data = request.data or {}
+        notes = (data.get("notes") or "").strip()
+        try:
+            result = purchase_package_from_main_account(
+                profile,
+                package_id=data.get("packageId") or data.get("package_id"),
+                quantity=data.get("quantity") or 1,
+                notes=notes,
+                created_by=request.user,
+            )
+        except (ValueError, ArithmeticError, DjangoValidationError) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        package = result["package"]
+        qty = int(result["quantity"])
+        return Response(
+            {
+                "ok": True,
+                "message": (
+                    f"UGX {result['amount']:,.0f} used to buy {qty} "
+                    f"{package.name} package{'s' if qty != 1 else ''} from Main Account. "
+                    f"Receipt {result['receipt']}."
+                ),
+                "purchase": {
+                    "amount": money(result["amount"]),
+                    "quantity": qty,
+                    "packageId": package.pk,
+                    "packageName": package.name,
+                    "goatCount": int(package.goat_count or 0) * qty,
+                    "farmName": result["farm"].name,
+                    "receipt": result["receipt"],
+                    "notes": result["notes"],
+                },
+                "purchaseOptions": result["options"],
+                "dashboard": build_cgf_member_payload(profile),
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class CgfTransferToMainAPIView(APIView):
@@ -1539,6 +1686,72 @@ class GwcAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         return Response(build_gwc_member_payload(request.user))
+
+
+class GwcContributeOptionsAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from gwc.services import build_contribute_options
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_GWC):
+            return Response(
+                {"detail": "You do not have access to Generational Wealth Creation."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response(build_contribute_options(profile))
+
+
+class GwcContributeFromMainAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from gwc.services import contribute_from_main_account
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_GWC):
+            return Response(
+                {"detail": "You do not have access to Generational Wealth Creation."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        data = request.data or {}
+        notes = (data.get("notes") or "").strip()
+        try:
+            amount = Decimal(str(data.get("amount") or "0").replace(",", ""))
+            result = contribute_from_main_account(
+                profile,
+                amount,
+                notes=notes,
+                created_by=request.user,
+            )
+        except (ValueError, ArithmeticError, DjangoValidationError) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        maturity = result["maturity_date"]
+        maturity_label = maturity.isoformat() if hasattr(maturity, "isoformat") else str(maturity)
+        return Response(
+            {
+                "ok": True,
+                "message": (
+                    f"UGX {result['amount']:,.0f} deposited into GWC from Main Account. "
+                    f"Deposit {result['deposit_id']} · Receipt {result['receipt']}."
+                ),
+                "contribution": {
+                    "amount": money(result["amount"]),
+                    "receipt": result["receipt"],
+                    "depositId": result["deposit_id"],
+                    "maturityDate": maturity_label,
+                    "monthlyInterestRedeemable": bool(
+                        result.get("monthly_interest_redeemable")
+                    ),
+                    "notes": result["notes"],
+                },
+                "contributeOptions": result["options"],
+                "dashboard": build_gwc_member_payload(request.user),
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class GwcRedeemInterestAPIView(APIView):
@@ -1931,6 +2144,70 @@ class RepListAPIView(APIView):
         return Response(build_rep_list_payload(request.user))
 
 
+class RepContributeOptionsAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from realestate_projects.services import build_contribute_options
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_REP):
+            return Response(
+                {"detail": "You do not have access to Real Estate Projects."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response(build_contribute_options(profile))
+
+
+class RepContributeFromMainAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from realestate_projects.services import contribute_from_main_account
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_REP):
+            return Response(
+                {"detail": "You do not have access to Real Estate Projects."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        data = request.data or {}
+        notes = (data.get("notes") or "").strip()
+        try:
+            amount = Decimal(str(data.get("amount") or "0").replace(",", ""))
+            result = contribute_from_main_account(
+                profile,
+                project_id=data.get("projectId") or data.get("project_id"),
+                amount=amount,
+                notes=notes,
+                created_by=request.user,
+            )
+        except (ValueError, ArithmeticError, DjangoValidationError) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        project = result["project"]
+        return Response(
+            {
+                "ok": True,
+                "message": (
+                    f"UGX {result['amount']:,.0f} moved from Main Account into {project.name}. "
+                    f"Receipt {result['receipt']}."
+                ),
+                "contribution": {
+                    "amount": money(result["amount"]),
+                    "receipt": result["receipt"],
+                    "projectId": project.pk,
+                    "projectName": project.name,
+                    "alreadyPaid": money(result["already_paid"]),
+                    "notes": result["notes"],
+                },
+                "contributeOptions": result["options"],
+                "dashboard": build_rep_detail_payload(request.user, project),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class RepDetailAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -2258,3 +2535,61 @@ class HelpVideosAPIView(APIView):
             for value, label in HelpVideo.Category.choices
         ]
         return Response({"categories": categories, "videos": videos})
+
+
+class MemberNotificationsAPIView(APIView):
+    """Member inbox for staff announcements (and future system notices)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from accounts.announcement_services import list_notifications_for_user
+
+        try:
+            limit = int(request.query_params.get("limit", 50))
+        except (TypeError, ValueError):
+            limit = 50
+        return Response(list_notifications_for_user(request.user, limit=limit))
+
+
+class MemberNotificationReadAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, notification_id: int):
+        from accounts.announcement_services import (
+            list_notifications_for_user,
+            mark_notification_read,
+        )
+
+        notif = mark_notification_read(request.user, notification_id)
+        if not notif:
+            return Response(
+                {"detail": "Notification not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        try:
+            limit = int(request.data.get("limit") or request.query_params.get("limit", 200))
+        except (TypeError, ValueError):
+            limit = 200
+        payload = list_notifications_for_user(request.user, limit=limit)
+        payload["detail"] = "Marked as read."
+        return Response(payload)
+
+
+class MemberNotificationsReadAllAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from accounts.announcement_services import (
+            list_notifications_for_user,
+            mark_all_notifications_read,
+        )
+
+        updated = mark_all_notifications_read(request.user)
+        try:
+            limit = int(request.data.get("limit") or request.query_params.get("limit", 200))
+        except (TypeError, ValueError):
+            limit = 200
+        payload = list_notifications_for_user(request.user, limit=limit)
+        payload["detail"] = f"Marked {updated} notification(s) as read."
+        return Response(payload)

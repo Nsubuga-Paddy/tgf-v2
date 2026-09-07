@@ -4,7 +4,7 @@ Interest math, monthly redeem ledger, and dashboard DTOs for GWC fixed deposits.
 from __future__ import annotations
 
 from calendar import monthrange
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from math import pow
 from typing import Any
@@ -13,11 +13,27 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 
-from .models import GWCDepositActivity, GWCFixedDeposit, GWCInterestRedemption
+from accounts.models import MemberNotification
+from main_account import services as main_ledger
+
+from .models import (
+    GWC_MONTHLY_REDEEMABLE_THRESHOLD,
+    GWCDepositActivity,
+    GWCFixedDeposit,
+    GWCInterestRedemption,
+)
 
 Q2 = Decimal("0.01")
 ZERO = Decimal("0.00")
 PROJECT_LABEL = "Generational Wealth Creation"
+MIN_DEPOSIT = Decimal("12000000")
+DEFAULT_TENURE_DAYS = 365
+DEFAULT_INTEREST_RATE = Decimal("25")
+DEFAULT_TAX_RATE = Decimal("15")
+
+
+def _q(amount) -> Decimal:
+    return Decimal(amount or 0).quantize(Q2, ROUND_HALF_UP)
 
 
 def tenure_days(start: date, end: date) -> int:
@@ -500,3 +516,104 @@ def recent_activities_for_user(user, limit: int = 25) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+def build_contribute_options(profile) -> dict[str, Any]:
+    available = main_ledger.available_balance(profile)
+    summary = portfolio_summary_for_user(profile.user)
+    return {
+        "availableMain": float(available),
+        "minimumDeposit": int(MIN_DEPOSIT),
+        "monthlyInterestRedeemableThreshold": int(GWC_MONTHLY_REDEEMABLE_THRESHOLD),
+        "tenureDays": DEFAULT_TENURE_DAYS,
+        "interestRate": float(DEFAULT_INTEREST_RATE),
+        "interestMethod": GWCFixedDeposit.InterestMethod.COMPOUND,
+        "compoundingFrequency": GWCFixedDeposit.CompoundingFrequency.ANNUALLY,
+        "payoutStructureDisplay": "At maturity",
+        "totalPrincipal": float(summary.get("total_principal") or 0),
+        "activeDepositCount": GWCFixedDeposit.objects.filter(
+            user=profile.user,
+            status=GWCFixedDeposit.Status.ACTIVE,
+        ).count(),
+        "canContribute": True,
+        "blockMessage": "",
+        "hasProjectAccess": bool(profile.has_project(PROJECT_LABEL)),
+    }
+
+
+@transaction.atomic
+def contribute_from_main_account(
+    profile,
+    amount,
+    *,
+    notes: str = "",
+    created_by=None,
+) -> dict[str, Any]:
+    """Debit Main Account and open a new GWC fixed deposit (min UGX 12,000,000)."""
+    if not profile.has_project(PROJECT_LABEL):
+        raise ValueError("You do not have access to Generational Wealth Creation.")
+
+    amount = _q(amount)
+    if amount <= ZERO:
+        raise ValueError("Enter a valid deposit amount.")
+    if amount < MIN_DEPOSIT:
+        raise ValueError(
+            f"GWC deposits require a minimum of UGX {MIN_DEPOSIT:,.0f}."
+        )
+    if amount > main_ledger.available_balance(profile):
+        raise ValueError("Amount exceeds Main Account available balance.")
+
+    note_text = (notes or "").strip()
+    description = f"GWC fixed deposit of UGX {amount:,.0f} from Main Account."
+    if note_text:
+        description = f"{description} Note: {note_text}"
+
+    today = timezone.localdate()
+    monthly_interest_redeemable = amount >= GWC_MONTHLY_REDEEMABLE_THRESHOLD
+    main_tx = main_ledger.invest_to_project(
+        profile,
+        PROJECT_LABEL,
+        amount,
+        description=description,
+        created_by=created_by or profile.user,
+    )
+
+    deposit = GWCFixedDeposit(
+        user=profile.user,
+        status=GWCFixedDeposit.Status.ACTIVE,
+        receipt_number=main_tx.reference,
+        principal_amount=amount,
+        transaction_date=today,
+        start_date=today,
+        maturity_date=today + timedelta(days=DEFAULT_TENURE_DAYS),
+        interest_rate=DEFAULT_INTEREST_RATE,
+        interest_method=GWCFixedDeposit.InterestMethod.COMPOUND,
+        compounding_frequency=GWCFixedDeposit.CompoundingFrequency.ANNUALLY,
+        payout_structure_display="At maturity",
+        redeemable_monthly_interest=monthly_interest_redeemable,
+        tax_rate=DEFAULT_TAX_RATE,
+        notes=note_text,
+    )
+    deposit.save()
+
+    MemberNotification.objects.create(
+        user=profile.user,
+        source=MemberNotification.Source.SYSTEM,
+        title="GWC deposit posted",
+        body=(
+            f"UGX {amount:,.0f} was moved from your Main Account into a new "
+            f"Generational Wealth Creation fixed deposit ({deposit.deposit_id}). "
+            f"Receipt {main_tx.reference}."
+        ),
+    )
+    return {
+        "transaction": main_tx,
+        "deposit": deposit,
+        "amount": amount,
+        "receipt": main_tx.reference,
+        "deposit_id": deposit.deposit_id,
+        "maturity_date": deposit.maturity_date,
+        "monthly_interest_redeemable": deposit.redeemable_monthly_interest,
+        "notes": note_text,
+        "options": build_contribute_options(profile),
+    }

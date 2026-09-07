@@ -157,7 +157,7 @@ def _cgf_maturity_summary(profile) -> dict:
 
     now = timezone.now()
     # Settled cycles were already transferred to Main Account — exclude them.
-    # Eligible = Fully Paid or Goats Allocated (purchase_date drives the 425-day clock).
+    # Eligible = Fully Paid or Goats Allocated (package duration drives maturity).
     cycles = list(eligible_cycle_queryset(profile, unsettled_only=True))
     matured = [p for p in cycles if is_purchase_matured(p, now=now)]
     active = [p for p in cycles if not is_purchase_matured(p, now=now)]
@@ -174,9 +174,8 @@ def _cgf_maturity_summary(profile) -> dict:
 
     earliest = None
     if matured:
-        dates = [p.purchase_date for p in matured if p.purchase_date]
-        if dates:
-            earliest = maturity_datetime(min(dates))
+        earliest_purchase = min(matured, key=lambda p: (p.purchase_date, p.pk))
+        earliest = maturity_datetime(earliest_purchase)
 
     progress = member_cycle_progress(profile)
 
@@ -226,7 +225,7 @@ def _build_matured_projects(profile, my_projects: list[dict]) -> list[dict]:
             )
         else:
             cycle_line = (
-                f"{matured_n} matured 14-month cycle{'s' if matured_n != 1 else ''} ready"
+                f"{matured_n} matured CGF cycle{'s' if matured_n != 1 else ''} ready"
             )
         matured_on = _format_coop_date(cgf.get("earliest_matured_at"))
         out.append(
@@ -434,13 +433,13 @@ def _build_my_projects(user, profile) -> list[dict]:
                 status_tag = "Matured"
                 status_class = "st-matured"
                 cycle_line = (
-                    f"{matured_n} matured 14-month cycle{'s' if matured_n != 1 else ''}"
+                    f"{matured_n} matured CGF cycle{'s' if matured_n != 1 else ''}"
                 )
             else:
                 status_tag = "Active"
                 status_class = "st-active"
                 cycle_line = (
-                    f"Matures on {next_on}" if next_on else "14-month cycle"
+                    f"Matures on {next_on}" if next_on else "CGF cycle active"
                 )
             cards.append(_card(
                 "Commercial Goat Farming", "fa-horse",

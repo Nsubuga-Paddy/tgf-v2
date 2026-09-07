@@ -1,0 +1,36 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block submit_buttons_bottom %}
+{{ block.super }}
+{% if show_approve_and_disburse %}
+<script>
+(function () {
+  function placeApproveButton() {
+    var row = document.querySelector(".submit-row");
+    if (!row || row.querySelector('input[name="_approve_and_disburse"]')) {
+      return;
+    }
+    var save = row.querySelector('input[name="_save"]');
+    var btn = document.createElement("input");
+    btn.type = "submit";
+    btn.name = "_approve_and_disburse";
+    btn.value = "Save, approve and disburse to Main Account";
+    btn.className = "default";
+    btn.style.background = "#047857";
+    btn.style.borderColor = "#047857";
+    if (save) {
+      save.insertAdjacentElement("afterend", btn);
+    } else {
+      row.prepend(btn);
+    }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", placeApproveButton);
+  } else {
+    placeApproveButton();
+  }
+})();
+</script>
+{% endif %}
+{% endblock %}

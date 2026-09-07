@@ -60,6 +60,15 @@ def pending_realestate_refund_request_count() -> int:
     ).count()
 
 
+def pending_loan_application_count() -> int:
+    """Loan applications submitted but not yet opened/taken into review."""
+    from loans.models import LoanApplication
+
+    return LoanApplication.objects.filter(
+        status=LoanApplication.Status.SUBMITTED,
+    ).count()
+
+
 # (app_label, model object_name) → pending count callable
 # Note: matured project → Main Account transfers are instant (no badge).
 ADMIN_PENDING_BADGE_COUNTERS: dict[tuple[str, str], Callable[[], int]] = {
@@ -72,6 +81,7 @@ ADMIN_PENDING_BADGE_COUNTERS: dict[tuple[str, str], Callable[[], int]] = {
         "realestate_projects",
         "RealEstateProjectActionRequest",
     ): pending_realestate_refund_request_count,
+    ("loans", "LoanApplication"): pending_loan_application_count,
 }
 
 

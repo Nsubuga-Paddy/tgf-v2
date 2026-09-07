@@ -299,16 +299,6 @@ export const OTHER_PROJECTS = [
     requestStatus: null,
   },
   {
-    id: 'loans',
-    name: 'Member Loans',
-    icon: 'hand',
-    summary: 'Access cooperative credit against your savings and shareholding.',
-    rate: 'From 1.5% / month',
-    minEntry: 'Based on eligibility',
-    cycle: '3 – 24 month terms',
-    requestStatus: null,
-  },
-  {
     id: 'tbills',
     name: 'Treasury Bills',
     icon: 'landmark',

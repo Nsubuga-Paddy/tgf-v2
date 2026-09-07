@@ -1,0 +1,25 @@
+Hello {{ first_name }},
+
+{{ thanks_note }}
+
+Good news — you have project funds that are ready for action on your MCS member portal.
+
+{% if account_number %}Your MCS account number: {{ account_number }}
+{% endif %}
+{% for item in items %}
+{{ forloop.counter }}. {{ item.title }}
+   Amount: {{ item.amount_label }}
+   {{ item.detail }}
+   Next steps:
+{% for action in item.actions %}   - {{ action }}
+{% endfor %}
+{% endfor %}
+Sign in to take action:
+{{ login_url }}
+
+After transferring project funds to your Main Account, you can submit a withdrawal from Main Account when you are ready.
+
+If you already completed these steps, you can ignore this message.
+
+— Mushana Multipurpose Cooperative Society (MCS)
+{{ site_url }}
