@@ -1,0 +1,21 @@
+Hello {{ user.first_name|default:user.get_username }},
+
+This is a monthly reminder that your MCS loan {{ loan_reference }} is still overdue.
+
+Outstanding balance: UGX {{ outstanding_display }}
+Continuing interest so far: UGX {{ arrears_interest_display }}
+Interest rate: {{ rate_display }} on the original principal
+
+New loan applications remain blocked until this loan is fully paid. Interest continues until principal and all interest are cleared.
+
+Please repay from your Main Account or by bank transfer.
+
+View your loan:
+{{ loan_url }}
+
+{% if account_number %}Your MCS account number: {{ account_number }}
+{% endif %}Sign in here:
+{{ login_url }}
+
+— Mushana Multipurpose Cooperative Society (MCS)
+{{ site_url }}

@@ -226,6 +226,32 @@ def reject_refund_request(action_request, *, admin=None, admin_notes=""):
     return action_request
 
 
+def member_is_fully_paid(user, project) -> bool:
+    return RealEstateProjectTransaction.objects.filter(
+        user=user,
+        project=project,
+        payment_status=RealEstateProjectTransaction.PAYMENT_STATUS_FULL,
+    ).exists()
+
+
+def member_remaining_balance(user, project):
+    """Staff-recorded remaining balance, or zero when already fully paid.
+
+    Returns None when no remaining figure has been recorded yet.
+    """
+    if member_is_fully_paid(user, project):
+        return ZERO
+    latest = (
+        RealEstateProjectTransaction.objects.filter(user=user, project=project)
+        .order_by("-created_at", "-pk")
+        .first()
+    )
+    if latest is None or latest.balance_after is None:
+        return None
+    remaining = _q(latest.balance_after)
+    return remaining if remaining > ZERO else ZERO
+
+
 def investable_projects(user):
     """Running Real Estate projects the member already has access to."""
     return (
@@ -246,6 +272,7 @@ def _rep_date_label(value) -> str:
 
 def serialize_investable_project(user, project) -> dict:
     paid = paid_amount(user, project)
+    remaining = member_remaining_balance(user, project)
     unit = (project.land_size_unit or "").strip()
     land_size_label = ""
     if project.land_size is not None:
@@ -263,19 +290,28 @@ def serialize_investable_project(user, project) -> dict:
         "landSizeUnit": unit,
         "landSizeLabel": land_size_label,
         "alreadyPaid": float(paid),
+        "remainingBalance": float(remaining) if remaining is not None else None,
+        "fullyPaid": remaining == ZERO,
     }
 
 
 def build_contribute_options(profile) -> dict:
     user = profile.user
     available = main_ledger.available_balance(profile)
-    projects = [serialize_investable_project(user, project) for project in investable_projects(user)]
+    projects = []
+    for project in investable_projects(user):
+        remaining = member_remaining_balance(user, project)
+        if remaining is not None and remaining <= ZERO:
+            continue
+        if member_is_fully_paid(user, project):
+            continue
+        projects.append(serialize_investable_project(user, project))
     can_contribute = bool(projects)
     block_message = ""
     if not can_contribute:
         block_message = (
             "You do not have an open Real Estate project to pay into yet. "
-            "Join a running project first."
+            "Join a running project first, or this project is already fully paid."
         )
     return {
         "availableMain": float(available),
@@ -305,12 +341,17 @@ def contribute_from_main_account(
         raise ValueError(
             "Select a running Real Estate project you already have access to."
         )
+    if member_is_fully_paid(profile.user, project):
+        raise ValueError("This project is already fully paid.")
 
     amount = _q(amount)
     if amount <= ZERO:
         raise ValueError("Enter a valid contribution amount.")
     if amount > main_ledger.available_balance(profile):
         raise ValueError("Amount exceeds Main Account available balance.")
+    remaining = member_remaining_balance(profile.user, project)
+    if remaining is not None and amount > remaining:
+        raise ValueError("Amount exceeds the remaining balance on this project.")
 
     note_text = (notes or "").strip()
     description = (
@@ -327,23 +368,42 @@ def contribute_from_main_account(
         created_by=created_by or profile.user,
     )
     paid_after = paid_amount(profile.user, project) + amount
+    payment_status = RealEstateProjectTransaction.PAYMENT_STATUS_PARTIAL
+    balance_after = None
+    fully_paid = False
+    if remaining is not None:
+        balance_after = remaining - amount
+        if balance_after <= ZERO:
+            balance_after = ZERO
+            payment_status = RealEstateProjectTransaction.PAYMENT_STATUS_FULL
+            fully_paid = True
     project_tx = RealEstateProjectTransaction.objects.create(
         project=project,
         user=profile.user,
         amount=amount,
         type=RealEstateProjectTransaction.TYPE_PAYMENT,
-        payment_status=RealEstateProjectTransaction.PAYMENT_STATUS_PARTIAL,
+        payment_status=payment_status,
         note=note_text or f"Paid from Main Account. Receipt {main_tx.reference}.",
         transaction_date=timezone.localdate(),
+        balance_after=balance_after,
     )
+    if fully_paid:
+        notify_title = "Real Estate project fully paid"
+        notify_body = (
+            f"UGX {amount:,.0f} completed payment for {project.name} from Main Account. "
+            f"Receipt {main_tx.reference}."
+        )
+    else:
+        notify_title = "Real Estate contribution posted"
+        notify_body = (
+            f"UGX {amount:,.0f} was moved from your Main Account into {project.name}. "
+            f"Receipt {main_tx.reference}."
+        )
     MemberNotification.objects.create(
         user=profile.user,
         source=MemberNotification.Source.SYSTEM,
-        title="Real Estate contribution posted",
-        body=(
-            f"UGX {amount:,.0f} was moved from your Main Account into {project.name}. "
-            f"Receipt {main_tx.reference}."
-        ),
+        title=notify_title,
+        body=notify_body,
     )
     return {
         "transaction": main_tx,
@@ -352,6 +412,8 @@ def contribute_from_main_account(
         "amount": amount,
         "receipt": main_tx.reference,
         "already_paid": paid_after,
+        "remaining": balance_after,
+        "fully_paid": fully_paid,
         "notes": note_text,
         "options": build_contribute_options(profile),
     }

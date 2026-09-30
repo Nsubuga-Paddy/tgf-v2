@@ -4,6 +4,7 @@ import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -14,12 +15,14 @@ from main_account.models import MainAccountTransaction
 from .emails import send_loan_disbursement_email
 from .models import (
     DEFAULT_MONTHLY_INTEREST_RATE,
+    LOAN_GRACE_DAYS,
     LOAN_INSURANCE_FEE_RATE,
     LOAN_PROCESSING_FEE,
     MAX_BORROWING_LIMIT,
     MIN_BORROWING_AMOUNT,
     STAFF_MONTHLY_INTEREST_RATE,
     LoanApplication,
+    LoanArrearsCharge,
     LoanInstallment,
     LoanRepayment,
     MemberLoan,
@@ -132,31 +135,153 @@ def create_installment_schedule(loan: MemberLoan) -> None:
     LoanInstallment.objects.bulk_create(rows)
 
 
-def refresh_installment_statuses(loan: MemberLoan) -> None:
+def grace_days() -> int:
+    try:
+        days = int(getattr(settings, "LOAN_GRACE_DAYS", LOAN_GRACE_DAYS) or LOAN_GRACE_DAYS)
+    except (TypeError, ValueError):
+        days = LOAN_GRACE_DAYS
+    return max(0, days)
+
+
+def last_scheduled_due(loan: MemberLoan):
+    last = loan.installments.order_by("-installment_number").first()
+    return last.due_date if last else None
+
+
+def monthly_original_interest(loan: MemberLoan) -> Decimal:
+    return q(q(loan.principal) * q_rate(loan.monthly_interest_rate))
+
+
+def _post_arrears_charge(loan: MemberLoan, amount, accrued_on) -> None:
+    amount = q(amount)
+    loan.arrears_interest = q(q(loan.arrears_interest) + amount)
+    loan.outstanding = q(q(loan.outstanding) + amount)
+    loan.last_arrears_accrual_date = accrued_on
+    loan.save(
+        update_fields=[
+            "arrears_interest",
+            "outstanding",
+            "last_arrears_accrual_date",
+            "updated_at",
+        ]
+    )
+    LoanArrearsCharge.objects.create(loan=loan, amount=amount, accrued_on=accrued_on)
+
+
+def accrue_arrears_interest(loan: MemberLoan, today=None) -> int:
+    """Charge original-principal monthly interest after the agreed term + grace. No cap."""
+    today = today or timezone.localdate()
+    if loan.status in {MemberLoan.Status.CLOSED, MemberLoan.Status.WRITTEN_OFF}:
+        return 0
+    if q(loan.outstanding) <= ZERO:
+        return 0
+    last_due = last_scheduled_due(loan)
+    if not last_due:
+        return 0
+    extra_start = last_due + timedelta(days=grace_days())
+    if today <= extra_start:
+        return 0
+    charge = monthly_original_interest(loan)
+    if charge <= ZERO:
+        return 0
+
+    posted = 0
+    if loan.last_arrears_accrual_date is None:
+        first_on = extra_start + timedelta(days=1)
+        if first_on > today:
+            return 0
+        _post_arrears_charge(loan, charge, first_on)
+        posted += 1
+    next_on = add_months(loan.last_arrears_accrual_date, 1)
+    while next_on <= today and q(loan.outstanding) > ZERO:
+        _post_arrears_charge(loan, charge, next_on)
+        posted += 1
+        next_on = add_months(loan.last_arrears_accrual_date, 1)
+    return posted
+
+
+def refresh_installment_statuses(loan: MemberLoan, today=None) -> None:
+    today = today or timezone.localdate()
     installments = list(loan.installments.order_by("installment_number"))
-    repaid = q(loan.repayments.aggregate_total if hasattr(loan.repayments, "aggregate_total") else ZERO)
     repaid = q(sum((payment.amount for payment in loan.repayments.all()), ZERO))
     paid_count = 0
     running = ZERO
+    in_arrears = False
+    overdue_since_candidate = None
+    grace = grace_days()
     for installment in installments:
         running = q(running + installment.total_amount)
         if repaid >= running:
             installment.status = LoanInstallment.Status.PAID
             paid_count += 1
-        elif paid_count == installment.installment_number - 1:
+        elif installment.due_date + timedelta(days=grace) < today:
+            installment.status = LoanInstallment.Status.OVERDUE
+            in_arrears = True
+            first_overdue_day = installment.due_date + timedelta(days=grace + 1)
+            if overdue_since_candidate is None or first_overdue_day < overdue_since_candidate:
+                overdue_since_candidate = first_overdue_day
+        elif installment.due_date <= today:
             installment.status = LoanInstallment.Status.DUE
         else:
             installment.status = LoanInstallment.Status.UPCOMING
-    LoanInstallment.objects.bulk_update(installments, ["status"])
+    if installments:
+        LoanInstallment.objects.bulk_update(installments, ["status"])
     loan.paid_installments = paid_count
-    if loan.outstanding <= ZERO:
+
+    last_due = installments[-1].due_date if installments else None
+    if last_due and q(loan.outstanding) > ZERO and today > last_due + timedelta(days=grace):
+        in_arrears = True
+        first_overdue_day = last_due + timedelta(days=grace + 1)
+        if overdue_since_candidate is None:
+            overdue_since_candidate = first_overdue_day
+
+    update_fields = ["paid_installments", "status", "closed_date", "overdue_since", "updated_at"]
+    if q(loan.outstanding) <= ZERO:
         loan.status = MemberLoan.Status.CLOSED
         loan.closed_date = timezone.localdate()
+        loan.overdue_since = None
         for installment in installments:
             installment.status = LoanInstallment.Status.PAID
-        LoanInstallment.objects.bulk_update(installments, ["status"])
+        if installments:
+            LoanInstallment.objects.bulk_update(installments, ["status"])
         loan.paid_installments = len(installments)
-    loan.save(update_fields=["paid_installments", "status", "closed_date", "updated_at"])
+    elif loan.status == MemberLoan.Status.WRITTEN_OFF:
+        pass
+    elif in_arrears:
+        loan.status = MemberLoan.Status.OVERDUE
+        if not loan.overdue_since:
+            loan.overdue_since = overdue_since_candidate or today
+    else:
+        was_overdue = loan.status == MemberLoan.Status.OVERDUE
+        loan.status = MemberLoan.Status.ACTIVE
+        loan.overdue_since = None
+        if was_overdue:
+            loan.first_overdue_notice_at = None
+            loan.last_member_reminder_at = None
+            update_fields.extend(["first_overdue_notice_at", "last_member_reminder_at"])
+    loan.save(update_fields=update_fields)
+
+
+def sync_open_loan(loan: MemberLoan, today=None) -> MemberLoan:
+    today = today or timezone.localdate()
+    refresh_installment_statuses(loan, today=today)
+    loan.refresh_from_db()
+    if loan.status in {MemberLoan.Status.ACTIVE, MemberLoan.Status.OVERDUE}:
+        accrue_arrears_interest(loan, today=today)
+        loan.refresh_from_db()
+        refresh_installment_statuses(loan, today=today)
+        loan.refresh_from_db()
+    return loan
+
+
+def sync_member_loans(profile, today=None) -> None:
+    today = today or timezone.localdate()
+    loans = MemberLoan.objects.filter(
+        user_profile=profile,
+        status__in=[MemberLoan.Status.ACTIVE, MemberLoan.Status.OVERDUE],
+    ).prefetch_related("installments", "repayments")
+    for loan in loans:
+        sync_open_loan(loan, today=today)
 
 
 def rate_for_profile(profile) -> Decimal:
@@ -223,12 +348,13 @@ def calculate_eligibility(profile) -> dict:
     has_savings_amount = savings_total >= QUALIFYING_SAVINGS_AMOUNT
     has_savings = has_one_year_savings and has_savings_amount
     has_project_or_savings = has_active_projects or has_savings or savings_total > ZERO
+    sync_member_loans(profile)
     has_overdue = profile.member_loans.filter(status=MemberLoan.Status.OVERDUE).exists()
     is_verified = bool(profile.is_verified)
     is_staff = bool(getattr(profile, "is_mcs_staff", False))
     suggested_rate = rate_for_profile(profile)
 
-    # Hard blockers only: verification, personal details, and bank details.
+    # Hard blockers: verification, personal details, bank details, and overdue loans.
     hard_blockers = []
     if not is_verified:
         hard_blockers.append(
@@ -258,6 +384,19 @@ def calculate_eligibility(profile) -> dict:
                 "detail": "Bank name, account number, and account name are required for loan disbursement records.",
                 "ctaLabel": "Complete bank details",
                 "ctaTo": "/profile",
+            }
+        )
+    if has_overdue:
+        hard_blockers.append(
+            {
+                "id": "overdue",
+                "label": "Clear overdue loan payments first",
+                "detail": (
+                    "You have at least one overdue MCS loan. New applications are blocked "
+                    "until the overdue loan is fully paid, including continuing interest."
+                ),
+                "ctaLabel": "View active loans",
+                "ctaTo": "/loans",
             }
         )
     core_ready = not hard_blockers
@@ -341,7 +480,7 @@ def calculate_eligibility(profile) -> dict:
                 "id": "repayment",
                 "label": "Good repayment history",
                 "met": not has_overdue,
-                "soft": True,
+                "soft": False,
                 "detail": "Clear overdue loan payments first" if has_overdue else "No overdue MCS loans",
             },
             {
@@ -417,7 +556,16 @@ def calculate_eligibility(profile) -> dict:
     }
 
 
-def create_application(profile, *, purpose, amount, term_months, repayment_source, notes="") -> LoanApplication:
+def create_application(
+    profile,
+    *,
+    purpose,
+    amount,
+    term_months,
+    repayment_source,
+    notes="",
+    auto_debit=False,
+) -> LoanApplication:
     amount = q(amount)
     term_months = int(term_months)
     if amount < MIN_BORROWING_AMOUNT:
@@ -441,6 +589,7 @@ def create_application(profile, *, purpose, amount, term_months, repayment_sourc
         term_months=term_months,
         repayment_source=repayment_source,
         notes=notes or "",
+        auto_debit=bool(auto_debit),
         monthly_interest_rate=rate_for_profile(profile),
     )
     _notify(
@@ -547,6 +696,7 @@ def approve_and_disburse(application: LoanApplication, *, admin=None, note: str 
         installment_amount=installment,
         disbursed_date=today,
         first_due_date=add_months(today, 1),
+        auto_debit=bool(app.auto_debit),
         created_by=admin,
     )
     tx = main_ledger.post_transaction(
@@ -639,7 +789,14 @@ def _apply_repayment(loan: MemberLoan, amount: Decimal) -> None:
 
 
 @transaction.atomic
-def repay_from_main_account(profile, loan_id, amount, *, notes: str = "") -> LoanRepayment:
+def repay_from_main_account(
+    profile,
+    loan_id,
+    amount,
+    *,
+    notes: str = "",
+    method: str | None = None,
+) -> LoanRepayment:
     amount = q(amount)
     if amount <= ZERO:
         raise ValueError("Enter a valid repayment amount.")
@@ -669,7 +826,7 @@ def repay_from_main_account(profile, loan_id, amount, *, notes: str = "") -> Loa
         loan=loan,
         amount=amount,
         outstanding_after=outstanding_after,
-        method=LoanRepayment.Method.MAIN_ACCOUNT,
+        method=method or LoanRepayment.Method.MAIN_ACCOUNT,
         reference=generate_reference("LR"),
         main_account_transaction=tx,
         notes=note_text,
@@ -721,3 +878,34 @@ def record_bank_repayment(
         f"MCS staff posted your bank transfer repayment of UGX {amount:,.0f} to {loan.reference}.",
     )
     return repayment
+
+
+def set_auto_debit(profile, loan_id, enabled: bool) -> MemberLoan:
+    loan = MemberLoan.objects.get(pk=loan_id, user_profile=profile)
+    if loan.status not in {MemberLoan.Status.ACTIVE, MemberLoan.Status.OVERDUE}:
+        raise ValueError("Auto-debit can only be changed on an open loan.")
+    enabled = bool(enabled)
+    if loan.auto_debit == enabled:
+        return loan
+    loan.auto_debit = enabled
+    loan.save(update_fields=["auto_debit", "updated_at"])
+    if enabled:
+        _notify(
+            profile.user,
+            "Loan auto-debit turned on",
+            (
+                f"MCS will debit the monthly installment for {loan.reference} from your Main Account "
+                "on each due date. You can turn this off at any time from the loan page. "
+                "If the account has too little credit, the debit will fail and you will be notified."
+            ),
+        )
+    else:
+        _notify(
+            profile.user,
+            "Loan auto-debit turned off",
+            (
+                f"Automatic Main Account debit for {loan.reference} is off. "
+                "You remain responsible for paying on time. Missed payments still go overdue after 7 days."
+            ),
+        )
+    return loan

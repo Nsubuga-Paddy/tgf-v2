@@ -2440,6 +2440,11 @@ a {
   color: var(--ink);
 }
 
+.modal-close:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .modal-body {
   padding: 0.25rem 0;
   overflow-y: auto;
@@ -4087,6 +4092,39 @@ a {
   color: var(--ink-faint);
 }
 
+.loans-autodebit-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.05rem;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  cursor: pointer;
+}
+
+.loans-autodebit-option.selected {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand-soft) 55%, var(--bg-elevated));
+}
+
+.loans-autodebit-option input {
+  margin-top: 0.2rem;
+}
+
+.loans-autodebit-option b {
+  display: block;
+  font-size: 0.88rem;
+}
+
+.loans-autodebit-option span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  line-height: 1.45;
+}
+
 .loans-apply-notes-field {
   gap: 0.55rem;
   padding: 1rem;
@@ -5623,6 +5661,16 @@ a {
 
 .profile-form-body {
   padding: 1rem 1.15rem !important;
+}
+
+.profile-form-error {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg));
+  color: var(--danger);
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .profile-form-grid {
@@ -8788,6 +8836,7 @@ a {
   min-width: 0;
   margin: 0 auto;
   overflow-x: clip;
+  overflow-anchor: none;
   box-sizing: border-box;
 }
 

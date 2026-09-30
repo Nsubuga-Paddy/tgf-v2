@@ -145,6 +145,19 @@ export function LoansProvider({ children }) {
     [addToast, applyPayload, authFetch, reloadDashboard],
   )
 
+  const setLoanAutoDebit = useCallback(
+    async (loanId, enabled) => {
+      const data = await authFetch(`/api/projects/loans/facilities/${loanId}/`, {
+        method: 'PATCH',
+        body: { autoDebit: Boolean(enabled) },
+      })
+      applyPayload(data)
+      addToast(data.message || (enabled ? 'Auto-debit is on.' : 'Auto-debit is off.'))
+      return data.loan
+    },
+    [addToast, applyPayload, authFetch],
+  )
+
   const value = useMemo(
     () => ({
       eligibility,
@@ -160,6 +173,7 @@ export function LoansProvider({ children }) {
       getApplication,
       getLoan,
       submitLoanRepayment,
+      setLoanAutoDebit,
       applicationStatusLabels: APPLICATION_STATUS_LABELS,
     }),
     [
@@ -176,6 +190,7 @@ export function LoansProvider({ children }) {
       getApplication,
       getLoan,
       submitLoanRepayment,
+      setLoanAutoDebit,
     ],
   )
 

@@ -85,6 +85,5 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Done."))
         if not dry_run:
             self.stdout.write(
-                "Schedule this command daily in production so members are notified "
-                "when projects mature or GWC interest becomes redeemable, and on their birthday."
+                "In production, run this as part of: python manage.py run_daily_jobs"
             )

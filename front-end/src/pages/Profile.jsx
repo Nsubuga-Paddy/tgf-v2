@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronDown,
@@ -96,10 +96,15 @@ export default function Profile() {
   const [editPersonalOpen, setEditPersonalOpen] = useState(false)
   const [editBankOpen, setEditBankOpen] = useState(false)
   const [localToast, setLocalToast] = useState(null)
+  const editingRef = useRef(false)
+  const profileWriteGen = useRef(0)
+  editingRef.current = editPersonalOpen || editBankOpen
 
   useEffect(() => {
-    if (memberProfile) setProfile(memberProfile)
-  }, [memberProfile])
+    if (!memberProfile) return
+    if (editPersonalOpen || editBankOpen) return
+    setProfile(memberProfile)
+  }, [memberProfile, editPersonalOpen, editBankOpen])
 
   useEffect(() => {
     if (memberShareholding) setProfileShareholding(memberShareholding)
@@ -107,10 +112,13 @@ export default function Profile() {
 
   useEffect(() => {
     let alive = true
+    const gen = profileWriteGen.current
     authFetch('/api/profile/')
       .then((data) => {
         if (!alive) return
-        setProfile(data.profile || EMPTY_PROFILE)
+        if (!editingRef.current && gen === profileWriteGen.current) {
+          setProfile(data.profile || EMPTY_PROFILE)
+        }
         setGrantedProjects(data.grantedProjects || [])
         setRequestableProjects(data.requestableProjects || [])
         setAccessRequests(data.projectAccessRequests || [])
@@ -398,8 +406,9 @@ export default function Profile() {
         profile={profile}
         onSave={async (next) => {
           const data = await authFetch('/api/profile/', { method: 'PATCH', body: next })
+          profileWriteGen.current += 1
           setProfile(data.profile)
-          await reloadDashboard()
+          await reloadDashboard({ silent: true })
           flash('Personal information updated')
         }}
       />
@@ -409,8 +418,9 @@ export default function Profile() {
         profile={profile}
         onSave={async (next) => {
           const data = await authFetch('/api/profile/', { method: 'PATCH', body: next })
+          profileWriteGen.current += 1
           setProfile(data.profile)
-          await reloadDashboard()
+          await reloadDashboard({ silent: true })
           flash('Bank details updated')
         }}
       />

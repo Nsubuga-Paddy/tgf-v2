@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
@@ -230,6 +230,14 @@ export default function AppShell({ children, title = 'Home' }) {
       loadNotifications()
     }
   }, [location.pathname, loadNotifications])
+
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+    const main = document.querySelector('main.content')
+    if (main) main.scrollTop = 0
+  }, [location.pathname])
 
   return (
     <div className={`shell ${sidebarVisible ? 'sidebar-open' : 'sidebar-collapsed'}`}>

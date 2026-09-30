@@ -20,7 +20,7 @@ export const LOAN_POLICY = {
     'Repay from available Main Account balance.',
     'Pay by bank transfer to the MCS account — then share your receipt with MCS staff to update your loan.',
     'Interest and schedules are shown on each active loan.',
-    'Overdue loans may affect future eligibility until cleared.',
+    'Overdue loans block new applications until fully paid. Interest continues on the original principal after the agreed term.',
   ],
 }
 
@@ -298,13 +298,14 @@ export function computeDemoEligibility({
       ctaTo: '/profile',
     })
   }
-  if (!hasActiveProjects) {
+  if (hasOverdue) {
     hardBlockers.push({
-      id: 'active_projects',
-      label: 'No active MCS project access',
-      detail: 'You need at least one active MCS project/access relationship before applying.',
-      ctaLabel: 'View project access',
-      ctaTo: '/profile',
+      id: 'overdue',
+      label: 'Clear overdue loan payments first',
+      detail:
+        'You have at least one overdue MCS loan. New applications are blocked until the overdue loan is fully paid, including continuing interest.',
+      ctaLabel: 'View active loans',
+      ctaTo: '/loans',
     })
   }
 

@@ -1,0 +1,20 @@
+Hello {{ user.first_name|default:user.get_username }},
+
+MCS could not automatically debit your Main Account for loan {{ loan_reference }}.
+
+Attempted debit: UGX {{ amount_display }}
+Available Main Account balance: UGX {{ available_display }}
+
+The auto-debit failed because there was insufficient credit on your Main Account. Please add funds and repay, or pay by bank transfer. If the installment stays unpaid past the 7-day grace period, the loan becomes overdue and interest continues.
+
+You can turn auto-debit off from the loan page at any time.
+
+View your loan:
+{{ loan_url }}
+
+{% if account_number %}Your MCS account number: {{ account_number }}
+{% endif %}Sign in here:
+{{ login_url }}
+
+— Mushana Multipurpose Cooperative Society (MCS)
+{{ site_url }}

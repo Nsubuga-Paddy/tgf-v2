@@ -94,6 +94,10 @@ export default function LoanApplicationDetail() {
             <span>Repayment plan</span>
             <b>{REPAYMENT_LABELS[application.repaymentSource] || application.repaymentSource}</b>
           </div>
+          <div>
+            <span>Monthly auto-debit</span>
+            <b>{application.autoDebit ? 'Yes' : 'No'}</b>
+          </div>
         </div>
 
         <section className="loans-section">

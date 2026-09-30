@@ -215,9 +215,26 @@ class PackagePurchase(models.Model):
             return 0
         return (self.amount_paid / self.total_amount) * 100
 
+    def start_cycle_if_first_full_payment(self) -> bool:
+        """Start the production cycle the day the package is first fully paid.
+
+        Goats are allocated then, and purchase_date becomes the cycle start.
+        Already allocated / backdated completed cycles are left unchanged.
+        """
+        if not self.is_fully_paid:
+            return False
+        if int(self.goats_allocated or 0) > 0 or self.status == "allocated":
+            return False
+        self.purchase_date = timezone.now()
+        self.status = "paid"
+        self.save(update_fields=["purchase_date", "status"])
+        return bool(self.allocate_goats_to_accounts())
+
     def allocate_goats_to_accounts(self):
         """Automatically allocate goats to user's account in the farm"""
         if not self.is_fully_paid:
+            return False
+        if int(self.goats_allocated or 0) > 0:
             return False
 
         goats_to_allocate = self.package.goat_count
@@ -294,8 +311,10 @@ class Payment(models.Model):
             self.purchase.status = 'partial'
         else:
             self.purchase.status = 'pending'
-            
+
         self.purchase.save()
+        if self.purchase.is_fully_paid and int(self.purchase.goats_allocated or 0) == 0:
+            self.purchase.start_cycle_if_first_full_payment()
 
 
 class CGFActionRequest(models.Model):

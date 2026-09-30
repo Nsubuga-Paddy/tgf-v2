@@ -1,0 +1,17 @@
+MCS overdue loans digest
+
+{{ count }} loan(s) are currently overdue.
+
+{% for row in rows %}
+- {{ row.member }} ({{ row.account_number }})
+  Loan: {{ row.loan_reference }}
+  Outstanding: UGX {{ row.outstanding }}
+  Continuing interest: UGX {{ row.arrears_interest }}
+  Overdue since: {{ row.overdue_since }}
+  Auto-debit: {{ row.auto_debit }}
+  Email: {{ row.email }}
+{% endfor %}
+
+This list is sent monthly to LOAN_STAFF_EMAILS. Open Django admin → Member loans and filter by Overdue.
+
+{{ site_url }}

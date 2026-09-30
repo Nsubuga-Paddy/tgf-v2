@@ -857,13 +857,18 @@ class ProfileAPIView(APIView):
             if attr in data:
                 setattr(profile, field, (data.get(attr) or "").strip() or None)
         if "whatsapp" in data:
-            profile.whatsapp_number = (data.get("whatsapp") or "").strip()
+            profile.whatsapp_number = (
+                str(data.get("whatsapp") or "").strip().replace(" ", "").replace("-", "")
+            )
         if "birthdate" in data:
             value = (data.get("birthdate") or "").strip()
             try:
                 profile.birthdate = date.fromisoformat(value) if value else None
             except ValueError:
-                pass
+                return Response(
+                    {"detail": "Date of birth must be YYYY-MM-DD."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         try:
             profile.full_clean(exclude=["photo"])
         except DjangoValidationError as exc:
@@ -1306,10 +1311,10 @@ def build_cgf_member_payload(profile) -> dict:
                     else 14
                 ),
                 "purchaseDate": date_label(purchase.purchase_date),
-                "maturityDate": date_label(matures_at) if matures_at else "",
+                "maturityDate": date_label(matures_at) if eligible else "",
                 "maturityDateIso": (
                     to_cooperative_datetime(matures_at).date().isoformat()
-                    if matures_at
+                    if eligible and matures_at
                     else ""
                 ),
                 "progressPct": (
@@ -1318,6 +1323,7 @@ def build_cgf_member_payload(profile) -> dict:
                     else (100 if purchase.settled_at else 0)
                 ),
                 "isMatured": matured,
+                "cycleStartsOnFullPayment": purchase.status in ("pending", "partial"),
                 "daysUntilMaturity": days_left,
                 "settledAt": date_label(purchase.settled_at) if purchase.settled_at else "",
             }
@@ -1464,11 +1470,13 @@ class CgfPurchaseFromMainAPIView(APIView):
             )
         data = request.data or {}
         notes = (data.get("notes") or "").strip()
+        raw_amount = data.get("amount")
         try:
             result = purchase_package_from_main_account(
                 profile,
                 package_id=data.get("packageId") or data.get("package_id"),
                 quantity=data.get("quantity") or 1,
+                amount=raw_amount,
                 notes=notes,
                 created_by=request.user,
             )
@@ -1477,14 +1485,22 @@ class CgfPurchaseFromMainAPIView(APIView):
 
         package = result["package"]
         qty = int(result["quantity"])
+        if result.get("is_partial"):
+            message = (
+                f"UGX {result['amount']:,.0f} posted toward {package.name} from Main Account. "
+                f"Remaining UGX {result['remaining']:,.0f}. The cycle starts when this package "
+                f"is fully paid. Receipt {result['receipt']}."
+            )
+        else:
+            message = (
+                f"UGX {result['amount']:,.0f} used to buy {qty} "
+                f"{package.name} package{'s' if qty != 1 else ''} from Main Account. "
+                f"Cycle started. Receipt {result['receipt']}."
+            )
         return Response(
             {
                 "ok": True,
-                "message": (
-                    f"UGX {result['amount']:,.0f} used to buy {qty} "
-                    f"{package.name} package{'s' if qty != 1 else ''} from Main Account. "
-                    f"Receipt {result['receipt']}."
-                ),
+                "message": message,
                 "purchase": {
                     "amount": money(result["amount"]),
                     "quantity": qty,
@@ -1494,6 +1510,73 @@ class CgfPurchaseFromMainAPIView(APIView):
                     "farmName": result["farm"].name,
                     "receipt": result["receipt"],
                     "notes": result["notes"],
+                    "isPartial": bool(result.get("is_partial")),
+                    "cycleStarted": bool(result.get("cycle_started")),
+                    "remaining": money(result.get("remaining")),
+                },
+                "purchaseOptions": result["options"],
+                "dashboard": build_cgf_member_payload(profile),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class CgfPayRemainingFromMainAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from goat_farming.services import pay_remaining_from_main_account
+
+        profile = request.user.profile
+        if not profile.has_project(PROJECT_CGF):
+            return Response(
+                {"detail": "You do not have access to Commercial Goat Farming."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        data = request.data or {}
+        notes = (data.get("notes") or "").strip()
+        try:
+            amount = Decimal(str(data.get("amount") or "0").replace(",", ""))
+            result = pay_remaining_from_main_account(
+                profile,
+                purchase_id=data.get("purchaseId") or data.get("purchase_id"),
+                amount=amount,
+                notes=notes,
+                created_by=request.user,
+            )
+        except (ValueError, ArithmeticError, DjangoValidationError) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        package = result["package"]
+        package_name = package.name if package else "CGF package"
+        if result.get("cycle_started"):
+            message = (
+                f"UGX {result['amount']:,.0f} completed {package_name} from Main Account. "
+                f"Goats allocated and cycle started. Receipt {result['receipt']}."
+            )
+        else:
+            message = (
+                f"UGX {result['amount']:,.0f} posted toward {package_name} from Main Account. "
+                f"Remaining UGX {result['remaining']:,.0f}. The cycle starts when this package "
+                f"is fully paid. Receipt {result['receipt']}."
+            )
+        purchase = result["purchase"]
+        return Response(
+            {
+                "ok": True,
+                "message": message,
+                "purchase": {
+                    "amount": money(result["amount"]),
+                    "quantity": 1,
+                    "packageId": package.pk if package else None,
+                    "packageName": package_name,
+                    "purchaseId": purchase.pk,
+                    "farmName": result["farm"].name if result.get("farm") else "",
+                    "receipt": result["receipt"],
+                    "notes": result["notes"],
+                    "isPartial": bool(result.get("is_partial")),
+                    "cycleStarted": bool(result.get("cycle_started")),
+                    "remaining": money(result.get("remaining")),
                 },
                 "purchaseOptions": result["options"],
                 "dashboard": build_cgf_member_payload(profile),
@@ -2186,19 +2269,30 @@ class RepContributeFromMainAPIView(APIView):
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         project = result["project"]
+        if result.get("fully_paid"):
+            message = (
+                f"UGX {result['amount']:,.0f} completed payment for {project.name} from Main Account. "
+                f"Receipt {result['receipt']}."
+            )
+        else:
+            message = (
+                f"UGX {result['amount']:,.0f} moved from Main Account into {project.name}. "
+                f"Receipt {result['receipt']}."
+            )
         return Response(
             {
                 "ok": True,
-                "message": (
-                    f"UGX {result['amount']:,.0f} moved from Main Account into {project.name}. "
-                    f"Receipt {result['receipt']}."
-                ),
+                "message": message,
                 "contribution": {
                     "amount": money(result["amount"]),
                     "receipt": result["receipt"],
                     "projectId": project.pk,
                     "projectName": project.name,
                     "alreadyPaid": money(result["already_paid"]),
+                    "remaining": money(result["remaining"])
+                    if result.get("remaining") is not None
+                    else None,
+                    "fullyPaid": bool(result.get("fully_paid")),
                     "notes": result["notes"],
                 },
                 "contributeOptions": result["options"],

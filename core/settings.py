@@ -252,6 +252,14 @@ else:
     DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default=_MCSUG_NOREPLY)
     EMAIL_TIMEOUT = 10  # seconds; avoids worker hanging if SMTP is unreachable
 
+# Loan arrears: 7-day grace, then overdue. Monthly staff digest goes to LOAN_STAFF_EMAILS.
+LOAN_GRACE_DAYS = config("LOAN_GRACE_DAYS", default=7, cast=int)
+LOAN_STAFF_EMAILS = [
+    email.strip()
+    for email in config("LOAN_STAFF_EMAILS", default="", cast=Csv())
+    if str(email).strip()
+]
+
 # Session Settings
 SESSION_COOKIE_AGE = 3600  # 1 hour
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True

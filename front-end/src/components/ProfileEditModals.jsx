@@ -1,18 +1,54 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Save, University, UserPen, X } from 'lucide-react'
 
+function normalizeWhatsapp(value) {
+  return String(value || '').trim().replace(/[\s-]/g, '')
+}
+
+function isValidWhatsapp(value) {
+  return /^\+[1-9]\d{7,14}$/.test(normalizeWhatsapp(value))
+}
+
+function snapshotPersonal(profile) {
+  return {
+    firstName: profile?.firstName || '',
+    lastName: profile?.lastName || '',
+    email: profile?.email || '',
+    whatsapp: profile?.whatsapp || '',
+    nationalId: profile?.nationalId || '',
+    birthdate: profile?.birthdate || '',
+    address: profile?.address || '',
+    bio: profile?.bio || '',
+  }
+}
+
+function snapshotBank(profile) {
+  return {
+    bankName: profile?.bankName || '',
+    bankAccountNumber: profile?.bankAccountNumber || '',
+    bankAccountName: profile?.bankAccountName || '',
+  }
+}
+
 export function EditPersonalModal({ open, onClose, profile, onSave }) {
-  const [form, setForm] = useState(profile)
+  const [form, setForm] = useState(() => snapshotPersonal(profile))
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const profileRef = useRef(profile)
+  profileRef.current = profile
 
   useEffect(() => {
-    if (open) setForm(profile)
-  }, [open, profile])
+    if (!open) return
+    setForm(snapshotPersonal(profileRef.current))
+    setError('')
+    setSubmitting(false)
+  }, [open])
 
   useEffect(() => {
     if (!open) return undefined
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !submitting) onClose()
     }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
@@ -21,23 +57,58 @@ export function EditPersonalModal({ open, onClose, profile, onSave }) {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [open, onClose])
+  }, [open, onClose, submitting])
 
   if (!open) return null
 
-  const set = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))
+  const set = (key) => (e) => {
+    const value = e.target.value
+    setForm((prev) => ({ ...prev, [key]: value }))
+    if (error) setError('')
+  }
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
-    onSave({
-      ...form,
-      fullName: `${form.firstName} ${form.lastName}`.trim(),
-    })
-    onClose()
+    if (submitting) return
+    const whatsapp = normalizeWhatsapp(form.whatsapp)
+    if (!isValidWhatsapp(whatsapp)) {
+      setError('Enter a WhatsApp number beginning with a country code (e.g., +2567xxxxxxxx).')
+      return
+    }
+    const birthdate = (form.birthdate || '').trim()
+    if (birthdate && !/^\d{4}-\d{2}-\d{2}$/.test(birthdate)) {
+      setError('Date of birth must be YYYY-MM-DD.')
+      return
+    }
+    setSubmitting(true)
+    setError('')
+    try {
+      await onSave({
+        ...form,
+        firstName: (form.firstName || '').trim(),
+        lastName: (form.lastName || '').trim(),
+        email: (form.email || '').trim(),
+        whatsapp,
+        nationalId: (form.nationalId || '').trim(),
+        birthdate,
+        address: (form.address || '').trim(),
+        bio: (form.bio || '').trim(),
+        fullName: `${(form.firstName || '').trim()} ${(form.lastName || '').trim()}`.trim(),
+      })
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Could not save personal information.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return createPortal(
-    <div className="modal-overlay" onClick={onClose} role="presentation">
+    <div
+      className="modal-overlay"
+      onClick={submitting ? undefined : onClose}
+      role="presentation"
+    >
       <div
         className="modal modal-wide"
         role="dialog"
@@ -53,13 +124,24 @@ export function EditPersonalModal({ open, onClose, profile, onSave }) {
             <b id="edit-personal-title">Edit Personal Information</b>
             <span>Update your contact and identity details</span>
           </div>
-          <button type="button" className="modal-close" aria-label="Close" onClick={onClose}>
+          <button
+            type="button"
+            className="modal-close"
+            aria-label="Close"
+            onClick={onClose}
+            disabled={submitting}
+          >
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={submit}>
           <div className="modal-body profile-form-body">
+            {error ? (
+              <p className="profile-form-error" role="alert">
+                {error}
+              </p>
+            ) : null}
             <div className="profile-form-grid">
               <label className="profile-field">
                 <span>First Name</span>
@@ -109,12 +191,12 @@ export function EditPersonalModal({ open, onClose, profile, onSave }) {
             </div>
           </div>
           <div className="modal-foot">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>
+            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={submitting}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
+            <button type="submit" className="btn btn-primary" disabled={submitting}>
               <Save size={16} />
-              Save Changes
+              {submitting ? 'Saving…' : 'Save Changes'}
             </button>
           </div>
         </form>
@@ -125,26 +207,23 @@ export function EditPersonalModal({ open, onClose, profile, onSave }) {
 }
 
 export function EditBankModal({ open, onClose, profile, onSave }) {
-  const [form, setForm] = useState({
-    bankName: profile.bankName,
-    bankAccountNumber: profile.bankAccountNumber,
-    bankAccountName: profile.bankAccountName,
-  })
+  const [form, setForm] = useState(() => snapshotBank(profile))
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const profileRef = useRef(profile)
+  profileRef.current = profile
 
   useEffect(() => {
-    if (open) {
-      setForm({
-        bankName: profile.bankName,
-        bankAccountNumber: profile.bankAccountNumber,
-        bankAccountName: profile.bankAccountName,
-      })
-    }
-  }, [open, profile])
+    if (!open) return
+    setForm(snapshotBank(profileRef.current))
+    setError('')
+    setSubmitting(false)
+  }, [open])
 
   useEffect(() => {
     if (!open) return undefined
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !submitting) onClose()
     }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
@@ -153,20 +232,41 @@ export function EditBankModal({ open, onClose, profile, onSave }) {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [open, onClose])
+  }, [open, onClose, submitting])
 
   if (!open) return null
 
-  const set = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))
+  const set = (key) => (e) => {
+    const value = e.target.value
+    setForm((prev) => ({ ...prev, [key]: value }))
+    if (error) setError('')
+  }
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
-    onSave(form)
-    onClose()
+    if (submitting) return
+    setSubmitting(true)
+    setError('')
+    try {
+      await onSave({
+        bankName: (form.bankName || '').trim(),
+        bankAccountNumber: (form.bankAccountNumber || '').trim(),
+        bankAccountName: (form.bankAccountName || '').trim(),
+      })
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Could not save bank details.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return createPortal(
-    <div className="modal-overlay" onClick={onClose} role="presentation">
+    <div
+      className="modal-overlay"
+      onClick={submitting ? undefined : onClose}
+      role="presentation"
+    >
       <div
         className="modal"
         role="dialog"
@@ -182,13 +282,24 @@ export function EditBankModal({ open, onClose, profile, onSave }) {
             <b id="edit-bank-title">Edit Bank Account Details</b>
             <span>Used for withdrawals and dividend payouts</span>
           </div>
-          <button type="button" className="modal-close" aria-label="Close" onClick={onClose}>
+          <button
+            type="button"
+            className="modal-close"
+            aria-label="Close"
+            onClick={onClose}
+            disabled={submitting}
+          >
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={submit}>
           <div className="modal-body profile-form-body">
+            {error ? (
+              <p className="profile-form-error" role="alert">
+                {error}
+              </p>
+            ) : null}
             <div className="profile-form-grid">
               <label className="profile-field full">
                 <span>Bank Name</span>
@@ -217,12 +328,12 @@ export function EditBankModal({ open, onClose, profile, onSave }) {
             </div>
           </div>
           <div className="modal-foot">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>
+            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={submitting}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
+            <button type="submit" className="btn btn-primary" disabled={submitting}>
               <Save size={16} />
-              Save Changes
+              {submitting ? 'Saving…' : 'Save Changes'}
             </button>
           </div>
         </form>

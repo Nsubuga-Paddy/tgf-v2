@@ -13,6 +13,7 @@ DEFAULT_MONTHLY_INTEREST_RATE = Decimal("0.015")
 STAFF_MONTHLY_INTEREST_RATE = Decimal("0.010")
 LOAN_INSURANCE_FEE_RATE = Decimal("0.010")
 LOAN_PROCESSING_FEE = Decimal("20000.00")
+LOAN_GRACE_DAYS = 7
 
 
 class LoanApplication(models.Model):
@@ -51,6 +52,10 @@ class LoanApplication(models.Model):
         default=RepaymentSource.MAIN_ACCOUNT,
     )
     notes = models.TextField(blank=True)
+    auto_debit = models.BooleanField(
+        default=False,
+        help_text="If approved, debit the monthly installment from Main Account on each due date.",
+    )
 
     status = models.CharField(
         max_length=20,
@@ -140,6 +145,22 @@ class MemberLoan(models.Model):
     term_months = models.PositiveSmallIntegerField()
     installment_amount = models.DecimalField(max_digits=14, decimal_places=2)
     paid_installments = models.PositiveSmallIntegerField(default=0)
+    arrears_interest = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Extra monthly interest accrued after the agreed term, charged on original principal.",
+    )
+    auto_debit = models.BooleanField(
+        default=False,
+        help_text="Debit the monthly installment from Main Account on each due date.",
+    )
+    overdue_since = models.DateField(null=True, blank=True)
+    last_arrears_accrual_date = models.DateField(null=True, blank=True)
+    first_overdue_notice_at = models.DateTimeField(null=True, blank=True)
+    last_member_reminder_at = models.DateTimeField(null=True, blank=True)
+    last_auto_debit_at = models.DateField(null=True, blank=True)
+    last_auto_debit_failure_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -187,6 +208,7 @@ class LoanInstallment(models.Model):
     class Status(models.TextChoices):
         PAID = "paid", "Paid"
         DUE = "due", "Due now"
+        OVERDUE = "overdue", "Overdue"
         UPCOMING = "upcoming", "Upcoming"
 
     loan = models.ForeignKey(
@@ -206,6 +228,7 @@ class LoanInstallment(models.Model):
         default=Status.UPCOMING,
         db_index=True,
     )
+    auto_debit_attempted_on = models.DateField(null=True, blank=True)
 
     class Meta:
         ordering = ["installment_number"]
@@ -221,6 +244,7 @@ class LoanRepayment(models.Model):
     class Method(models.TextChoices):
         MAIN_ACCOUNT = "main_account", "Main Account"
         BANK_TRANSFER = "bank_transfer", "Bank transfer"
+        AUTO_DEBIT = "auto_debit", "Automatic Main Account debit"
 
     loan = models.ForeignKey(
         MemberLoan,
@@ -268,3 +292,38 @@ class LoanRepayment(models.Model):
 
     def __str__(self) -> str:
         return f"{self.reference} - {self.loan.reference}"
+
+
+class LoanArrearsCharge(models.Model):
+    loan = models.ForeignKey(
+        MemberLoan,
+        on_delete=models.CASCADE,
+        related_name="arrears_charges",
+    )
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    accrued_on = models.DateField()
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-accrued_on", "-id"]
+        verbose_name = "Loan arrears charge"
+        verbose_name_plural = "Loan arrears charges"
+
+    def __str__(self) -> str:
+        return f"{self.loan.reference} arrears {self.accrued_on}"
+
+
+class LoanOpsState(models.Model):
+    last_staff_digest_on = models.DateField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Loan operations state"
+        verbose_name_plural = "Loan operations state"
+
+    def __str__(self) -> str:
+        return "Loan operations state"
+
+    @classmethod
+    def get_solo(cls):
+        obj, _created = cls.objects.get_or_create(pk=1)
+        return obj

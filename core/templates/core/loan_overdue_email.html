@@ -1,0 +1,22 @@
+Hello {{ user.first_name|default:user.get_username }},
+
+Your MCS loan {{ loan_reference }} is overdue.
+
+Outstanding balance: UGX {{ outstanding_display }}
+Continuing interest so far: UGX {{ arrears_interest_display }}
+Overdue since: {{ overdue_since }}
+Interest rate: {{ rate_display }} on the original principal
+
+After a 7-day grace period, missed installments become overdue. New loan applications are blocked until this loan is fully paid. Interest continues to accrue at the original rate on the original principal until the full balance is cleared.
+
+Please repay from your Main Account in the member portal, or by bank transfer using the MCS bank details under Loans.
+
+View your loan:
+{{ loan_url }}
+
+{% if account_number %}Your MCS account number: {{ account_number }}
+{% endif %}Sign in here:
+{{ login_url }}
+
+— Mushana Multipurpose Cooperative Society (MCS)
+{{ site_url }}

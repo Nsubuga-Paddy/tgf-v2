@@ -24,6 +24,9 @@ How repayment works:
 - Pay monthly installments until the loan is cleared
 - You can repay early from your Main Account in the member portal
 - You may also repay by bank transfer using the MCS bank details shown under Loans
+{% if auto_debit %}
+- You asked MCS to automatically debit your Main Account on each monthly due date. You can turn this off later from the loan page. If the account has too little credit, the debit will fail and you will be notified.
+{% endif %}
 
 View your loan and full repayment schedule:
 {{ loan_url }}

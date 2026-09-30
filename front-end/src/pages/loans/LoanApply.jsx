@@ -39,6 +39,7 @@ export default function LoanApply() {
   const [amount, setAmount] = useState('')
   const [termMonths, setTermMonths] = useState(12)
   const [repaymentSource, setRepaymentSource] = useState('main_account')
+  const [autoDebit, setAutoDebit] = useState(false)
   const [notes, setNotes] = useState('')
   const [submittedApp, setSubmittedApp] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -82,6 +83,7 @@ export default function LoanApply() {
         amount: parsedAmount,
         termMonths,
         repaymentSource,
+        autoDebit,
         notes,
       })
       setSubmittedApp(app)
@@ -291,6 +293,22 @@ export default function LoanApply() {
                 </div>
               </div>
 
+              <label className={`loans-autodebit-option ${autoDebit ? 'selected' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={autoDebit}
+                  onChange={(e) => setAutoDebit(e.target.checked)}
+                />
+                <div>
+                  <b>Automatically debit my Main Account every month</b>
+                  <span>
+                    If you tick this, MCS will take the monthly installment from your Main Account
+                    on each due date. If the account does not have enough credit, the debit will
+                    fail and you will be told. You can turn this off later from the loan page.
+                  </span>
+                </div>
+              </label>
+
               <label className="field loans-apply-notes-field">
                 <span>
                   <MessageSquareText size={14} />
@@ -369,6 +387,10 @@ export default function LoanApply() {
                 <dt>Repayment source</dt>
                 <dd>{REPAYMENT_SOURCES.find((r) => r.id === repaymentSource)?.label}</dd>
               </div>
+              <div>
+                <dt>Monthly Main Account auto-debit</dt>
+                <dd>{autoDebit ? 'Yes — debit each due date' : 'No'}</dd>
+              </div>
               {notes ? (
                 <div>
                   <dt>Notes</dt>
@@ -381,6 +403,9 @@ export default function LoanApply() {
               By submitting, you confirm the information is accurate. If approved, insurance and
               processing fees are deducted upfront from the approved amount, while repayment is
               calculated on the approved principal plus interest.
+              {autoDebit
+                ? ' You asked MCS to debit your Main Account every month on the installment due date.'
+                : ''}
             </p>
             {submitError ? <p className="form-error">{submitError}</p> : null}
 

@@ -3,7 +3,14 @@ from django.contrib import admin, messages
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
-from .models import LoanApplication, LoanInstallment, LoanRepayment, MemberLoan
+from .models import (
+    LoanApplication,
+    LoanArrearsCharge,
+    LoanInstallment,
+    LoanOpsState,
+    LoanRepayment,
+    MemberLoan,
+)
 from .services import (
     add_months,
     approve_and_disburse,
@@ -32,6 +39,17 @@ class LoanInstallmentInline(admin.TabularInline):
         "balance_after",
         "status",
     )
+    readonly_fields = fields
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class LoanArrearsChargeInline(admin.TabularInline):
+    model = LoanArrearsCharge
+    extra = 0
+    can_delete = False
+    fields = ("accrued_on", "amount", "created_at")
     readonly_fields = fields
 
     def has_add_permission(self, request, obj=None):
@@ -126,6 +144,7 @@ class LoanApplicationAdmin(admin.ModelAdmin):
                     "amount_requested",
                     "term_months",
                     "repayment_source",
+                    "auto_debit",
                     "notes",
                     "status",
                 )
@@ -385,11 +404,14 @@ class MemberLoanAdmin(admin.ModelAdmin):
         "outstanding_display",
         "term_months",
         "status",
+        "auto_debit",
+        "arrears_interest_display",
+        "overdue_since",
         "disbursed_date",
         "receipt_number",
         "closed_date",
     )
-    list_filter = ("status", "purpose", "disbursed_date")
+    list_filter = ("status", "auto_debit", "purpose", "disbursed_date")
     search_fields = (
         "reference",
         "receipt_number",
@@ -408,14 +430,22 @@ class MemberLoanAdmin(admin.ModelAdmin):
         "total_deductions",
         "net_disbursed_amount",
         "outstanding",
+        "arrears_interest",
         "installment_amount",
         "paid_installments",
+        "status",
+        "overdue_since",
+        "last_arrears_accrual_date",
+        "first_overdue_notice_at",
+        "last_member_reminder_at",
+        "last_auto_debit_at",
+        "last_auto_debit_failure_at",
         "disbursement_transaction",
         "created_by",
         "created_at",
         "updated_at",
     )
-    inlines = (LoanInstallmentInline, LoanRepaymentInline)
+    inlines = (LoanInstallmentInline, LoanRepaymentInline, LoanArrearsChargeInline)
     add_fieldsets = (
         (
             "Register existing member loan",
@@ -429,6 +459,7 @@ class MemberLoanAdmin(admin.ModelAdmin):
                     "monthly_interest_rate",
                     "term_months",
                     "disbursed_date",
+                    "auto_debit",
                     "status",
                 ),
                 "description": (
@@ -460,7 +491,15 @@ class MemberLoanAdmin(admin.ModelAdmin):
                     "term_months",
                     "installment_amount",
                     "paid_installments",
+                    "auto_debit",
                     "status",
+                    "arrears_interest",
+                    "overdue_since",
+                    "last_arrears_accrual_date",
+                    "first_overdue_notice_at",
+                    "last_member_reminder_at",
+                    "last_auto_debit_at",
+                    "last_auto_debit_failure_at",
                     "disbursed_date",
                     "first_due_date",
                     "closed_date",
@@ -511,6 +550,10 @@ class MemberLoanAdmin(admin.ModelAdmin):
     @admin.display(description="Outstanding", ordering="outstanding")
     def outstanding_display(self, obj):
         return f"UGX {obj.outstanding:,.0f}"
+
+    @admin.display(description="Arrears interest", ordering="arrears_interest")
+    def arrears_interest_display(self, obj):
+        return f"UGX {obj.arrears_interest:,.0f}"
 
     def save_model(self, request, obj, form, change):
         if change:
@@ -653,3 +696,15 @@ class LoanRepaymentAdmin(admin.ModelAdmin):
             request,
             f"Posted bank repayment of UGX {repayment.amount:,.0f} to {repayment.loan.reference}.",
         )
+
+
+@admin.register(LoanOpsState)
+class LoanOpsStateAdmin(admin.ModelAdmin):
+    list_display = ("id", "last_staff_digest_on")
+    readonly_fields = ("last_staff_digest_on",)
+
+    def has_add_permission(self, request):
+        return not LoanOpsState.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False

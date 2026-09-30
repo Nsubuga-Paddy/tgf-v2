@@ -48,8 +48,8 @@ const DESTINATIONS = [
   },
   {
     id: 'cgf',
-    title: 'Purchase goat farming package',
-    detail: 'Buy the current CGF package from Main Account.',
+    title: 'Purchase or pay CGF package',
+    detail: 'Open a new package, including a partial first payment, or clear a remaining balance.',
     Icon: Sprout,
     ready: true,
   },
@@ -117,6 +117,7 @@ export default function MainAccountProjectsModal({
   available,
   initialDestination = null,
   initialProjectId = null,
+  initialPurchaseId = null,
   onSuccess = null,
 }) {
   const { authFetch } = useAuth()
@@ -137,6 +138,8 @@ export default function MainAccountProjectsModal({
   const [cgfOptionsLoading, setCgfOptionsLoading] = useState(false)
   const [cgfPackageId, setCgfPackageId] = useState('')
   const [cgfQuantity, setCgfQuantity] = useState('1')
+  const [cgfMode, setCgfMode] = useState('new')
+  const [cgfPurchaseId, setCgfPurchaseId] = useState('')
   const [repOptions, setRepOptions] = useState(null)
   const [repOptionsLoading, setRepOptionsLoading] = useState(false)
   const [repProjectId, setRepProjectId] = useState('')
@@ -173,12 +176,14 @@ export default function MainAccountProjectsModal({
     setCgfOptions(null)
     setCgfPackageId('')
     setCgfQuantity('1')
+    setCgfMode('new')
+    setCgfPurchaseId(initialPurchaseId ? String(initialPurchaseId) : '')
     setRepOptions(null)
     setRepProjectId(initialProjectId ? String(initialProjectId) : '')
     setNote('')
     setSubmitting(false)
     setError('')
-  }, [initialDestination, initialProjectId, open])
+  }, [initialDestination, initialProjectId, initialPurchaseId, open])
 
   useEffect(() => {
     if (!open || !isLoanFlow) return
@@ -255,8 +260,29 @@ export default function MainAccountProjectsModal({
         const payload = await authFetch('/api/projects/cgf/purchase-options/')
         if (!cancelled) {
           setCgfOptions(payload)
+          const outstanding = Array.isArray(payload.outstandingPurchases)
+            ? payload.outstandingPurchases
+            : []
+          const preferredPurchase =
+            initialPurchaseId &&
+            outstanding.some((item) => String(item.id) === String(initialPurchaseId))
+              ? String(initialPurchaseId)
+              : payload.defaultOutstandingId
+                ? String(payload.defaultOutstandingId)
+                : ''
+          const useRemaining = Boolean(preferredPurchase)
+          setCgfMode(useRemaining ? 'remaining' : 'new')
+          setCgfPurchaseId(preferredPurchase)
           setCgfPackageId(payload.defaultPackageId ? String(payload.defaultPackageId) : '')
           setCgfQuantity('1')
+          if (useRemaining) {
+            const row =
+              outstanding.find((item) => String(item.id) === preferredPurchase) || outstanding[0]
+            setAmount(row ? String(Math.round(Number(row.balanceDue || 0))) : '')
+          } else {
+            const first = Array.isArray(payload.packages) ? payload.packages[0] : null
+            setAmount(first ? String(Math.round(Number(first.totalCost || 0))) : '')
+          }
         }
       } catch (err) {
         if (!cancelled) setError(err.message || 'Could not load CGF package options.')
@@ -267,7 +293,7 @@ export default function MainAccountProjectsModal({
     return () => {
       cancelled = true
     }
-  }, [authFetch, isCgfFlow, open])
+  }, [authFetch, initialPurchaseId, isCgfFlow, open])
 
   useEffect(() => {
     if (!open || !isRepFlow) return
@@ -288,6 +314,11 @@ export default function MainAccountProjectsModal({
                 ? String(payload.defaultProjectId)
                 : ''
           setRepProjectId(preferred)
+          const selected = projects.find((item) => String(item.id) === preferred) || projects[0]
+          const remaining = Number(selected?.remainingBalance)
+          if (Number.isFinite(remaining) && remaining > 0) {
+            setAmount(String(Math.round(remaining)))
+          }
         }
       } catch (err) {
         if (!cancelled) setError(err.message || 'Could not load Real Estate projects.')
@@ -413,33 +444,59 @@ export default function MainAccountProjectsModal({
   const cgfPackages = Array.isArray(cgfOptions?.packages) ? cgfOptions.packages : []
   const cgfPackage =
     cgfPackages.find((item) => String(item.id) === String(cgfPackageId)) || cgfPackages[0] || null
+  const cgfOutstanding = Array.isArray(cgfOptions?.outstandingPurchases)
+    ? cgfOptions.outstandingPurchases
+    : []
+  const cgfOutstandingPurchase =
+    cgfOutstanding.find((item) => String(item.id) === String(cgfPurchaseId)) ||
+    cgfOutstanding[0] ||
+    null
+  const isCgfRemaining = isCgfFlow && cgfMode === 'remaining'
   const parsedCgfQuantity = Math.max(1, Math.floor(parseAmount(cgfQuantity) || 1))
   const cgfUnitCost = Number(cgfPackage?.totalCost || 0)
   const cgfTotalCost = parsedCgfQuantity * cgfUnitCost
   const cgfCanPurchase = cgfOptions?.canPurchase !== false && Boolean(cgfPackage)
   const cgfHarvestGoats = Number(cgfPackage?.harvestGoats || 0) * parsedCgfQuantity
   const cgfExpectedCashout = Number(cgfPackage?.expectedCashout || 0) * parsedCgfQuantity
-  const cgfGain = Math.max(0, Number(cgfPackage?.expectedCashout || 0) - Number(cgfPackage?.totalCost || 0))
-  const canSendCgf =
+  const cgfRemainingDue = Number(cgfOutstandingPurchase?.balanceDue || 0)
+  const cgfNewIsPartial = parsedCgfQuantity === 1 && hasAmount && parsedAmount < cgfUnitCost
+  const canSendCgfRemaining =
+    isCgfRemaining &&
+    Boolean(cgfOutstandingPurchase) &&
+    hasAmount &&
+    parsedAmount <= cgfRemainingDue &&
+    parsedAmount <= cgfAvailable &&
+    !submitting
+  const canSendCgfNew =
     isCgfFlow &&
+    !isCgfRemaining &&
     Boolean(cgfPackage) &&
     cgfCanPurchase &&
-    parsedCgfQuantity >= 1 &&
-    cgfTotalCost > 0 &&
-    cgfTotalCost <= cgfAvailable &&
+    hasAmount &&
+    parsedAmount <= cgfAvailable &&
+    (parsedCgfQuantity === 1
+      ? parsedAmount <= cgfUnitCost
+      : Math.abs(parsedAmount - cgfTotalCost) < 0.5) &&
     !submitting
+  const canSendCgf = canSendCgfRemaining || canSendCgfNew
 
   const repAvailable = Number(repOptions?.availableMain ?? available ?? 0)
   const repProjects = Array.isArray(repOptions?.projects) ? repOptions.projects : []
   const repProject =
     repProjects.find((item) => String(item.id) === String(repProjectId)) || repProjects[0] || null
   const repCanContribute = repOptions?.canContribute !== false && Boolean(repProject)
+  const repRemaining =
+    repProject?.remainingBalance == null || repProject?.remainingBalance === ''
+      ? null
+      : Number(repProject.remainingBalance)
+  const repHasRemaining = Number.isFinite(repRemaining) && repRemaining > 0
   const canSendRep =
     isRepFlow &&
     Boolean(repProject) &&
     repCanContribute &&
     hasAmount &&
     parsedAmount <= repAvailable &&
+    (!repHasRemaining || parsedAmount <= repRemaining) &&
     !submitting
 
   const chooseDestination = (item) => {
@@ -449,6 +506,8 @@ export default function MainAccountProjectsModal({
     setShareQuantity('')
     setCgfPackageId('')
     setCgfQuantity('1')
+    setCgfMode('new')
+    setCgfPurchaseId('')
     setRepProjectId('')
     setNote('')
     setError('')
@@ -462,6 +521,8 @@ export default function MainAccountProjectsModal({
     setShareQuantity('')
     setCgfPackageId('')
     setCgfQuantity('1')
+    setCgfMode('new')
+    setCgfPurchaseId('')
     setRepProjectId('')
     setNote('')
     setError('')
@@ -556,25 +617,35 @@ export default function MainAccountProjectsModal({
 
   const submitCgfPurchase = async (e) => {
     e.preventDefault()
-    if (!canSendCgf || !cgfPackage) return
+    if (!canSendCgf) return
     setSubmitting(true)
     setError('')
     try {
-      const payload = await authFetch('/api/projects/cgf/purchase-from-main/', {
-        method: 'POST',
-        body: {
-          packageId: cgfPackage.id,
-          quantity: parsedCgfQuantity,
-          notes: note.trim() || undefined,
-        },
-      })
+      const payload = isCgfRemaining
+        ? await authFetch('/api/projects/cgf/pay-remaining-from-main/', {
+            method: 'POST',
+            body: {
+              purchaseId: cgfOutstandingPurchase.id,
+              amount: parsedAmount,
+              notes: note.trim() || undefined,
+            },
+          })
+        : await authFetch('/api/projects/cgf/purchase-from-main/', {
+            method: 'POST',
+            body: {
+              packageId: cgfPackage.id,
+              quantity: parsedCgfQuantity,
+              amount: parsedAmount,
+              notes: note.trim() || undefined,
+            },
+          })
       if (payload.purchaseOptions) setCgfOptions(payload.purchaseOptions)
       await reloadDashboard({ silent: true })
       if (typeof onSuccess === 'function') await onSuccess(payload)
-      addToast(payload.message || 'CGF package purchased from Main Account.')
+      addToast(payload.message || 'CGF payment posted from Main Account.')
       onClose()
     } catch (err) {
-      setError(err.message || 'Could not purchase CGF package.')
+      setError(err.message || 'Could not post CGF payment.')
     } finally {
       setSubmitting(false)
     }
@@ -654,7 +725,7 @@ export default function MainAccountProjectsModal({
                       : isGwcFlow
                         ? `Available ${formatUGX(available || 0)} · minimum ${formatUGX(gwcMinimum)}`
                         : isCgfFlow
-                          ? `Available ${formatUGX(available || 0)} · choose an active CGF package`
+                          ? `Available ${formatUGX(available || 0)} · pay remaining or open a new CGF package`
                           : isRepFlow
                             ? `Available ${formatUGX(available || 0)} · choose a running project`
                             : `Available ${formatUGX(available || 0)} · coming next`
@@ -1264,16 +1335,158 @@ export default function MainAccountProjectsModal({
                     <strong>{formatUGX(cgfAvailable)}</strong>
                   </div>
                   <div>
-                    <small>Package price</small>
-                    <strong>{cgfOptionsLoading ? 'Loading…' : formatUGX(cgfUnitCost)}</strong>
+                    <small>{isCgfRemaining ? 'Balance due' : 'Package price'}</small>
+                    <strong>
+                      {cgfOptionsLoading
+                        ? 'Loading…'
+                        : formatUGX(isCgfRemaining ? cgfRemainingDue : cgfUnitCost)}
+                    </strong>
                   </div>
                 </div>
 
                 {cgfOptionsLoading ? (
-                  <p className="main-project-rule">Loading active CGF packages…</p>
+                  <p className="main-project-rule">Loading CGF payment options…</p>
                 ) : null}
 
-                {cgfPackage ? (
+                {cgfOutstanding.length > 0 ? (
+                  <div className="main-project-loan-picker" role="group" aria-label="CGF payment type">
+                    <span className="main-project-loan-picker-label">What do you want to do?</span>
+                    <button
+                      type="button"
+                      className={`main-project-loan-option${isCgfRemaining ? ' selected' : ''}`}
+                      onClick={() => {
+                        setCgfMode('remaining')
+                        const row = cgfOutstandingPurchase || cgfOutstanding[0]
+                        setCgfPurchaseId(row ? String(row.id) : '')
+                        setAmount(row ? String(Math.round(Number(row.balanceDue || 0))) : '')
+                        setError('')
+                      }}
+                      disabled={submitting}
+                    >
+                      Pay remaining balance
+                    </button>
+                    <button
+                      type="button"
+                      className={`main-project-loan-option${!isCgfRemaining ? ' selected' : ''}`}
+                      onClick={() => {
+                        setCgfMode('new')
+                        setCgfQuantity('1')
+                        setAmount(cgfPackage ? String(Math.round(Number(cgfPackage.totalCost || 0))) : '')
+                        setError('')
+                      }}
+                      disabled={submitting}
+                    >
+                      Open a new package
+                    </button>
+                  </div>
+                ) : null}
+
+                {isCgfRemaining && cgfOutstandingPurchase ? (
+                  <>
+                    <label className="main-project-amount-field">
+                      <span>Select unpaid package</span>
+                      <select
+                        className="main-project-select"
+                        value={cgfPurchaseId || String(cgfOutstandingPurchase.id)}
+                        onChange={(e) => {
+                          setCgfPurchaseId(e.target.value)
+                          const row = cgfOutstanding.find((item) => String(item.id) === e.target.value)
+                          setAmount(row ? String(Math.round(Number(row.balanceDue || 0))) : '')
+                          setError('')
+                        }}
+                        disabled={submitting}
+                        autoFocus
+                      >
+                        {cgfOutstanding.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.packageName} · remaining {formatUGX(item.balanceDue)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <div className="main-project-transfer-summary">
+                      <div>
+                        <small>Package total</small>
+                        <strong>{formatUGX(cgfOutstandingPurchase.totalAmount || 0)}</strong>
+                      </div>
+                      <div>
+                        <small>Already paid</small>
+                        <strong>{formatUGX(cgfOutstandingPurchase.amountPaid || 0)}</strong>
+                      </div>
+                    </div>
+
+                    <p className="main-project-rule ok">
+                      The {cgfOutstandingPurchase.cycleDurationMonths}-month cycle starts only when this
+                      package is fully paid and goats are allocated.
+                    </p>
+
+                    <label className="main-project-amount-field">
+                      <span>Amount to pay now</span>
+                      <div className="main-project-amount-input">
+                        <span>UGX</span>
+                        <input
+                          inputMode="numeric"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          placeholder={String(Math.round(cgfRemainingDue) || 0)}
+                          disabled={submitting}
+                        />
+                      </div>
+                    </label>
+
+                    <div className="main-project-amount-shortcuts">
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => setAmount(String(Math.round(cgfRemainingDue)))}
+                        disabled={submitting || cgfRemainingDue <= 0}
+                      >
+                        Pay remaining {formatUGX(cgfRemainingDue)}
+                      </button>
+                    </div>
+
+                    {hasAmount && parsedAmount > cgfRemainingDue ? (
+                      <p className="main-project-rule warn">
+                        Amount exceeds the remaining {formatUGX(cgfRemainingDue)} on this package.
+                      </p>
+                    ) : null}
+                    {hasAmount && parsedAmount > cgfAvailable ? (
+                      <p className="main-project-rule warn">
+                        Amount exceeds your available Main Account balance.
+                      </p>
+                    ) : null}
+
+                    <div className="main-project-preview">
+                      <Sprout size={18} />
+                      <div>
+                        <b>Payment preview</b>
+                        <span>
+                          {hasAmount
+                            ? parsedAmount >= cgfRemainingDue
+                              ? `${formatUGX(parsedAmount)} will complete ${cgfOutstandingPurchase.packageName}. Goats will be allocated and the ${cgfOutstandingPurchase.cycleDurationMonths}-month cycle starts today.`
+                              : `${formatUGX(parsedAmount)} will leave ${formatUGX(Math.max(0, cgfRemainingDue - parsedAmount))} still due on ${cgfOutstandingPurchase.packageName}. The cycle does not start until the package is fully paid.`
+                            : `Enter an amount toward ${cgfOutstandingPurchase.packageName}.`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <label className="main-project-note-field">
+                      <span>Note or reference (optional)</span>
+                      <textarea
+                        rows={3}
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="Add a short note for this payment"
+                        disabled={submitting}
+                      />
+                    </label>
+                  </>
+                ) : isCgfRemaining && !cgfOptionsLoading ? (
+                  <p className="main-project-rule warn">
+                    You do not have a CGF package with a remaining balance.
+                  </p>
+                ) : cgfPackage ? (
                   <>
                     <label className="main-project-amount-field">
                       <span>Select package</span>
@@ -1283,6 +1496,8 @@ export default function MainAccountProjectsModal({
                         onChange={(e) => {
                           setCgfPackageId(e.target.value)
                           setCgfQuantity('1')
+                          const next = cgfPackages.find((item) => String(item.id) === e.target.value)
+                          setAmount(next ? String(Math.round(Number(next.totalCost || 0))) : '')
                           setError('')
                         }}
                         disabled={submitting || !cgfCanPurchase}
@@ -1321,10 +1536,9 @@ export default function MainAccountProjectsModal({
                     </div>
 
                     <p className="main-project-rule ok">
-                      Gain if you cash out: {formatUGX(cgfGain)} above the {formatUGX(cgfPackage.totalCost)}{' '}
-                      package price ({formatUGX(cgfPackage.cashoutPerGoat)} per goat). At month{' '}
-                      {cgfPackage.cycleDurationMonths} you can take all {cgfPackage.harvestGoats} goats
-                      physically or cash out to Main Account.
+                      You can pay part of the {formatUGX(cgfPackage.totalCost)} package price now.
+                      Goats are allocated and the {cgfPackage.cycleDurationMonths}-month cycle starts
+                      only when this package is fully paid.
                     </p>
 
                     {!cgfCanPurchase && cgfOptions?.blockMessage ? (
@@ -1338,29 +1552,58 @@ export default function MainAccountProjectsModal({
                         <input
                           inputMode="numeric"
                           value={cgfQuantity}
-                          onChange={(e) => setCgfQuantity(e.target.value)}
+                          onChange={(e) => {
+                            const nextQty = e.target.value
+                            setCgfQuantity(nextQty)
+                            const qty = Math.max(1, Math.floor(parseAmount(nextQty) || 1))
+                            setAmount(String(Math.round(qty * cgfUnitCost)))
+                          }}
                           placeholder="1"
                           disabled={submitting || !cgfCanPurchase}
                         />
                       </div>
                     </label>
 
-                    {cgfTotalCost > cgfAvailable && parsedCgfQuantity >= 1 ? (
+                    <label className="main-project-amount-field">
+                      <span>Amount to pay now</span>
+                      <div className="main-project-amount-input">
+                        <span>UGX</span>
+                        <input
+                          inputMode="numeric"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          placeholder={String(Math.round(cgfUnitCost) || 0)}
+                          disabled={submitting || !cgfCanPurchase || parsedCgfQuantity > 1}
+                        />
+                      </div>
+                    </label>
+
+                    {parsedCgfQuantity > 1 ? (
+                      <p className="main-project-rule">
+                        Buying more than one package requires the full combined price. Partial
+                        payment is for a single new package.
+                      </p>
+                    ) : null}
+
+                    {hasAmount && parsedAmount > cgfAvailable ? (
                       <p className="main-project-rule warn">
-                        {formatUGX(cgfTotalCost)} exceeds your available Main Account balance.
+                        Amount exceeds your available Main Account balance.
+                      </p>
+                    ) : null}
+                    {hasAmount && parsedCgfQuantity === 1 && parsedAmount > cgfUnitCost ? (
+                      <p className="main-project-rule warn">
+                        Amount exceeds this package price of {formatUGX(cgfUnitCost)}.
                       </p>
                     ) : null}
 
                     <div className="main-project-preview">
                       <Sprout size={18} />
                       <div>
-                        <b>Purchase preview</b>
+                        <b>{cgfNewIsPartial ? 'Partial purchase preview' : 'Purchase preview'}</b>
                         <span>
-                          {parsedCgfQuantity} × {cgfPackage.name} will cost {formatUGX(cgfTotalCost)},
-                          add {parsedCgfQuantity * Number(cgfPackage.goatCount || 0)} female breeders,
-                          and target {cgfHarvestGoats} goats at month {cgfPackage.cycleDurationMonths}
-                          {cgfOptions?.farmName ? ` at ${cgfOptions.farmName}` : ''}. Cash-out value
-                          would be {formatUGX(cgfExpectedCashout)}.
+                          {cgfNewIsPartial
+                            ? `${formatUGX(parsedAmount)} will open one ${cgfPackage.name} with ${formatUGX(Math.max(0, cgfUnitCost - parsedAmount))} still due. Goats are not allocated yet. The cycle starts when the package is fully paid.`
+                            : `${parsedCgfQuantity} × ${cgfPackage.name} will cost ${formatUGX(cgfTotalCost)}, add ${parsedCgfQuantity * Number(cgfPackage.goatCount || 0)} female breeders, and start the ${cgfPackage.cycleDurationMonths}-month cycle now${cgfOptions?.farmName ? ` at ${cgfOptions.farmName}` : ''}. Cash-out value would be ${formatUGX(cgfExpectedCashout)}.`}
                         </span>
                       </div>
                     </div>
@@ -1401,7 +1644,13 @@ export default function MainAccountProjectsModal({
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={!canSendCgf}>
-                  {submitting ? 'Purchasing…' : 'Buy CGF package'}
+                  {submitting
+                    ? 'Sending…'
+                    : isCgfRemaining
+                      ? 'Pay CGF balance'
+                      : cgfNewIsPartial
+                        ? 'Pay toward new package'
+                        : 'Buy CGF package'}
                 </button>
               </div>
             </div>
@@ -1438,7 +1687,13 @@ export default function MainAccountProjectsModal({
                         value={repProjectId || String(repProject.id)}
                         onChange={(e) => {
                           setRepProjectId(e.target.value)
-                          setAmount('')
+                          const next = repProjects.find((item) => String(item.id) === e.target.value)
+                          const remaining = Number(next?.remainingBalance)
+                          setAmount(
+                            Number.isFinite(remaining) && remaining > 0
+                              ? String(Math.round(remaining))
+                              : '',
+                          )
                           setError('')
                         }}
                         disabled={submitting || !repCanContribute}
@@ -1475,6 +1730,26 @@ export default function MainAccountProjectsModal({
                       </div>
                     </div>
 
+                    {repHasRemaining ? (
+                      <div className="main-project-transfer-summary">
+                        <div>
+                          <small>Remaining balance</small>
+                          <strong>{formatUGX(repRemaining)}</strong>
+                        </div>
+                        <div>
+                          <small>Already paid</small>
+                          <strong>{formatUGX(repProject.alreadyPaid || 0)}</strong>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {repHasRemaining ? (
+                      <p className="main-project-rule ok">
+                        This project has a recorded remaining balance. Paying it in full marks the
+                        project fully paid.
+                      </p>
+                    ) : null}
+
                     {repProject.landSizeLabel ? (
                       <p className="main-project-rule ok">
                         Land size: {repProject.landSizeLabel}.
@@ -1503,19 +1778,35 @@ export default function MainAccountProjectsModal({
                     </label>
 
                     <div className="main-project-amount-shortcuts">
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => setAmount(String(Math.round(repAvailable)))}
-                        disabled={submitting || !repCanContribute || repAvailable <= 0}
-                      >
-                        Use available {formatUGX(repAvailable)}
-                      </button>
+                      {repHasRemaining ? (
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => setAmount(String(Math.round(repRemaining)))}
+                          disabled={submitting || !repCanContribute || repRemaining <= 0}
+                        >
+                          Clear remaining {formatUGX(repRemaining)}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => setAmount(String(Math.round(repAvailable)))}
+                          disabled={submitting || !repCanContribute || repAvailable <= 0}
+                        >
+                          Use available {formatUGX(repAvailable)}
+                        </button>
+                      )}
                     </div>
 
                     {hasAmount && parsedAmount > repAvailable ? (
                       <p className="main-project-rule warn">
                         Amount exceeds your available Main Account balance.
+                      </p>
+                    ) : null}
+                    {repHasRemaining && hasAmount && parsedAmount > repRemaining ? (
+                      <p className="main-project-rule warn">
+                        Amount exceeds the remaining {formatUGX(repRemaining)} on this project.
                       </p>
                     ) : null}
 
@@ -1525,7 +1816,9 @@ export default function MainAccountProjectsModal({
                         <b>Contribution preview</b>
                         <span>
                           {hasAmount
-                            ? `${formatUGX(parsedAmount)} will leave Main Account and post to ${repProject.name}. Your paid total on this project will become ${formatUGX((Number(repProject.alreadyPaid) || 0) + parsedAmount)}.`
+                            ? repHasRemaining && parsedAmount >= repRemaining
+                              ? `${formatUGX(parsedAmount)} will complete payment for ${repProject.name}.`
+                              : `${formatUGX(parsedAmount)} will leave Main Account and post to ${repProject.name}. Your paid total on this project will become ${formatUGX((Number(repProject.alreadyPaid) || 0) + parsedAmount)}.`
                             : `Enter an amount to send to ${repProject.name}.`}
                         </span>
                       </div>

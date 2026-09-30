@@ -80,6 +80,30 @@ def serialize_package(package: InvestmentPackage) -> dict[str, Any]:
     }
 
 
+def serialize_outstanding_purchase(purchase: PackagePurchase) -> dict[str, Any]:
+    package = purchase.package
+    return {
+        "id": purchase.pk,
+        "packageId": purchase.package_id,
+        "packageName": package.name if package else "",
+        "farmName": purchase.farm.name if purchase.farm else "",
+        "totalAmount": float(purchase.total_amount or ZERO),
+        "amountPaid": float(purchase.amount_paid or ZERO),
+        "balanceDue": float(purchase.balance_due or ZERO),
+        "status": purchase.status,
+        "goatCount": int(package.goat_count or 0) if package else 0,
+        "cycleDurationMonths": cycle_duration_months_for_purchase(purchase),
+    }
+
+
+def outstanding_purchases_qs(profile):
+    return (
+        PackagePurchase.objects.filter(user=profile, status__in=("pending", "partial"))
+        .select_related("package", "farm")
+        .order_by("purchase_date", "pk")
+    )
+
+
 def build_purchase_options(profile) -> dict[str, Any]:
     available = main_ledger.available_balance(profile)
     packages = [serialize_package(pkg) for pkg in purchasable_packages()]
@@ -93,6 +117,9 @@ def build_purchase_options(profile) -> dict[str, Any]:
         status__in=("paid", "allocated"),
         settled_at__isnull=True,
     ).count()
+    outstanding = [
+        serialize_outstanding_purchase(row) for row in outstanding_purchases_qs(profile)
+    ]
     can_purchase = bool(packages) and farm is not None
     block_message = ""
     if not packages:
@@ -106,10 +133,35 @@ def build_purchase_options(profile) -> dict[str, Any]:
         "farmName": farm.name if farm else "",
         "farmId": farm.pk if farm else None,
         "ownedActiveCount": owned,
+        "outstandingPurchases": outstanding,
+        "defaultOutstandingId": outstanding[0]["id"] if outstanding else None,
+        "hasOutstanding": bool(outstanding),
         "canPurchase": can_purchase,
         "blockMessage": block_message,
         "hasProjectAccess": bool(profile.has_project(PROJECT_LABEL)),
     }
+
+
+def _receipt_suffix(reference: str, purchase_id: int) -> str:
+    from uuid import uuid4
+
+    token = (reference or "MAIN").replace(" ", "")[-6:]
+    return f"{token}{purchase_id}{uuid4().hex[:6]}"[:20]
+
+
+def _post_main_account_package_payment(purchase, *, amount, main_tx, notes: str = ""):
+    today = timezone.localdate()
+    Payment.objects.create(
+        purchase=purchase,
+        amount=amount,
+        receipt_prefix=today.strftime("RCPT-%Y%m%d"),
+        receipt_suffix=_receipt_suffix(main_tx.reference, purchase.pk),
+        payment_method="Main Account",
+        payment_date=today,
+        notes=notes or f"Paid from Main Account. Reference {main_tx.reference}.",
+    )
+    purchase.refresh_from_db()
+    return purchase
 
 
 @transaction.atomic
@@ -118,10 +170,11 @@ def purchase_package_from_main_account(
     *,
     package_id=None,
     quantity: int = 1,
+    amount=None,
     notes: str = "",
     created_by=None,
 ) -> dict[str, Any]:
-    """Debit Main Account and create one or more active CGF package purchases."""
+    """Debit Main Account to open new CGF packages, including a partial first payment."""
     if not profile.has_project(PROJECT_LABEL):
         raise ValueError("You do not have access to Commercial Goat Farming.")
 
@@ -146,17 +199,162 @@ def purchase_package_from_main_account(
         except (TypeError, ValueError, InvestmentPackage.DoesNotExist):
             raise ValueError("That CGF package is not available for purchase.")
 
-    amount = _q(package.total_cost) * qty
-    if amount <= ZERO:
+    unit = _q(package.total_cost)
+    if unit <= ZERO:
         raise ValueError("This package does not have a valid purchase price.")
-    if amount > main_ledger.available_balance(profile):
-        raise ValueError("Amount exceeds Main Account available balance.")
 
+    full_cost = unit * qty
+    if amount in (None, ""):
+        pay = full_cost
+    else:
+        pay = _q(amount)
+    if pay <= ZERO:
+        raise ValueError("Enter a valid CGF payment amount.")
+    if pay > main_ledger.available_balance(profile):
+        raise ValueError("Amount exceeds Main Account available balance.")
+    if pay > full_cost:
+        raise ValueError("Amount is more than the selected package cost.")
+    if pay < unit and qty != 1:
+        raise ValueError(
+            "Partial payment can only open one new CGF package at a time. "
+            "Set quantity to 1, or pay the full combined price."
+        )
+    if unit < pay < full_cost:
+        raise ValueError(
+            "To buy more than one package, pay the full combined price. "
+            "Partial payment is for a single new package."
+        )
+
+    is_partial = pay < unit
     farm = default_purchase_farm(profile)
     note_text = (notes or "").strip()
+    if is_partial:
+        remaining = unit - pay
+        description = (
+            f"CGF partial payment of UGX {pay:,.0f} toward {package.name} "
+            f"(remaining UGX {remaining:,.0f}) from Main Account."
+        )
+    else:
+        description = (
+            f"CGF purchase of {qty} × {package.name} "
+            f"({package.goat_count} goats each) for UGX {pay:,.0f} from Main Account."
+        )
+    if note_text:
+        description = f"{description} Note: {note_text}"
+
+    main_tx = main_ledger.invest_to_project(
+        profile,
+        PROJECT_LABEL,
+        pay,
+        description=description,
+        created_by=created_by or profile.user,
+    )
+
+    purchases: list[PackagePurchase] = []
+    now = timezone.now()
+    create_count = 1 if is_partial else qty
+    per_payment = pay if is_partial else unit
+    for _index in range(create_count):
+        purchase = PackagePurchase.objects.create(
+            user=profile,
+            farm=farm,
+            package=package,
+            total_amount=unit,
+            amount_paid=ZERO,
+            goats_allocated=0,
+            status="pending",
+            purchase_date=now,
+            notes=note_text,
+        )
+        _post_main_account_package_payment(
+            purchase,
+            amount=per_payment,
+            main_tx=main_tx,
+            notes=f"Paid from Main Account. Reference {main_tx.reference}.",
+        )
+        purchases.append(purchase)
+
+    first = purchases[0]
+    cycle_started = all(int(row.goats_allocated or 0) > 0 for row in purchases)
+    remaining_after = _q(first.balance_due) if is_partial else ZERO
+    if is_partial:
+        title = "CGF partial payment posted"
+        body = (
+            f"UGX {pay:,.0f} was moved from your Main Account toward {package.name}. "
+            f"Remaining UGX {remaining_after:,.0f}. The cycle starts when this package is fully paid. "
+            f"Receipt {main_tx.reference}."
+        )
+    else:
+        goat_total = int(package.goat_count or 0) * qty
+        title = "CGF package purchased"
+        body = (
+            f"UGX {pay:,.0f} was moved from your Main Account to buy {qty} "
+            f"{package.name} package{'s' if qty != 1 else ''} "
+            f"({goat_total} female breeders). Cycle started. Receipt {main_tx.reference}."
+        )
+    MemberNotification.objects.create(
+        user=profile.user,
+        source=MemberNotification.Source.SYSTEM,
+        title=title,
+        body=body,
+    )
+    return {
+        "transaction": main_tx,
+        "purchases": purchases,
+        "package": package,
+        "farm": farm,
+        "quantity": create_count,
+        "amount": pay,
+        "receipt": main_tx.reference,
+        "notes": note_text,
+        "is_partial": is_partial,
+        "cycle_started": cycle_started,
+        "remaining": remaining_after,
+        "options": build_purchase_options(profile),
+    }
+
+
+@transaction.atomic
+def pay_remaining_from_main_account(
+    profile,
+    *,
+    purchase_id,
+    amount,
+    notes: str = "",
+    created_by=None,
+) -> dict[str, Any]:
+    """Debit Main Account toward an existing unpaid or partial CGF package."""
+    if not profile.has_project(PROJECT_LABEL):
+        raise ValueError("You do not have access to Commercial Goat Farming.")
+
+    try:
+        purchase = (
+            PackagePurchase.objects.select_for_update()
+            .select_related("package", "farm")
+            .filter(user=profile, status__in=("pending", "partial"))
+            .get(pk=int(purchase_id))
+        )
+    except (TypeError, ValueError, PackagePurchase.DoesNotExist):
+        raise ValueError("Select a CGF package that still has a remaining balance.")
+
+    pay = _q(amount)
+    due = _q(purchase.balance_due)
+    if pay <= ZERO:
+        raise ValueError("Enter a valid CGF payment amount.")
+    if due <= ZERO:
+        raise ValueError("This CGF package is already fully paid.")
+    if pay > due:
+        raise ValueError("Amount exceeds the remaining balance on this CGF package.")
+    if pay > main_ledger.available_balance(profile):
+        raise ValueError("Amount exceeds Main Account available balance.")
+
+    package = purchase.package
+    package_name = package.name if package else "CGF package"
+    note_text = (notes or "").strip()
+    remaining_before = due
     description = (
-        f"CGF purchase of {qty} × {package.name} "
-        f"({package.goat_count} goats each) for UGX {amount:,.0f} from Main Account."
+        f"CGF payment of UGX {pay:,.0f} toward {package_name} "
+        f"(remaining before payment UGX {remaining_before:,.0f}) from Main Account."
     )
     if note_text:
         description = f"{description} Note: {note_text}"
@@ -164,61 +362,49 @@ def purchase_package_from_main_account(
     main_tx = main_ledger.invest_to_project(
         profile,
         PROJECT_LABEL,
-        amount,
+        pay,
         description=description,
         created_by=created_by or profile.user,
     )
-
-    purchases: list[PackagePurchase] = []
-    suffix_base = (main_tx.reference or "MAIN").replace(" ", "")[-12:]
-    today = timezone.localdate()
-    now = timezone.now()
-    for index in range(qty):
-        purchase = PackagePurchase.objects.create(
-            user=profile,
-            farm=farm,
-            package=package,
-            total_amount=_q(package.total_cost),
-            amount_paid=ZERO,
-            goats_allocated=0,
-            status="pending",
-            purchase_date=now,
-            notes=note_text,
+    _post_main_account_package_payment(
+        purchase,
+        amount=pay,
+        main_tx=main_tx,
+        notes=note_text or f"Paid from Main Account. Reference {main_tx.reference}.",
+    )
+    remaining_after = _q(purchase.balance_due)
+    cycle_started = int(purchase.goats_allocated or 0) > 0 or purchase.status == "allocated"
+    if cycle_started:
+        title = "CGF package completed"
+        body = (
+            f"UGX {pay:,.0f} completed payment for {package_name} from Main Account. "
+            f"Goats are allocated and the {cycle_duration_months_for_purchase(purchase)}-month "
+            f"cycle has started. Receipt {main_tx.reference}."
         )
-        Payment.objects.create(
-            purchase=purchase,
-            amount=_q(package.total_cost),
-            receipt_prefix=today.strftime("RCPT-%Y%m%d"),
-            receipt_suffix=f"{suffix_base}-{index + 1:02d}",
-            payment_method="Main Account",
-            payment_date=today,
-            notes=f"Paid from Main Account. Reference {main_tx.reference}.",
+    else:
+        title = "CGF partial payment posted"
+        body = (
+            f"UGX {pay:,.0f} was moved from your Main Account toward {package_name}. "
+            f"Remaining UGX {remaining_after:,.0f}. The cycle starts when this package is fully paid. "
+            f"Receipt {main_tx.reference}."
         )
-        purchase.refresh_from_db()
-        purchase.allocate_goats_to_accounts()
-        purchase.refresh_from_db()
-        purchases.append(purchase)
-
-    goat_total = int(package.goat_count or 0) * qty
     MemberNotification.objects.create(
         user=profile.user,
         source=MemberNotification.Source.SYSTEM,
-        title="CGF package purchased",
-        body=(
-            f"UGX {amount:,.0f} was moved from your Main Account to buy {qty} "
-            f"{package.name} package{'s' if qty != 1 else ''} "
-            f"({goat_total} female breeders). Receipt {main_tx.reference}."
-        ),
+        title=title,
+        body=body,
     )
     return {
         "transaction": main_tx,
-        "purchases": purchases,
+        "purchase": purchase,
         "package": package,
-        "farm": farm,
-        "quantity": qty,
-        "amount": amount,
+        "farm": purchase.farm,
+        "amount": pay,
         "receipt": main_tx.reference,
         "notes": note_text,
+        "is_partial": not cycle_started,
+        "cycle_started": cycle_started,
+        "remaining": remaining_after,
         "options": build_purchase_options(profile),
     }
 

@@ -35,6 +35,7 @@ export function flattenApiErrors(data) {
     first_name: 'First name',
     last_name: 'Last name',
     email: 'Email',
+    whatsapp: 'WhatsApp number',
     whatsapp_number: 'WhatsApp number',
     password: 'Password',
     password1: 'Password',

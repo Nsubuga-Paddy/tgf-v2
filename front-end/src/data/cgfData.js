@@ -200,7 +200,7 @@ export function purchaseStatusBadge(status) {
   if (status === 'settled') return 'info'
   if (status === 'allocated') return 'success'
   if (status === 'paid') return 'info'
-  if (status === 'partial') return 'warning'
+  if (status === 'partial' || status === 'pending') return 'warning'
   return 'secondary'
 }
 

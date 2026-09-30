@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import {
+  AlertCircle,
   ArrowUpFromLine,
   Building2,
   CalendarClock,
@@ -22,12 +23,14 @@ import { formatUGX } from '../../utils/format'
 
 export default function LoanFacilityDetail() {
   const { loanId } = useParams()
-  const { getLoan, submitLoanRepayment, repaymentMethods, loansLoading } = useLoans()
+  const { getLoan, submitLoanRepayment, setLoanAutoDebit, repaymentMethods, loansLoading } = useLoans()
   const { mainAccount } = useMember()
   const loan = getLoan(loanId)
   const [tab, setTab] = useState('schedule')
   const [mainRepayOpen, setMainRepayOpen] = useState(false)
   const [bankDetailsOpen, setBankDetailsOpen] = useState(false)
+  const [autoDebitBusy, setAutoDebitBusy] = useState(false)
+  const [autoDebitError, setAutoDebitError] = useState('')
   const mainAccountMethod = repaymentMethods.find((method) => method.id === 'main_account')
   const bankTransferMethod = repaymentMethods.find((method) => method.id === 'bank_transfer')
 
@@ -59,6 +62,15 @@ export default function LoanFacilityDetail() {
           </div>
           <LoanStatusBadge status={loan.status} />
         </header>
+
+        {loan.status === 'overdue' ? (
+          <div className="loans-summary-alert">
+            <AlertCircle size={16} />
+            This loan is overdue
+            {loan.overdueSince ? ` since ${loan.overdueSince}` : ''}. New applications are blocked
+            until it is fully paid. Interest continues at the original rate on the original principal.
+          </div>
+        ) : null}
 
         <div className="loans-detail-metrics">
           <div className="loans-detail-metric-card highlight">
@@ -95,6 +107,15 @@ export default function LoanFacilityDetail() {
             <div>
               <span>Upfront deductions</span>
               <b>{formatUGX(loan.totalDeductions || 0)}</b>
+            </div>
+          </div>
+          <div className="loans-detail-metric-card">
+            <div className="loans-detail-metric-icon">
+              <Percent size={18} />
+            </div>
+            <div>
+              <span>Continuing interest</span>
+              <b>{formatUGX(loan.arrearsInterest || 0)}</b>
             </div>
           </div>
           <div className="loans-detail-metric-card">
@@ -194,6 +215,43 @@ export default function LoanFacilityDetail() {
               </article>
             ) : null}
           </div>
+        </section>
+
+        <section className="loans-section" aria-labelledby="loans-autodebit-title">
+          <div className="loans-section-head">
+            <div>
+              <h2 id="loans-autodebit-title">Monthly auto-debit</h2>
+              <p>Optional. You can turn this on or off at any time while the loan is open.</p>
+            </div>
+          </div>
+          <label className={`loans-autodebit-option ${loan.autoDebit ? 'selected' : ''}`}>
+            <input
+              type="checkbox"
+              checked={Boolean(loan.autoDebit)}
+              disabled={autoDebitBusy}
+              onChange={async (e) => {
+                const enabled = e.target.checked
+                setAutoDebitBusy(true)
+                setAutoDebitError('')
+                try {
+                  await setLoanAutoDebit(loan.id, enabled)
+                } catch (error) {
+                  setAutoDebitError(error.message || 'Could not update auto-debit.')
+                } finally {
+                  setAutoDebitBusy(false)
+                }
+              }}
+            />
+            <div>
+              <b>Debit my Main Account on each installment due date</b>
+              <span>
+                MCS will take the monthly installment from your Main Account. If there is not
+                enough credit, the debit fails and you are notified. Missed payments still become
+                overdue after {loan.graceDays || 7} days.
+              </span>
+            </div>
+          </label>
+          {autoDebitError ? <p className="form-error">{autoDebitError}</p> : null}
         </section>
 
         <div className="loans-tabs" role="tablist">

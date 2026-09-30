@@ -15,6 +15,7 @@ from loans.api_views import (
 
 from .api_views import (
     CgfAPIView,
+    CgfPayRemainingFromMainAPIView,
     CgfPurchaseFromMainAPIView,
     CgfPurchaseOptionsAPIView,
     CgfTransferToMainAPIView,
@@ -114,6 +115,11 @@ urlpatterns = [
         "projects/cgf/purchase-from-main/",
         CgfPurchaseFromMainAPIView.as_view(),
         name="api_projects_cgf_purchase_from_main",
+    ),
+    path(
+        "projects/cgf/pay-remaining-from-main/",
+        CgfPayRemainingFromMainAPIView.as_view(),
+        name="api_projects_cgf_pay_remaining_from_main",
     ),
     path(
         "projects/cgf/transfer-to-main/",

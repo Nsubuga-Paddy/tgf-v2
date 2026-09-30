@@ -416,7 +416,7 @@ export default function RealEstateProjectDetail() {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  disabled={project.status !== 'running'}
+                  disabled={project.status !== 'running' || userStats.paymentCompleted}
                   onClick={() => setContributeOpen(true)}
                 >
                   Add contribution
@@ -433,6 +433,10 @@ export default function RealEstateProjectDetail() {
                 {project.status !== 'running' ? (
                   <p className="rep-transfer-note">
                     New contributions are only accepted while this project is running.
+                  </p>
+                ) : userStats.paymentCompleted ? (
+                  <p className="rep-transfer-note">
+                    This project is fully paid, so new contributions are closed.
                   </p>
                 ) : null}
                 {userStats.paymentCompleted ? (

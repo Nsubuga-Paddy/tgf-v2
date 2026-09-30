@@ -11,14 +11,19 @@ from rest_framework.views import APIView
 from main_account import services as main_ledger
 
 from .models import LoanApplication, LoanInstallment, LoanRepayment, MemberLoan
+from .operations import notify_member_overdue
 from .services import (
     PAYMENT_DETAILS,
     calculate_eligibility,
     create_application,
+    grace_days,
     loan_disbursement_breakdown,
     purpose_label,
     repayment_source_label,
     repay_from_main_account,
+    set_auto_debit,
+    sync_member_loans,
+    sync_open_loan,
 )
 
 
@@ -117,6 +122,7 @@ def serialize_application(app: LoanApplication) -> dict:
         "notes": app.notes or "",
         "repaymentSource": app.repayment_source,
         "repaymentSourceLabel": repayment_source_label(app.repayment_source),
+        "autoDebit": bool(app.auto_debit),
         "timeline": timeline,
         "committeeNote": app.committee_note or app.rejection_reason or "",
     }
@@ -152,7 +158,14 @@ def serialize_repayment(payment: LoanRepayment) -> dict:
 def serialize_loan(loan: MemberLoan) -> dict:
     schedule = list(loan.installments.all())
     payments = list(loan.repayments.all())
-    next_due = next((row for row in schedule if row.status == LoanInstallment.Status.DUE), None)
+    next_due = next(
+        (
+            row
+            for row in schedule
+            if row.status in {LoanInstallment.Status.OVERDUE, LoanInstallment.Status.DUE}
+        ),
+        None,
+    )
     return {
         "id": str(loan.pk),
         "reference": loan.reference,
@@ -165,6 +178,10 @@ def serialize_loan(loan: MemberLoan) -> dict:
         "totalDeductions": money(loan.total_deductions),
         "netDisbursedAmount": money(loan.net_disbursed_amount or loan.principal),
         "outstanding": money(loan.outstanding),
+        "arrearsInterest": money(loan.arrears_interest),
+        "autoDebit": bool(loan.auto_debit),
+        "overdueSince": date_label(loan.overdue_since),
+        "graceDays": grace_days(),
         "rateDisplay": rate_display(loan.monthly_interest_rate),
         "monthlyRate": float(loan.monthly_interest_rate),
         "termMonths": loan.term_months,
@@ -215,6 +232,12 @@ def repayment_methods() -> list[dict]:
 
 
 def hub_payload(profile) -> dict:
+    sync_member_loans(profile)
+    for overdue in MemberLoan.objects.filter(
+        user_profile=profile,
+        status=MemberLoan.Status.OVERDUE,
+    ):
+        notify_member_overdue(overdue)
     active = (
         MemberLoan.objects.filter(
             user_profile=profile,
@@ -275,6 +298,7 @@ class LoanApplyAPIView(APIView):
                 term_months=int(data.get("termMonths") or data.get("term_months") or 0),
                 repayment_source=(data.get("repaymentSource") or data.get("repayment_source") or "").strip(),
                 notes=(data.get("notes") or "").strip(),
+                auto_debit=bool(data.get("autoDebit") if data.get("autoDebit") is not None else data.get("auto_debit")),
             )
         except (ValueError, ArithmeticError) as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -301,7 +325,40 @@ class LoanFacilityDetailAPIView(APIView):
             pk=loan_id,
             user_profile=request.user.profile,
         )
+        sync_open_loan(loan)
+        loan = MemberLoan.objects.prefetch_related("installments", "repayments").get(
+            pk=loan.pk,
+            user_profile=request.user.profile,
+        )
+        notify_member_overdue(loan)
         return Response({"loan": serialize_loan(loan)})
+
+    def patch(self, request, loan_id: int):
+        data = request.data or {}
+        if "autoDebit" not in data and "auto_debit" not in data:
+            return Response(
+                {"detail": "Provide autoDebit to turn monthly Main Account debit on or off."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        enabled = data.get("autoDebit")
+        if enabled is None:
+            enabled = data.get("auto_debit")
+        try:
+            loan = set_auto_debit(request.user.profile, loan_id, bool(enabled))
+        except (ValueError, MemberLoan.DoesNotExist) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "ok": True,
+                "message": (
+                    "Monthly Main Account auto-debit is on."
+                    if loan.auto_debit
+                    else "Monthly Main Account auto-debit is off."
+                ),
+                "loan": serialize_loan(loan),
+                **hub_payload(request.user.profile),
+            }
+        )
 
 
 class LoanRepayFromMainAPIView(APIView):

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import {
   ArrowLeftRight,
   Baby,
@@ -50,6 +50,7 @@ export default function CgfDashboard() {
   const [error, setError] = useState('')
   const [transferring, setTransferring] = useState(false)
   const [purchaseOpen, setPurchaseOpen] = useState(false)
+  const [payPurchaseId, setPayPurchaseId] = useState(null)
 
   const applyPayload = useCallback((payload) => {
     setSummary({ ...EMPTY_SUMMARY, ...(payload.member || {}) })
@@ -76,6 +77,15 @@ export default function CgfDashboard() {
   useEffect(() => {
     loadCgf()
   }, [loadCgf])
+
+  useLayoutEffect(() => {
+    if (loading) return
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+    const main = document.querySelector('main.content')
+    if (main) main.scrollTop = 0
+  }, [loading, farmAccounts.length, purchases.length, payments.length])
 
   const handleTransferToMain = async (farmId = null) => {
     if (transferring) return
@@ -118,7 +128,10 @@ export default function CgfDashboard() {
             <button
               type="button"
               className="btn btn-outline cgf-purchase-btn"
-              onClick={() => setPurchaseOpen(true)}
+              onClick={() => {
+                setPayPurchaseId(null)
+                setPurchaseOpen(true)
+              }}
             >
               <ShoppingCart size={15} />
               Purchase package
@@ -338,12 +351,15 @@ export default function CgfDashboard() {
                     <th>Goats Allocated</th>
                     <th>Purchase Date</th>
                     <th>Matures On</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {purchases.map((purchase) => {
                     const matured = Boolean(purchase.isMatured)
                     const settled = purchase.status === 'settled'
+                    const canPayRemaining =
+                      purchase.status === 'pending' || purchase.status === 'partial'
                     return (
                       <tr key={purchase.id}>
                         <td>{purchase.farmName}</td>
@@ -361,35 +377,65 @@ export default function CgfDashboard() {
                         </td>
                         <td>{purchase.purchaseDate}</td>
                         <td>
-                          {purchase.maturityDate || '—'}
-                          {purchase.cycleDurationMonths ? (
+                          {purchase.cycleStartsOnFullPayment ? (
                             <>
-                              <br />
-                              <small>{purchase.cycleDurationMonths}-month cycle</small>
+                              Starts when fully paid
+                              {purchase.cycleDurationMonths ? (
+                                <>
+                                  <br />
+                                  <small>{purchase.cycleDurationMonths}-month cycle</small>
+                                </>
+                              ) : null}
                             </>
-                          ) : null}
-                          {settled ? (
+                          ) : (
                             <>
-                              <br />
-                              <small className="cgf-tone-info">Settled</small>
+                              {purchase.maturityDate || '—'}
+                              {purchase.cycleDurationMonths ? (
+                                <>
+                                  <br />
+                                  <small>{purchase.cycleDurationMonths}-month cycle</small>
+                                </>
+                              ) : null}
+                              {settled ? (
+                                <>
+                                  <br />
+                                  <small className="cgf-tone-info">Settled</small>
+                                </>
+                              ) : matured ? (
+                                <>
+                                  <br />
+                                  <small className="cgf-tone-success">Matured</small>
+                                </>
+                              ) : purchase.progressPct != null && purchase.maturityDate ? (
+                                <>
+                                  <br />
+                                  <small className="cgf-tone-warning">
+                                    {purchase.progressPct}% ·{' '}
+                                    {purchase.daysUntilMaturity != null &&
+                                    purchase.daysUntilMaturity > 0
+                                      ? `${purchase.daysUntilMaturity} days left`
+                                      : 'in progress'}
+                                  </small>
+                                </>
+                              ) : null}
                             </>
-                          ) : matured ? (
-                            <>
-                              <br />
-                              <small className="cgf-tone-success">Matured</small>
-                            </>
-                          ) : purchase.progressPct != null && purchase.maturityDate ? (
-                            <>
-                              <br />
-                              <small className="cgf-tone-warning">
-                                {purchase.progressPct}% ·{' '}
-                                {purchase.daysUntilMaturity != null &&
-                                purchase.daysUntilMaturity > 0
-                                  ? `${purchase.daysUntilMaturity} days left`
-                                  : 'in progress'}
-                              </small>
-                            </>
-                          ) : null}
+                          )}
+                        </td>
+                        <td>
+                          {canPayRemaining ? (
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              onClick={() => {
+                                setPayPurchaseId(purchase.id)
+                                setPurchaseOpen(true)
+                              }}
+                            >
+                              Pay from Main Account
+                            </button>
+                          ) : (
+                            <span className="cgf-action-placeholder">—</span>
+                          )}
                         </td>
                       </tr>
                     )
@@ -438,9 +484,13 @@ export default function CgfDashboard() {
       ) : null}
       <MainAccountProjectsModal
         open={purchaseOpen}
-        onClose={() => setPurchaseOpen(false)}
+        onClose={() => {
+          setPurchaseOpen(false)
+          setPayPurchaseId(null)
+        }}
         available={mainAccount.available}
         initialDestination="cgf"
+        initialPurchaseId={payPurchaseId}
         onSuccess={async (payload) => {
           if (payload?.dashboard) {
             applyPayload(payload.dashboard)
